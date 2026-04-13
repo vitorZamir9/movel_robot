@@ -8,12 +8,15 @@ from pybricks.tools import wait, StopWatch, DataLog
 from pybricks.robotics import DriveBase
 from pybricks.media.ev3dev import SoundFile, ImageFile
 from pybricks.iodevices import UARTDevice
+import sys
 
 ####################################################################################################
 ev3= EV3Brick()
 sensor1 = LUMPDevice(Port.S1)
 motorB = Motor(Port.C,gears=[12,25],positive_direction=Direction.COUNTERCLOCKWISE)
 motorC = Motor(Port.D,gears=[12,25],positive_direction=Direction.COUNTERCLOCKWISE)
+ser = UARTDevice(Port.S6, baudrate=115200, timeout=1)
+serialservo = UARTDevice(Port.S5, baudrate=115200, timeout=0.1)
 #VARIAVEIS/IMPORT
 error = 0
 powerB = 0

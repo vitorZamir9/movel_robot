@@ -8,12 +8,12 @@ from pybricks.tools import wait
 
 # Configuração do EV3
 ev3 = EV3Brick()
-angul0= GyroSensor(Port.S3,)
-Angul0=LUMPDevice(Port.S3)
+#angul0= GyroSensor(Port.S3,)
+#Angul0=LUMPDevice(Port.S3)
 motorB = Motor(Port.C,gears=[12,50])
 motorC = Motor(Port.D,gears=[12,50])
 #sensor1 = LUMPDevice(Port.S1)
-multiplex1 = LUMPDevice(Port.S2)
+#multiplex1 = LUMPDevice(Port.S2)
 ser = UARTDevice(Port.S5, baudrate=115200, timeout=0.1)
 #ARDUINO = UARTDevice(Port.S6, baudrate=9600, timeout=1)
 # Modo do sensor
