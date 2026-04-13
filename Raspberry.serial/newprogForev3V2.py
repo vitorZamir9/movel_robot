@@ -4,7 +4,7 @@ import torch
 import serial
 from ultralytics import YOLO
 import os
-import numpy as np # IMPORTANTE: Adicionado para matrizes do OpenCV
+import numpy as np 
 
 # ============ CONFIGURAÇÃO RADICAL ============
 os.environ['DISPLAY'] = ':0'
@@ -28,17 +28,15 @@ yolo_triangulo.conf = 0.55
 yolo_triangulo.iou = 0.45
 
 # ============ CALIBRAÇÃO DE CORES (LINHA E VERDE) ============
-# ATENÇÃO: Você precisará ajustar esses valores no dia da competição!
 GREEN_MIN = np.array([40, 50, 45])
 GREEN_MAX = np.array([85, 255, 255])
-# Para o preto, geralmente olhamos o brilho (Value) baixo no HSV
 BLACK_MAX = np.array([180, 255, 60]) 
 
 # ============ VARIÁVEIS DE CONTROLE ============
 camera_ativa = False
 cap = None
-last_detection = {"time": 0, "side": None, "cmd": None}  # Evita repetições na serial
-modo_atual = "bolas"  # Pode ser: "bolas", "triangulo", "linha"
+last_detection = {"time": 0, "side": None, "cmd": None} 
+modo_atual = "bolas" 
 
 # ============ CÂMERA TURBO ============
 def setup_camera():
@@ -56,50 +54,59 @@ def processar_linha_e_verdes(frame):
     mask_green = cv2.inRange(hsv, GREEN_MIN, GREEN_MAX)
     mask_black = cv2.inRange(hsv, np.array([0, 0, 0]), BLACK_MAX)
 
-    # Achar contornos verdes
+    # 1. VERIFICAR GAP (Depois da linha preta)
+    # Analisamos os últimos 40 pixels da base da imagem (o chão logo à frente do robô)
+    roi_base = mask_black[200:240, :]
+    # Se a média de pixels for muito baixa (< 15), significa que a linha preta sumiu ali
+    tem_gap = np.mean(roi_base) < 15 
+
+    # 2. ACHAR OS VERDES
     contours_grn, _ = cv2.findContours(mask_green, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    
     greens_validos = []
-    comando_curva = "frente" # Padrão se não achar verde
+    comando_curva = "frente"
 
     for cnt in contours_grn:
         area = cv2.contourArea(cnt)
-        if area > 400:  # Tamanho mínimo do verde para resolução 320x240
+        if area > 400:  
             x, y, w, h = cv2.boundingRect(cnt)
             greens_validos.append((x, y, w, h))
 
+    # Ordenar os verdes do eixo X (garante que sabemos quem está na esquerda/direita)
+    greens_validos = sorted(greens_validos, key=lambda g: g[0])
+
+    # 3. LÓGICA DE DECISÃO DAS STRINGS
     if len(greens_validos) >= 2:
-        comando_curva = "meia_volta"
+        if tem_gap:
+            comando_curva = "2 verdes depois da linha preta"
+        else:
+            comando_curva = "2 verdes"
+
     elif len(greens_validos) == 1:
         gx, gy, gw, gh = greens_validos[0]
+        cx_verde = gx + (gw // 2) # Pega o centro do verde
         
-        # O "ENCAIXE": Olhar a linha preta ao redor do verde
-        # Pegamos pequenas fatias (ROIs - Regions of Interest) da máscara preta
-        margem = int(gw * 0.8) # 80% do tamanho do verde
-        
-        # Cuidado para não sair dos limites da imagem (0 a 320/240)
-        roi_top = mask_black[max(0, gy-margem):gy, gx:gx+gw]
-        roi_left = mask_black[gy:gy+gh, max(0, gx-margem):gx]
-        roi_right = mask_black[gy:gy+gh, gx+gw:min(320, gx+gw+margem)]
+        # Como a tela tem 320 de largura, o centro é 160.
+        # Isso define fisicamente de qual lado da pista o verde está.
+        if cx_verde < 160: 
+            # Está na metade esquerda da câmera
+            if tem_gap:
+                comando_curva = "1 verde depois da linha preta lado esquerdo"
+            else:
+                comando_curva = "1 verde a esquerda"
+        else:
+            # Está na metade direita da câmera
+            if tem_gap:
+                comando_curva = "1 verde depois da linha preta lado direito"
+            else:
+                comando_curva = "1 verde a direita"
 
-        # Média de pixels pretos (se for > 50, consideramos que tem linha ali)
-        tem_preto_cima = np.mean(roi_top) > 50 if roi_top.size > 0 else False
-        tem_preto_esq = np.mean(roi_left) > 50 if roi_left.size > 0 else False
-        tem_preto_dir = np.mean(roi_right) > 50 if roi_right.size > 0 else False
-
-        # Lógica de curva
-        if tem_preto_cima and tem_preto_esq:
-            comando_curva = "direita" # A linha tá na esquerda, o marcador aponta pra direita
-        elif tem_preto_cima and tem_preto_dir:
-            comando_curva = "esquerda" # A linha tá na direita, o marcador aponta pra esquerda
-
-    # Opcional: Achar o centro da linha preta para o PID
+    # 4. CÁLCULO DO PID (Para a linha preta, se quiser usar)
     momentos_linha = cv2.moments(mask_black)
     if momentos_linha["m00"] > 0:
         cx_linha = int(momentos_linha["m10"] / momentos_linha["m00"])
-        erro_linha = cx_linha - 160 # 160 é o meio exato de 320px
+        erro_linha = cx_linha - 160 
     else:
-        erro_linha = 0 # Perdeu a linha
+        erro_linha = 0 
 
     return comando_curva, erro_linha
 
@@ -137,13 +144,11 @@ try:
         if camera_ativa:
             start_time = time.time()
             
-            # Captura frame direto (sem buffer)
             cap.grab()
             ret, frame = cap.retrieve()
             
             if ret:
                 if modo_atual == "triangulo":
-                    # DETECÇÃO DE TRIÂNGULOS (YOLO)
                     results = yolo_triangulo(frame, imgsz=160, device='cpu', half=False, verbose=False, conf=0.90)[0]
                     if results.boxes:
                         box = results.boxes[0]
@@ -155,7 +160,6 @@ try:
                             last_detection["time"] = time.time()
 
                 elif modo_atual == "bolas":
-                    # DETECÇÃO DE BOLAS (YOLO)
                     results = yolo_ball(frame, imgsz=160, device='cpu', half=False, verbose=False, conf=0.80)[0]
                     if results.boxes:
                         box = results.boxes[0]
@@ -171,24 +175,20 @@ try:
                                 last_detection = {"time": time.time(), "side": side, "cmd": None}
 
                 elif modo_atual == "linha":
-                    # DETECÇÃO DE LINHA E VERDES (OPENCV RÁPIDO)
                     comando_verde, erro_pid = processar_linha_e_verdes(frame)
                     
-                    # Só envia mensagem de verde se achar um, para não encher o buffer do EV3
                     if comando_verde != "frente":
-                        # Cooldown de 1.5s para não ler o mesmo verde mil vezes
+                        # Trava de 1.5s para ele não enviar a mesma curva 30 vezes seguidas para o EV3
                         if comando_verde != last_detection["cmd"] or (time.time() - last_detection["time"]) > 1.5:
-                            msg = f"Verde: {comando_verde}\n"
+                            # Monta a mensagem exatamente como você pediu
+                            msg = f"{comando_verde}\n"
                             ser.write(msg.encode())
+                            
                             last_detection = {"time": time.time(), "side": None, "cmd": comando_verde}
-                            print(f"Enviado Verde: {msg.strip()}")
-                    
-                    # Enviar erro do PID constantemente (ajuste a string conforme seu EV3 lê)
-                    # ser.write(f"PID:{erro_pid}\n".encode())
+                            print(f"Enviado para EV3: {msg.strip()}")
 
-                # Monitoramento de performance
                 fps = 1 / (time.time() - start_time)
-                if fps < 5:  # Alterado para 5, pois OpenCV puro deve rodar bem rápido
+                if fps < 5:
                     print(f"ALERTA: FPS {fps:.1f} - CPU sobrecarregada!")
 
 except KeyboardInterrupt:
