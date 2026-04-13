@@ -18,14 +18,9 @@ ser = serial.Serial('/dev/serial0', 115200, timeout=1)  # Baudrate aumentado
 model_path = "programacao_rasp4/modelo/ball_detect_s.pt"
 yolo_ball = YOLO(model_path)
 yolo_triangulo = YOLO("programacao_rasp4/modelo/Triangulo_detect.pth")
-yolo_ball.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
-yolo_triangulo.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
-yolo_ball.fuse()
-yolo_triangulo.fuse()
-yolo_ball.conf = 0.55
-yolo_ball.iou = 0.45
-yolo_triangulo.conf = 0.55
-yolo_triangulo.iou = 0.45
+
+# As linhas problemáticas de .conf, .iou e .to() foram removidas!
+# O YOLOv8 já recebe esses parâmetros direto na função de inferência lá embaixo.
 
 # ============ CALIBRAÇÃO DE CORES (LINHA E VERDE) ============
 GREEN_MIN = np.array([40, 50, 45])
@@ -55,9 +50,7 @@ def processar_linha_e_verdes(frame):
     mask_black = cv2.inRange(hsv, np.array([0, 0, 0]), BLACK_MAX)
 
     # 1. VERIFICAR GAP (Depois da linha preta)
-    # Analisamos os últimos 40 pixels da base da imagem (o chão logo à frente do robô)
     roi_base = mask_black[200:240, :]
-    # Se a média de pixels for muito baixa (< 15), significa que a linha preta sumiu ali
     tem_gap = np.mean(roi_base) < 15 
 
     # 2. ACHAR OS VERDES
@@ -71,7 +64,7 @@ def processar_linha_e_verdes(frame):
             x, y, w, h = cv2.boundingRect(cnt)
             greens_validos.append((x, y, w, h))
 
-    # Ordenar os verdes do eixo X (garante que sabemos quem está na esquerda/direita)
+    # Ordenar os verdes do eixo X
     greens_validos = sorted(greens_validos, key=lambda g: g[0])
 
     # 3. LÓGICA DE DECISÃO DAS STRINGS
@@ -83,24 +76,20 @@ def processar_linha_e_verdes(frame):
 
     elif len(greens_validos) == 1:
         gx, gy, gw, gh = greens_validos[0]
-        cx_verde = gx + (gw // 2) # Pega o centro do verde
+        cx_verde = gx + (gw // 2) 
         
-        # Como a tela tem 320 de largura, o centro é 160.
-        # Isso define fisicamente de qual lado da pista o verde está.
         if cx_verde < 160: 
-            # Está na metade esquerda da câmera
             if tem_gap:
                 comando_curva = "1 verde depois da linha preta lado esquerdo"
             else:
                 comando_curva = "1 verde a esquerda"
         else:
-            # Está na metade direita da câmera
             if tem_gap:
                 comando_curva = "1 verde depois da linha preta lado direito"
             else:
                 comando_curva = "1 verde a direita"
 
-    # 4. CÁLCULO DO PID (Para a linha preta, se quiser usar)
+    # 4. CÁLCULO DO PID
     momentos_linha = cv2.moments(mask_black)
     if momentos_linha["m00"] > 0:
         cx_linha = int(momentos_linha["m10"] / momentos_linha["m00"])
@@ -126,7 +115,7 @@ try:
                 modo_atual = "bolas"
                 print("Câmera ativada!" if camera_ativa else "Erro na câmera!")
             elif "OFF" in cmd and camera_ativa:
-                cap.release()
+                if cap: cap.release()
                 camera_ativa = False
             
             # Controle de Modos pela Serial
@@ -149,6 +138,7 @@ try:
             
             if ret:
                 if modo_atual == "triangulo":
+                    # Aqui passamos a confiança (conf=0.90) de forma correta!
                     results = yolo_triangulo(frame, imgsz=160, device='cpu', half=False, verbose=False, conf=0.90)[0]
                     if results.boxes:
                         box = results.boxes[0]
@@ -178,12 +168,10 @@ try:
                     comando_verde, erro_pid = processar_linha_e_verdes(frame)
                     
                     if comando_verde != "frente":
-                        # Trava de 1.5s para ele não enviar a mesma curva 30 vezes seguidas para o EV3
+                        # Trava de 1.5s para ele não enviar a mesma curva repetidamente
                         if comando_verde != last_detection["cmd"] or (time.time() - last_detection["time"]) > 1.5:
-                            # Monta a mensagem exatamente como você pediu
                             msg = f"{comando_verde}\n"
                             ser.write(msg.encode())
-                            
                             last_detection = {"time": time.time(), "side": None, "cmd": comando_verde}
                             print(f"Enviado para EV3: {msg.strip()}")
 
@@ -195,4 +183,4 @@ except KeyboardInterrupt:
     print("\nDesligando sistema...")
 finally:
     if cap: cap.release()
-    ser.close()
+    if 'ser' in locals() and ser.is_open: ser.close()
