@@ -15,7 +15,7 @@ ev3 = EV3Brick()
 
 #sensor1 = LUMPDevice(Port.S1)
 #multiplex1 = LUMPDevice(Port.S2)
-ser = UARTDevice(Port.S5, baudrate=115200, timeout=0.1)
+ser = UARTDevice(Port.S6, baudrate=115200, timeout=0.1)
 #ARDUINO = UARTDevice(Port.S6, baudrate=9600, timeout=1)
 # Modo do sensor
 
@@ -45,9 +45,9 @@ ser = UARTDevice(Port.S5, baudrate=115200, timeout=0.1)
 #frente 3
 def serial():
     global ser
-    global ARDUINO
     while True:
-        ser.write(b'linha\r\n')
+        ser.read_all()
+        print(ser.read_all)
         wait(100)
 def gira():
     while True:
