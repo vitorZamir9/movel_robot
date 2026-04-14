@@ -46,6 +46,7 @@ ser = UARTDevice(Port.S6, baudrate=115200, timeout=0.1)
 def serial():
     global ser
     while True:
+        ser.write(b'\r\linha\r\n')
         ser.read_all()
         print(ser.read_all)
         wait(100)
