@@ -48,7 +48,7 @@ def serial():
     while True:
         ser.write(b'\r\linha\r\n')
         ser.read_all()
-        print(ser.read_all)
+        print(ser.read_all())
         wait(100)
 def gira():
     while True:
