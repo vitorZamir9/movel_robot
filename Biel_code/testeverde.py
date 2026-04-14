@@ -10,8 +10,9 @@ from pybricks.tools import wait
 ev3 = EV3Brick()
 #angul0= GyroSensor(Port.S3,)
 #Angul0=LUMPDevice(Port.S3)
-motorB = Motor(Port.C,gears=[12,50])
-motorC = Motor(Port.D,gears=[12,50])
+#motorB = Motor(Port.C,gears=[12,50])
+#motorC = Motor(Port.D,gears=[12,50])
+
 #sensor1 = LUMPDevice(Port.S1)
 #multiplex1 = LUMPDevice(Port.S2)
 ser = UARTDevice(Port.S5, baudrate=115200, timeout=0.1)
@@ -46,7 +47,7 @@ def serial():
     global ser
     global ARDUINO
     while True:
-        ser.write(b'off\r\n')
+        ser.write(b'linha\r\n')
         wait(100)
 def gira():
     while True:
@@ -54,8 +55,9 @@ def gira():
         #tudo negativo giro para a esquerda
         #motorB positivo e motorC negativo ele anda pra frente
         #motorB negativo e motorC positivo ele anda pra trás
-        motorB.dc(999)
-        motorC.dc(999)
+        #motorB.dc(999)
+        #motorC.dc(999)
+        print('executado')
         #motorB.run(999)
         #motorC.run(999)
         #print(multiplex1.read(0))
@@ -110,5 +112,5 @@ def sensor():
         wait(15)
 # Início do programa
 #sensor()
-gira()
-#serial()
+#gira()
+serial()
