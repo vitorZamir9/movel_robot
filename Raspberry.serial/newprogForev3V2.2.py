@@ -131,7 +131,7 @@ try:
 
             # Monitoramento de FPS
             fps = 1 / (time.time() - start_time)
-            if fps < 5:
+            if fps < 2:
                 print(f"ALERTA: FPS baixo ({fps:.1f})")
 
 except KeyboardInterrupt:
