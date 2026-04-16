@@ -4,10 +4,15 @@ import serial
 import os
 import numpy as np
 import math
+from picamera2 import Picamera2 # Biblioteca nativa para a câmera de cabo flat
 
 # ============ CONFIGURAÇÃO RADICAL ============
 os.environ['DISPLAY'] = ':0'
 cv2.setNumThreads(0)
+
+# Disable libcamera logging para não poluir o terminal
+os.environ["LIBCAMERA_LOG_LEVELS"] = "4"
+Picamera2.set_logging(Picamera2.ERROR)
 
 # Configuração serial
 try:
@@ -29,27 +34,32 @@ BLACK_MAX = np.array([180, 255, 60])
 # ============ SISTEMA DE GRAVAÇÃO (DVR) ============
 DEBUG_DIR = "debug_videos"
 os.makedirs(DEBUG_DIR, exist_ok=True)
-print(f"[*] Pasta de vídeos criada: ./{DEBUG_DIR}/")
+print(f"[*] Pasta de vídeos: ./{DEBUG_DIR}/")
 
-# Cria um nome único baseado na hora exata para não apagar vídeos antigos
 nome_video = time.strftime("%Y%m%d_%H%M%S")
 caminho_video = f"{DEBUG_DIR}/gravacao_{nome_video}.avi"
 
-# Configura o gravador (Codec XVID é leve e roda bem na Raspberry)
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
 gravador = cv2.VideoWriter(caminho_video, fourcc, 20.0, (W, H))
-print(f"[*] Gravando vídeo em: {caminho_video}")
 
-# ============ CÂMERA ============
+# ============ CÂMERA NATIVA (PICAMERA2) ============
 def setup_camera():
-    cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
-    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, W)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, H)
-    cap.set(cv2.CAP_PROP_FPS, 20)
-    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-    time.sleep(1) 
-    return cap
+    print("[*] Iniciando motor nativo da Câmera Pi...")
+    picam2 = Picamera2()
+    
+    # Configura a resolução e formato direto no hardware para máxima performance
+    config = picam2.create_video_configuration(
+        {"main": {"format": "BGR888", "size": (W, H)}}
+    )
+    picam2.configure(config)
+    picam2.start()
+    
+    # Trava os controles para a luz da arena não deixar a imagem "piscando"
+    # Você pode descomentar a linha abaixo se quiser travar o foco e a exposição
+    # picam2.set_controls({"AfMode": controls.AfModeEnum.Manual, "LensPosition": 6.5})
+    
+    time.sleep(1) # Tempo para o sensor regular as cores
+    return picam2
 
 # ============ PROCESSAMENTO VETORIAL E REGRAS OBR ============
 def processar_linha_vetorial(frame):
@@ -86,7 +96,7 @@ def processar_linha_vetorial(frame):
                 erro_x = dx
                 angulo = math.degrees(math.atan2(dx, dy))
 
-    # 2. ENCONTRAR OS VERDES E VALIDAR (REGRAS OBR)
+    # 2. ENCONTRAR OS VERDES E VALIDAR
     contours_grn, _ = cv2.findContours(mask_green, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     greens_brutos = []
     
@@ -154,11 +164,8 @@ def processar_linha_vetorial(frame):
     return comando_serial, erro_x, angulo, hud
 
 # ============ LOOP PRINCIPAL ============
-print("[*] Iniciando Sistema de Visão OBR (Vídeo Ativado)...")
-cap = setup_camera()
-if not cap.isOpened():
-    print("ERRO: Câmera não encontrada!")
-    exit()
+print("[*] Iniciando Sistema de Visão OBR (PiCamera2 + DVR)...")
+picam2 = setup_camera()
 
 last_cmd_time = 0
 last_cmd_sent = None
@@ -167,36 +174,30 @@ try:
     while True:
         start_time = time.time()
         
-        cap.grab()
-        ret, frame = cap.retrieve()
+        # Captura direto da memória da câmera (muito mais rápido que USB)
+        frame = picam2.capture_array("main")
         
-        if ret:
-            comando_serial, erro_x, angulo, frame_hud = processar_linha_vetorial(frame)
-            
-            fps = 1 / (time.time() - start_time) if (time.time() - start_time) > 0 else 0
-            cv2.putText(frame_hud, f"FPS: {fps:.1f}", (W - 80, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+        comando_serial, erro_x, angulo, frame_hud = processar_linha_vetorial(frame)
+        
+        fps = 1 / (time.time() - start_time) if (time.time() - start_time) > 0 else 0
+        cv2.putText(frame_hud, f"FPS: {fps:.1f}", (W - 80, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
 
-            # ==========================================
-            # ESCREVE O FRAME ATUAL NO ARQUIVO DE VÍDEO
-            # ==========================================
-            gravador.write(frame_hud)
-            
-            # Print no terminal para você acompanhar a serial
-            # print(f"FPS: {fps:04.1f} | ERR: {erro_x:4d} | CMD: {comando_serial:<18}")
-
-            # Controle de disparo serial com anti-spam
-            if comando_serial != "frente" and ser is not None:
-                if comando_serial != last_cmd_sent or (time.time() - last_cmd_time) > 1.5:
-                    msg = f"{comando_serial}\n"
-                    ser.write(msg.encode())
-                    last_cmd_time = time.time()
-                    last_cmd_sent = comando_serial
-                    print(f" [EV3] -> {msg.strip()}")
+        # Grava no arquivo .avi
+        gravador.write(frame_hud)
+        
+        # Controle de disparo serial com anti-spam
+        if comando_serial != "frente" and ser is not None:
+            if comando_serial != last_cmd_sent or (time.time() - last_cmd_time) > 1.5:
+                msg = f"{comando_serial}\n"
+                ser.write(msg.encode())
+                last_cmd_time = time.time()
+                last_cmd_sent = comando_serial
+                print(f" [EV3] -> {msg.strip()}")
 
 except KeyboardInterrupt:
     print("\n[*] Encerrando e salvando vídeo...")
 finally:
-    if cap: cap.release()
-    if gravador: gravador.release() # FUNDAMENTAL PARA SALVAR O VÍDEO CORRETAMENTE
+    if 'picam2' in locals(): picam2.stop()
+    if gravador: gravador.release() 
     if ser is not None and ser.is_open: ser.close()
-    print(f"[*] Vídeo salvo com sucesso em: {caminho_video}")
+    print(f"[*] Vídeo salvo em: {caminho_video}")
