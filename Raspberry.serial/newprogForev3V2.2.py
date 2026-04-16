@@ -26,10 +26,19 @@ GREEN_MIN = np.array([40, 50, 45])
 GREEN_MAX = np.array([85, 255, 255])
 BLACK_MAX = np.array([180, 255, 60]) 
 
-# ============ SISTEMA DE DEBUG VISUAL ============
-DEBUG_DIR = "debug_hud"
+# ============ SISTEMA DE GRAVAÇÃO (DVR) ============
+DEBUG_DIR = "debug_videos"
 os.makedirs(DEBUG_DIR, exist_ok=True)
-print(f"[*] Pasta HUD criada: ./{DEBUG_DIR}/")
+print(f"[*] Pasta de vídeos criada: ./{DEBUG_DIR}/")
+
+# Cria um nome único baseado na hora exata para não apagar vídeos antigos
+nome_video = time.strftime("%Y%m%d_%H%M%S")
+caminho_video = f"{DEBUG_DIR}/gravacao_{nome_video}.avi"
+
+# Configura o gravador (Codec XVID é leve e roda bem na Raspberry)
+fourcc = cv2.VideoWriter_fourcc(*'XVID')
+gravador = cv2.VideoWriter(caminho_video, fourcc, 20.0, (W, H))
+print(f"[*] Gravando vídeo em: {caminho_video}")
 
 # ============ CÂMERA ============
 def setup_camera():
@@ -50,7 +59,6 @@ def processar_linha_vetorial(frame):
     mask_black = cv2.inRange(hsv, np.array([0, 0, 0]), BLACK_MAX)
     mask_green = cv2.inRange(hsv, GREEN_MIN, GREEN_MAX)
 
-    # REGRAS 4.6.4.7 e 4.6.4.9: O verde precisa estar ADJACENTE à linha preta.
     kernel_dilate = np.ones((15, 15), np.uint8)
     mask_black_dilated = cv2.dilate(mask_black, kernel_dilate, iterations=1)
 
@@ -87,14 +95,10 @@ def processar_linha_vetorial(frame):
             x, y, w, h = cv2.boundingRect(cnt)
             aspect_ratio = float(w) / h
             
-            # REGRA 4.6.4.11: Marcador é ortogonal (quadrado)
-            # Ignora manchas esticadas onde a largura é o triplo da altura ou vice-versa
             if 0.5 <= aspect_ratio <= 2.0:
-                
                 mask_this_green = np.zeros_like(mask_green)
                 cv2.drawContours(mask_this_green, [cnt], -1, 255, -1)
                 
-                # Validação Adjacente (Encostado na linha preta)
                 overlap = cv2.bitwise_and(mask_black_dilated, mask_this_green)
                 
                 if cv2.countNonZero(overlap) > 0:
@@ -105,39 +109,30 @@ def processar_linha_vetorial(frame):
                     cv2.rectangle(hud, (x, y), (x+w, y+h), (0, 0, 255), 2)
                     cv2.putText(hud, "FALSO-LONGE", (x, y-5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
             else:
-                cv2.rectangle(hud, (x, y), (x+w, y+h), (0, 165, 255), 2) # Laranja para formato inválido
+                cv2.rectangle(hud, (x, y), (x+w, y+h), (0, 165, 255), 2) 
                 cv2.putText(hud, "FALSO-FORMA", (x, y-5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 165, 255), 1)
 
     greens_validos = []
     if greens_brutos:
-        # REGRA 4.6.4.12: Prioridade do marcador Imediato
-        # Ordena os verdes do mais próximo ao robô (Y maior) para o mais longe (Y menor)
         greens_brutos = sorted(greens_brutos, key=lambda g: g[1], reverse=True)
-        
         y_mais_proximo = greens_brutos[0][1]
         
-        # Filtra: mantém apenas os marcadores da intersecção ATUAL (margem de 40 pixels de altura)
-        # Se houver um verde lá no fundo da pista, ele será ignorado por enquanto
         for g in greens_brutos:
             if abs(g[1] - y_mais_proximo) < 40:
                 greens_validos.append(g)
                 
-        # Agora ordena da esquerda pra direita fisicamente para decidir a curva
         greens_validos = sorted(greens_validos, key=lambda g: g[0])
 
     # 3. MÁQUINA DE ESTADOS E DECISÃO DE ROTA
     if len(greens_validos) >= 2:
-        # REGRA 4.6.4.3: Dois verdes sinalizam retorno de 180 graus.
         estado = "INTERSECTION_180"
         comando_serial = "2 verdes"
         
     elif len(greens_validos) == 1:
-        # REGRAS 4.6.4.2, 4.6.4.8 e 4.6.4.13: Curva, seguir linha curva ou cruzar a reta
         estado = "GREEN_DETECTED"
         gx, gy, gw, gh = greens_validos[0]
         cx_verde = gx + (gw // 2)
         
-        # Decide o lado usando o centróide da linha (alvo_x) como referência
         if cx_verde < alvo_x:
             comando_serial = "1 verde a esquerda"
         else:
@@ -159,13 +154,12 @@ def processar_linha_vetorial(frame):
     return comando_serial, erro_x, angulo, hud
 
 # ============ LOOP PRINCIPAL ============
-print("[*] Iniciando Sistema de Visão OBR (Full Rules)...")
+print("[*] Iniciando Sistema de Visão OBR (Vídeo Ativado)...")
 cap = setup_camera()
 if not cap.isOpened():
     print("ERRO: Câmera não encontrada!")
     exit()
 
-contador_frames = 0
 last_cmd_time = 0
 last_cmd_sent = None
 
@@ -177,19 +171,18 @@ try:
         ret, frame = cap.retrieve()
         
         if ret:
-            contador_frames += 1
-            
             comando_serial, erro_x, angulo, frame_hud = processar_linha_vetorial(frame)
             
             fps = 1 / (time.time() - start_time) if (time.time() - start_time) > 0 else 0
             cv2.putText(frame_hud, f"FPS: {fps:.1f}", (W - 80, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
 
-            # Salva o frame a cada 10 frames para Debug HUD
-            if contador_frames % 10 == 0:
-                caminho = f"{DEBUG_DIR}/hud_frame_{contador_frames:04d}.jpg"
-                cv2.imwrite(caminho, frame_hud)
+            # ==========================================
+            # ESCREVE O FRAME ATUAL NO ARQUIVO DE VÍDEO
+            # ==========================================
+            gravador.write(frame_hud)
             
-            print(f"FPS: {fps:04.1f} | ERR: {erro_x:4d} | ANG: {angulo:5.1f} | CMD: {comando_serial:<18}")
+            # Print no terminal para você acompanhar a serial
+            # print(f"FPS: {fps:04.1f} | ERR: {erro_x:4d} | CMD: {comando_serial:<18}")
 
             # Controle de disparo serial com anti-spam
             if comando_serial != "frente" and ser is not None:
@@ -201,7 +194,9 @@ try:
                     print(f" [EV3] -> {msg.strip()}")
 
 except KeyboardInterrupt:
-    print("\n[*] Encerrando...")
+    print("\n[*] Encerrando e salvando vídeo...")
 finally:
     if cap: cap.release()
+    if gravador: gravador.release() # FUNDAMENTAL PARA SALVAR O VÍDEO CORRETAMENTE
     if ser is not None and ser.is_open: ser.close()
+    print(f"[*] Vídeo salvo com sucesso em: {caminho_video}")
