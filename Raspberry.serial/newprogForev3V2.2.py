@@ -2,7 +2,8 @@ import time
 import cv2
 import serial
 import os
-import numpy as np 
+import numpy as np
+import math
 
 # ============ CONFIGURAÇÃO RADICAL ============
 os.environ['DISPLAY'] = ':0'
@@ -15,95 +16,128 @@ except Exception as e:
     print(f"AVISO: Serial não conectada! Erro: {e}")
     ser = None
 
-# ============ CALIBRAÇÃO DE CORES (HSV) ============
+# ============ CONSTANTES E CORES ============
+# Resolução
+W, H = 320, 240
+CENTRO_X = W // 2
+BASE_Y = H
+
+# HSV (Ajuste conforme a luz da arena)
 GREEN_MIN = np.array([40, 50, 45])
 GREEN_MAX = np.array([85, 255, 255])
 BLACK_MAX = np.array([180, 255, 60]) 
 
-# ============ SISTEMA DE DEBUG ============
-DEBUG_DIR = "debug_visao"
-os.makedirs(DEBUG_DIR, exist_ok=True) # Cria a pasta se não existir
-print(f"[*] Pasta de imagens garantida: ./{DEBUG_DIR}/")
+# ============ SISTEMA DE DEBUG VISUAL ============
+DEBUG_DIR = "debug_hud"
+os.makedirs(DEBUG_DIR, exist_ok=True)
+print(f"[*] Pasta HUD criada: ./{DEBUG_DIR}/")
 
-def salvar_debug(frame, mask_black, mask_green, contador):
-    # Salva as imagens para você analisar depois no PC
-    cv2.imwrite(f"{DEBUG_DIR}/frame_{contador}_original.jpg", frame)
-    cv2.imwrite(f"{DEBUG_DIR}/frame_{contador}_linha.jpg", mask_black)
-    cv2.imwrite(f"{DEBUG_DIR}/frame_{contador}_verde.jpg", mask_green)
-    print(f"    [+] FOTO SALVA! Verifique a pasta {DEBUG_DIR}")
-
-# ============ CÂMERA TURBO ============
+# ============ CÂMERA ============
 def setup_camera():
-    print("[*] Iniciando aquecimento da câmera...")
     cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
     cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, W)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, H)
     cap.set(cv2.CAP_PROP_FPS, 20)
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-    time.sleep(1) # Dá tempo pro sensor regular a luz
+    time.sleep(1) 
     return cap
 
-# ============ LÓGICA DE LINHA E VERDES ============
-def processar_linha_e_verdes(frame):
+# ============ PROCESSAMENTO VETORIAL E HUD ============
+def processar_linha_vetorial(frame):
+    # Faz uma cópia para desenhar o HUD sem sujar a imagem original
+    hud = frame.copy()
+    
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    mask_green = cv2.inRange(hsv, GREEN_MIN, GREEN_MAX)
     mask_black = cv2.inRange(hsv, np.array([0, 0, 0]), BLACK_MAX)
+    mask_green = cv2.inRange(hsv, GREEN_MIN, GREEN_MAX)
 
-    # 1. VERIFICAR GAP (Depois da linha preta)
-    roi_base = mask_black[200:240, :]
-    tem_gap = np.mean(roi_base) < 15 
+    # Variáveis padrão
+    estado = "PERDIDO"
+    comando_serial = "frente"
+    erro_x = 0
+    angulo = 0.0
+    alvo_x, alvo_y = CENTRO_X, BASE_Y // 2
 
-    # 2. ACHAR OS VERDES
+    # 1. ENCONTRAR A LINHA (Maior contorno preto)
+    contours_blk, _ = cv2.findContours(mask_black, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if contours_blk:
+        # Pega apenas o maior contorno (filtra sujeiras pequenas e sombras)
+        maior_linha = max(contours_blk, key=cv2.contourArea)
+        area_linha = cv2.contourArea(maior_linha)
+        
+        if area_linha > 1500: # Ignora sombras muito pequenas
+            estado = "LINE"
+            
+            # Desenha o contorno da linha em AZUL (Igual ao vídeo)
+            cv2.drawContours(hud, [maior_linha], -1, (255, 0, 0), 2)
+            
+            # Calcula o Centróide (Centro de Massa) da linha
+            M = cv2.moments(maior_linha)
+            if M["m00"] > 0:
+                alvo_x = int(M["m10"] / M["m00"])
+                alvo_y = int(M["m01"] / M["m00"])
+                
+                # Matemática Vetorial
+                dx = alvo_x - CENTRO_X
+                dy = BASE_Y - alvo_y # Inverte o Y porque no PC o Y cresce para baixo
+                
+                erro_x = dx
+                # Calcula o ângulo em graus
+                angulo = math.degrees(math.atan2(dx, dy))
+
+    # 2. ENCONTRAR OS VERDES
     contours_grn, _ = cv2.findContours(mask_green, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     greens_validos = []
-    comando_curva = "frente"
-
+    
     for cnt in contours_grn:
-        area = cv2.contourArea(cnt)
-        if area > 400:  
+        if cv2.contourArea(cnt) > 400:  
             x, y, w, h = cv2.boundingRect(cnt)
             greens_validos.append((x, y, w, h))
+            # Desenha a caixa verde neon (Igual ao vídeo)
+            cv2.rectangle(hud, (x, y), (x+w, y+h), (0, 255, 0), 2)
+            cv2.putText(hud, "VERDE", (x, y-5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1)
 
-    greens_validos = sorted(greens_validos, key=lambda g: g[0])
-
-    # 3. LÓGICA DE DECISÃO DAS STRINGS
+    # 3. MÁQUINA DE ESTADOS E DECISÃO
     if len(greens_validos) >= 2:
-        comando_curva = "2 verdes depois da linha preta" if tem_gap else "2 verdes"
-
+        estado = "INTERSECTION"
+        comando_serial = "2 verdes"
     elif len(greens_validos) == 1:
+        estado = "GREEN_MARKER"
         gx, gy, gw, gh = greens_validos[0]
-        cx_verde = gx + (gw // 2) 
+        cx_verde = gx + (gw // 2)
         
-        if cx_verde < 160: 
-            comando_curva = "1 verde depois da linha preta lado esquerdo" if tem_gap else "1 verde a esquerda"
+        # Decide o lado baseado no centróide da linha! 
+        # Se o verde tá na esquerda da linha principal, curva pra esquerda.
+        if cx_verde < alvo_x:
+            comando_serial = "1 verde a esquerda"
         else:
-            comando_curva = "1 verde depois da linha preta lado direito" if tem_gap else "1 verde a direita"
+            comando_serial = "1 verde a direita"
+            
+    elif estado == "PERDIDO":
+        estado = "GAP_START"
+        comando_serial = "frente" # Mantém reto procurando linha
 
-    # 4. CÁLCULO DO PID
-    momentos_linha = cv2.moments(mask_black)
-    if momentos_linha["m00"] > 0:
-        cx_linha = int(momentos_linha["m10"] / momentos_linha["m00"])
-        erro_linha = cx_linha - 160 
-        status_linha = "ACHOU LINHA"
-    else:
-        erro_linha = 0 
-        status_linha = "PERDIDO (GAP?)"
+    # 4. DESENHANDO O HUD (Interface de Videogame)
+    # Linha Vermelha de Direção (Do centro da base até o alvo)
+    cv2.line(hud, (CENTRO_X, BASE_Y), (alvo_x, alvo_y), (0, 0, 255), 2)
+    # Círculo Ciano no Alvo
+    cv2.circle(hud, (alvo_x, alvo_y), 5, (255, 255, 0), -1)
+    
+    # Textos na tela
+    cv2.putText(hud, f"STATE: {estado}", (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
+    cv2.putText(hud, f"ERR: {erro_x}px", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
+    cv2.putText(hud, f"ANG: {angulo:.1f} deg", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
+    cv2.putText(hud, f"CMD: {comando_serial}", (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
-    return comando_curva, erro_linha, status_linha, mask_black, mask_green
-
+    return comando_serial, erro_x, angulo, hud
 
 # ============ LOOP PRINCIPAL ============
-print("==================================================")
-print(" SISTEMA DE VISÃO INTERATIVO ATIVADO (MODO DEBUG) ")
-print("==================================================")
-
+print("[*] Iniciando Sistema de Visão Vetorial...")
 cap = setup_camera()
 if not cap.isOpened():
-    print("ERRO CRÍTICO: Câmera não encontrada!")
+    print("ERRO: Câmera não encontrada!")
     exit()
-
-print("[*] Câmera OK! Iniciando loop de leitura...")
 
 contador_frames = 0
 last_cmd_time = 0
@@ -119,35 +153,34 @@ try:
         if ret:
             contador_frames += 1
             
-            # Processa a imagem
-            comando_verde, erro_pid, status_linha, mask_black, mask_green = processar_linha_e_verdes(frame)
+            # Processa e pega a imagem já com os desenhos
+            comando_serial, erro_x, angulo, frame_hud = processar_linha_vetorial(frame)
             
-            # Calcula FPS
-            process_time = time.time() - start_time
-            fps = 1 / process_time if process_time > 0 else 0
+            # FPS
+            fps = 1 / (time.time() - start_time) if (time.time() - start_time) > 0 else 0
             
-            # ---- TERMINAL INTERATIVO ----
-            print(f"Frame: {contador_frames:04d} | FPS: {fps:04.1f} | Linha: {status_linha:<14} | PID: {erro_pid:4d} | Visão: {comando_verde}")
-            
-            # ---- SALVAR FOTOS DE DEBUG ----
-            # Salva 1 vez a cada 30 frames
-            if contador_frames % 30 == 0:
-                salvar_debug(frame, mask_black, mask_green, contador_frames)
+            # Escreve o FPS no canto da imagem
+            cv2.putText(frame_hud, f"FPS: {fps:.1f}", (W - 80, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
 
-            # ---- ENVIO SERIAL ----
-            if comando_verde != "frente" and ser is not None:
-                # Trava de 1.5s
-                if comando_verde != last_cmd_sent or (time.time() - last_cmd_time) > 1.5:
-                    msg = f"{comando_verde}\n"
+            # Salva o frame na pasta a cada 10 frames (meio segundo)
+            if contador_frames % 10 == 0:
+                caminho = f"{DEBUG_DIR}/hud_frame_{contador_frames:04d}.jpg"
+                cv2.imwrite(caminho, frame_hud)
+            
+            # Print no terminal para você acompanhar
+            print(f"FPS: {fps:04.1f} | ERR: {erro_x:4d} | ANG: {angulo:5.1f} | CMD: {comando_serial:<18}")
+
+            # Envio para o EV3
+            if comando_serial != "frente" and ser is not None:
+                if comando_serial != last_cmd_sent or (time.time() - last_cmd_time) > 1.5:
+                    msg = f"{comando_serial}\n"
                     ser.write(msg.encode())
                     last_cmd_time = time.time()
-                    last_cmd_sent = comando_verde
-                    print(f"    [>] ENVIADO SERIAL: {msg.strip()}")
+                    last_cmd_sent = comando_serial
+                    print(f" [EV3] -> {msg.strip()}")
 
 except KeyboardInterrupt:
-    print("\n[*] Loop interrompido pelo usuário (Ctrl+C).")
+    print("\n[*] Encerrando...")
 finally:
-    print("[*] Desligando hardware...")
     if cap: cap.release()
     if ser is not None and ser.is_open: ser.close()
-    print("[*] Fim do programa.")
