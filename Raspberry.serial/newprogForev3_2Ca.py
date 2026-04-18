@@ -155,7 +155,7 @@ def processar_linha_vetorial(frame):
             if abs(g[1] - y_mais_proximo) < 40:
                 greens_validos.append(g)
         greens_validos = sorted(greens_validos, key=lambda g: g[0])
-
+# adicionar logicas de verde
     if len(greens_validos) >= 2:
         comando_serial = "2 verdes"
     elif len(greens_validos) == 1:
