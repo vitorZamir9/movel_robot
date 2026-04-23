@@ -6,15 +6,15 @@ from ultralytics import YOLO
 import os
 import numpy as np
 import math
+import logging
 from picamera2 import Picamera2
 
 # ============ CONFIGURAÇÃO RADICAL ============
 os.environ['DISPLAY'] = ':0'
 cv2.setNumThreads(0)
 torch.set_num_threads(1)  
-
-os.environ["LIBCAMERA_LOG_LEVELS"] = "4"
-Picamera2.set_logging(Picamera2.ERROR)
+os.environ["LIBCAMERA_LOG_LEVELS"] = "1"
+Picamera2.set_logging(logging.ERROR)
 
 # ============ CONFIGURAÇÃO SERIAL ============
 try:
@@ -26,26 +26,26 @@ except Exception as e:
 # ============ SISTEMA DE GRAVAÇÃO (DVR) ============
 DEBUG_DIR = "debug_videos"
 os.makedirs(DEBUG_DIR, exist_ok=True)
-gravador_atual = None  # Variável global para o gravador de vídeo
+gravador_atual = None  
 
-# ============ MODELOS YOLO (IMX179) ============
-print("[*] Carregando I.A. de Resgate/Obstáculos...")
-yolo_ball = YOLO("programacao_rasp4/modelo/ball_detect_s.pt")
-yolo_triangulo = YOLO("programacao_rasp4/modelo/Triangulo_detect.pth")
-yolo_obstaculo = YOLO("programacao_rasp4/modelo/Obstaculo_detect.pt")
-
+# ============ MODELOS YOLO (RESGATE) ============
+print("[*] Carregando I.A. de Resgate...")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-for model in [yolo_ball, yolo_triangulo, yolo_obstaculo]:
-    model.to(device)
-    model.fuse()
 
-# ============ CONSTANTES ============
+# Modelo Bolas (O Triângulo foi substituído por geometria vetorial OpenCV)
+yolo_ball = YOLO("programacao_rasp4/modelo/ball_detect_s.pt")
+yolo_ball.to(device)
+yolo_ball.fuse()
+yolo_ball.conf = 0.55  
+yolo_ball.iou = 0.45   
+
+# ============ CONSTANTES DA LINHA ============
 W, H = 320, 240
 CENTRO_X = W // 2
 BASE_Y = H
 
-GREEN_MIN = np.array([40, 50, 45])
-GREEN_MAX = np.array([85, 255, 255])
+GREEN_MIN = np.array([35, 40, 40])
+GREEN_MAX = np.array([90, 255, 255])
 BLACK_MAX = np.array([180, 255, 60]) 
 
 # ============ VARIÁVEIS DE CONTROLE ============
@@ -59,16 +59,14 @@ def iniciar_imx500():
     if picam2 is None:
         print("\n[*] LIGANDO IMX500 (Linha OBR)...")
         picam2 = Picamera2()
-        config = picam2.create_video_configuration({"main": {"format": "BGR888", "size": (W, H)}})
+        config = picam2.create_video_configuration(main={"format": "BGR888", "size": (W, H)})
         picam2.configure(config)
         picam2.start()
         
-        # Inicia a gravação desta câmera
         nome_video = time.strftime("%Y%m%d_%H%M%S")
         caminho = f"{DEBUG_DIR}/camera_imx500_linha_{nome_video}.avi"
         fourcc = cv2.VideoWriter_fourcc(*'XVID')
         gravador_atual = cv2.VideoWriter(caminho, fourcc, 20.0, (W, H))
-        
         time.sleep(1)
 
 def parar_imx500():
@@ -93,12 +91,15 @@ def iniciar_imx179():
         cap_usb.set(cv2.CAP_PROP_FPS, 20)
         cap_usb.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         
-        # Inicia a gravação desta câmera (resolução 160x120)
+        # Lê a resolução real que o hardware aceitou para o DVR não falhar
+        real_w = int(cap_usb.get(cv2.CAP_PROP_FRAME_WIDTH))
+        real_h = int(cap_usb.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        print(f"[*] Resolução real da USB travada em: {real_w}x{real_h}")
+        
         nome_video = time.strftime("%Y%m%d_%H%M%S")
         caminho = f"{DEBUG_DIR}/camera_imx179_resgate_{nome_video}.avi"
         fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        gravador_atual = cv2.VideoWriter(caminho, fourcc, 20.0, (160, 120))
-        
+        gravador_atual = cv2.VideoWriter(caminho, fourcc, 20.0, (real_w, real_h))
         time.sleep(1)
 
 def parar_imx179():
@@ -112,11 +113,18 @@ def parar_imx179():
             gravador_atual = None
 
 # ============ LÓGICA VETORIAL DE LINHA ============
+# ============ LÓGICA VETORIAL DE LINHA ============
 def processar_linha_vetorial(frame):
     hud = frame.copy()
-    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    
+    frame_suave = cv2.GaussianBlur(frame, (5, 5), 0)
+    hsv = cv2.cvtColor(frame_suave, cv2.COLOR_BGR2HSV)
+    
     mask_black = cv2.inRange(hsv, np.array([0, 0, 0]), BLACK_MAX)
     mask_green = cv2.inRange(hsv, GREEN_MIN, GREEN_MAX)
+
+    kernel_clean = np.ones((5, 5), np.uint8)
+    mask_black = cv2.morphologyEx(mask_black, cv2.MORPH_OPEN, kernel_clean)
 
     kernel_dilate = np.ones((15, 15), np.uint8)
     mask_black_dilated = cv2.dilate(mask_black, kernel_dilate, iterations=1)
@@ -138,7 +146,7 @@ def processar_linha_vetorial(frame):
     greens_brutos = []
     
     for cnt in contours_grn:
-        if cv2.contourArea(cnt) > 400:  
+        if cv2.contourArea(cnt) > 200:  # Abaixei para 200 para garantir que pega verdes menores!
             x, y, w, h = cv2.boundingRect(cnt)
             if 0.5 <= float(w)/h <= 2.0:
                 mask_this_green = np.zeros_like(mask_green)
@@ -155,12 +163,35 @@ def processar_linha_vetorial(frame):
             if abs(g[1] - y_mais_proximo) < 40:
                 greens_validos.append(g)
         greens_validos = sorted(greens_validos, key=lambda g: g[0])
-# adicionar logicas de verde
-    if len(greens_validos) >= 2:
-        comando_serial = "2 verdes"
-    elif len(greens_validos) == 1:
-        cx_verde = greens_validos[0][0] + (greens_validos[0][2] // 2)
-        comando_serial = "1 verde a esquerda" if cx_verde < alvo_x else "1 verde a direita"
+
+    # ==========================================================
+    # NOVA ÁRVORE DE DECISÃO GEOMÉTRICA (ANTES vs DEPOIS)
+    # ==========================================================
+    if len(greens_validos) >= 1:
+        # 1. Acha a altura exata do verde (meio do quadrado)
+        cy_verde_media = sum([g[1] + (g[3] // 2) for g in greens_validos]) / len(greens_validos)
+        
+        # 2. A MÁGICA: Se a altura do verde for menor que o ponto vermelho da linha preta (alvo_y), 
+        # significa que ele está "mais pra cima" na tela (DEPOIS da linha)!
+        # Margem de -10 pixels para evitar falsos positivos se estiver exatamente alinhado.
+        verde_depois = cy_verde_media < (alvo_y - 10)
+        
+        if verde_depois:
+            comando_serial = "pelo menos 1 verde depois da linha preta"
+        else:
+            if len(greens_validos) >= 2:
+                comando_serial = "dois verdes antes da linha preta"
+            else:
+                gx, gy, gw, gh = greens_validos[0]
+                cx_verde = gx + (gw // 2)
+                
+                if cx_verde < alvo_x: 
+                    comando_serial = "1 verde esquerda antes da linha preta"
+                else: 
+                    comando_serial = "1 verde direita antes da linha preta"
+    else:
+        comando_serial = "frente"
+    # ==========================================================
 
     cv2.line(hud, (CENTRO_X, BASE_Y), (alvo_x, alvo_y), (0, 0, 255), 2)
     cv2.putText(hud, f"CMD: {comando_serial}", (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
@@ -193,11 +224,6 @@ try:
                 iniciar_imx179()
                 modo_atual = "triangulo"
 
-            elif "obstaculo" in cmd.lower() and modo_atual != "obstaculo":
-                parar_imx500()
-                iniciar_imx179()
-                modo_atual = "obstaculo"
-
         # 2. PROCESSAMENTO
         start_time = time.time()
         msg_serial = None
@@ -205,9 +231,12 @@ try:
         # ---- LÓGICA DA LINHA (IMX500) ----
         if modo_atual == "linha" and picam2 is not None:
             frame = picam2.capture_array("main")
+            
+            # IMX500 invertida 180 graus fisicamente
+            frame = cv2.flip(frame, -1) 
+            
             comando_verde, hud_frame = processar_linha_vetorial(frame)
             
-            # Escreve no vídeo da IMX500
             if gravador_atual:
                 gravador_atual.write(hud_frame)
             
@@ -217,41 +246,75 @@ try:
                     last_detection = {"time": time.time(), "side": None, "cmd": comando_verde}
 
         # ---- LÓGICA DE RESGATE/YOLO (IMX179) ----
-        elif modo_atual in ["bolas", "triangulo", "obstaculo"] and cap_usb is not None:
+        elif modo_atual in ["bolas", "triangulo"] and cap_usb is not None:
             cap_usb.grab()
             ret, frame = cap_usb.retrieve()
             
             if ret:
-                hud_frame = frame.copy()
+                hud_frame = frame.copy() # Sem inversão, câmera USB tá normal
                 
+                # --- DETECÇÃO DE BOLAS (YOLO) ---
                 if modo_atual == "bolas":
-                    modelo, conf_min = yolo_ball, 0.80
-                elif modo_atual == "triangulo":
-                    modelo, conf_min = yolo_triangulo, 0.90
-                elif modo_atual == "obstaculo":
-                    modelo, conf_min = yolo_obstaculo, 0.85
-
-                results = modelo(frame, imgsz=160, device='cpu', half=False, verbose=False, conf=conf_min)[0]
-                
-                if results.boxes:
-                    box = results.boxes[0] 
-                    conf = box.conf.item()
+                    results = yolo_ball(frame, imgsz=160, device='cpu', half=False, verbose=False, conf=0.80)[0]
                     
-                    if conf > conf_min:
-                        x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
-                        center_x = (x1 + x2) // 2
-                        side = "esquerda" if center_x < 53 else "direita" if center_x > 106 else "meio" # Ajustado para 160px de largura
-                        classe = modelo.names[int(box.cls.item())]
+                    if results.boxes:
+                        box = results.boxes[0] 
+                        conf = box.conf.item()
                         
-                        # Desenha a detecção no vídeo do resgate!
-                        cv2.rectangle(hud_frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
-                        cv2.putText(hud_frame, f"{classe} {side}", (x1, y1-5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
-                        
-                        if side != last_detection["side"] or (time.time() - last_detection["time"]) > 0.3:
-                            msg_serial = f"Detectado: {classe} | Lado: {side}\n"
-                            last_detection = {"time": time.time(), "side": side, "cmd": None}
+                        if conf > 0.90:
+                            x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+                            
+                            # --- CÁLCULO DE ÁREA DE PIXELS DA VÍTIMA ---
+                            largura = x2 - x1
+                            altura = y2 - y1
+                            area_pixels = largura * altura
+                            
+                            center_x = x1 + (largura // 2)
+                            side = "esquerda" if center_x < 53 else "direita" if center_x > 106 else "meio" 
+                            
+                            classe = yolo_ball.names[int(box.cls.item())]
+                            
+                            cv2.rectangle(hud_frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                            cv2.putText(hud_frame, f"{classe} {side} ({area_pixels}px)", (x1, y1-5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
+                            
+                            if side != last_detection["side"] or (time.time() - last_detection["time"]) > 0.3:
+                                msg_serial = f"Detectado: {classe}\nArea: {area_pixels}px\nLado: {side}\n"
+                                last_detection = {"time": time.time(), "side": side, "cmd": None}
 
-                # Escreve no vídeo da IMX179
+                # --- GEOMETRIA DOS TRIÂNGULOS (OPENCV PURO) ---
+                elif modo_atual == "triangulo":
+                    hsv_resgate = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+                    
+                    # Máscaras de cores exatas (Vermelho tem 2 faixas no HSV)
+                    mask_red1 = cv2.inRange(hsv_resgate, np.array([0, 120, 70]), np.array([10, 255, 255]))
+                    mask_red2 = cv2.inRange(hsv_resgate, np.array([170, 120, 70]), np.array([180, 255, 255]))
+                    mask_red = cv2.bitwise_or(mask_red1, mask_red2)
+                    mask_green_resg = cv2.inRange(hsv_resgate, GREEN_MIN, GREEN_MAX)
+                    
+                    mask_areas = cv2.bitwise_or(mask_red, mask_green_resg)
+                    contours, _ = cv2.findContours(mask_areas, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                    
+                    for cnt in contours:
+                        if cv2.contourArea(cnt) > 800:
+                            x, y, w, h = cv2.boundingRect(cnt)
+                            if h > 0:
+                                proporcao = float(w) / h
+                                
+                                # Verifica se a mancha bate com a proporção geométrica 6:1 (36x6cm)
+                                if 4.5 <= proporcao <= 7.5:
+                                    centro_x = x + (w // 2)
+                                    cor_nome = "Vermelho" if mask_red[y+(h//2), centro_x] > 0 else "Verde"
+                                    
+                                    side = "esquerda" if centro_x < 53 else "direita" if centro_x > 106 else "meio"
+                                    
+                                    cv2.rectangle(hud_frame, (x, y), (x+w, y+h), (0, 255, 255), 2)
+                                    cv2.circle(hud_frame, (centro_x, y + (h//2)), 5, (255, 0, 0), -1)
+                                    cv2.putText(hud_frame, f"Area {cor_nome} {side}", (x, y-5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 255), 1)
+                                    
+                                    if side != last_detection["side"] or (time.time() - last_detection["time"]) > 0.3:
+                                        msg_serial = f"Area: {cor_nome}\nCentro: {centro_x}\nLado: {side}\n"
+                                        last_detection = {"time": time.time(), "side": side, "cmd": None}
+
                 if gravador_atual:
                     gravador_atual.write(hud_frame)
 
