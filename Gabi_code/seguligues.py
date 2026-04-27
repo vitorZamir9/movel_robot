@@ -98,21 +98,25 @@ def sensor():
         derivative = error - old_error
         corr = (error * (kp * (-1))) + (derivative * kd)
     
-        # --- O FREIO INTELIGENTE (BASE DINÂMICA) ---
-        K_v = 1.5 
-        base_dinamica = velocidade_maxima - (abs(error) * K_v)
-        base_dinamica = max(base_dinamica, 80) 
+       # --- O FREIO INTELIGENTE COM ZONA MORTA ---
+        K_v = 2.0         # Aumentei o freio para ser mais agressivo quando precisar
+        ZONA_MORTA = 20   # Erros abaixo de 20 são considerados "reta"
+        
+        # O freio só calcula o que passar da Zona Morta
+        if abs(error) > ZONA_MORTA:
+            # Subtrai da base apenas a intensidade da curva que excede a zona morta
+            frenagem = (abs(error) - ZONA_MORTA) * K_v
+            base_dinamica = velocidade_maxima - frenagem
+        else:
+            # Na reta (erro pequeno), velocidade total sem restrições!
+            base_dinamica = velocidade_maxima
+        
+        # Trava de segurança para não parar na curva
+        base_dinamica = max(base_dinamica, 100) 
 
         # Aplica a força de forma SIMÉTRICA
         powerB = base_dinamica - corr
         powerC = -base_dinamica - corr
-        
-        # Trava os limites do motor
-        powerB = max(min(int(powerB), 900), -900)
-        powerC = max(min(int(powerC), 900), -900)
-
-        motorB.dc(powerB)
-        motorC.dc(powerC)
 
         old_error = error
         
