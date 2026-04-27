@@ -75,7 +75,7 @@ def sensor():
     buffer_serial = ""
     
     while True:
-        # ==========================================
+       # ==========================================
         # LÓGICA DE SEGUIR LINHA (PID DINÂMICO)
         # ==========================================
         retorno = sensor1.read(2)
@@ -117,6 +117,16 @@ def sensor():
         # Aplica a força de forma SIMÉTRICA
         powerB = base_dinamica - corr
         powerC = -base_dinamica - corr
+        
+        # ==========================================
+        # FALTAVA ISSO AQUI: Trava de limites e envio pro motor!
+        # ==========================================
+        powerB = max(min(int(powerB), 900), -900)
+        powerC = max(min(int(powerC), 900), -900)
+
+        motorB.dc(powerB)
+        motorC.dc(powerC)
+        # ==========================================
 
         old_error = error
         
