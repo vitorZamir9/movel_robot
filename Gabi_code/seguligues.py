@@ -32,6 +32,10 @@ PESO_MEIO = 0.95
 PESO_FORA = 2.85
 contE = 0
 contD = 0
+
+# ---> VARIÁVEL PARA GUARDAR O GIROSCÓPIO DA RASPBERRY <---
+gyro_rasp_z = 0.0 
+
 tanki = DriveBase(motorB, motorC, wheel_diameter= 55.5 , axle_track=104.0)
 tanki.settings(straight_speed=999999, straight_acceleration=999999, turn_rate=999999, turn_acceleration=99999)
 
@@ -62,6 +66,7 @@ def sensor():
     global integral
     global motorB
     global motorC
+    global gyro_rasp_z # Puxando a variável global do giroscópio
     
     # Manda a Raspberry Pi entrar no modo de linha
     #ser.write(b'linha\r\n')
@@ -94,13 +99,8 @@ def sensor():
         corr = (error * (kp * (-1))) + (derivative * kd)
     
         # --- O FREIO INTELIGENTE (BASE DINÂMICA) ---
-        # K_v é o "fator de freio". Quanto maior, mais ele reduz a velocidade base nas curvas.
         K_v = 1.5 
-        
         base_dinamica = velocidade_maxima - (abs(error) * K_v)
-        
-        # Trava de segurança: impede que a base zere ou fique negativa 
-        # (garante que ele nunca pare no meio da curva)
         base_dinamica = max(base_dinamica, 80) 
 
         # Aplica a força de forma SIMÉTRICA
@@ -117,46 +117,48 @@ def sensor():
         old_error = error
         
         # ==========================================
-        # LEITURA SERIAL NÃO-BLOQUEANTE DA CÂMERA
+        # LEITURA SERIAL NÃO-BLOQUEANTE DA CÂMERA E GIROSCÓPIO
         # ==========================================
         data = 1#ser.read_all()
         
         if data:
             try:
-                # Cola os pedaços novos no final do nosso acumulador
                 buffer_serial += data.decode('utf-8', 'ignore')
                 
-                # Só processa SE a mensagem estiver 100% completa (tiver um \n)
                 while '\n' in buffer_serial:
-                    # Corta a frase completa e guarda o resto de volta no buffer
                     linha_cmd, buffer_serial = buffer_serial.split('\n', 1)
-                    
                     cmd = linha_cmd.strip()
                     
                     if not cmd or cmd == "frente":
                         continue
                     
+                    # ==========================================
+                    # LEITURA DO GIROSCÓPIO
+                    # ==========================================
+                    if cmd.startswith("MPU_Z:"):
+                        try:
+                            # Corta a string "MPU_Z: 45.2" e guarda só o número na variável
+                            gyro_rasp_z = float(cmd.split(":")[1].strip())
+                        except:
+                            pass
+                        continue # Pula os prints e beeps pra não poluir, volta pro loop
+
                     print("LIDO DA CAMERA:", cmd)
 
                     # ==========================================
                     # LÓGICAS DO VERDE COM BEEPS E AÇÕES
                     # ==========================================
                     if "1 verde esquerda antes" in cmd:
-                        ev3.speaker.beep(200) # Beep grave
+                        ev3.speaker.beep(200) 
                         print("Ação: Virar 90 graus para ESQUERDA")
-                        # COLOQUE SUA LÓGICA DE MOTOR AQUI
-                        
                         
                     elif "1 verde direita antes" in cmd:
-                        ev3.speaker.beep(400) # Beep médio
+                        ev3.speaker.beep(400) 
                         print("Ação: Virar 90 graus para DIREITA")
-                        # COLOQUE SUA LÓGICA DE MOTOR AQUI
-                        
                         
                     elif "dois verdes antes" in cmd:
-                        ev3.speaker.beep(600) # Beep agudo
+                        ev3.speaker.beep(600) 
                         print("Ação: Beco (Meia volta)")
-                        # COLOQUE SUA LÓGICA DE MOTOR AQUI
                         tanki.stop()
                         motorB.dc(999)
                         motorC.dc(999)
@@ -176,9 +178,8 @@ def sensor():
                         motorC.stop()
                         
                     elif "depois da linha preta" in cmd:
-                        ev3.speaker.beep(800, 200) # Beep mais agudo e longo
+                        ev3.speaker.beep(800, 200)
                         print("Ação: Encruzilhada com Gap")
-                        # COLOQUE SUA LÓGICA DE MOTOR AQUI
                         
             except ValueError:
                 pass
