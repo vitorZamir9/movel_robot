@@ -75,7 +75,7 @@ def sensor():
     buffer_serial = ""
     
     while True:
-       # ==========================================
+        # ==========================================
         # LÓGICA DE SEGUIR LINHA (PID DINÂMICO)
         # ==========================================
         retorno = sensor1.read(2)
@@ -85,8 +85,8 @@ def sensor():
         fora2 = retorno[3]
        
         # VALORES DE ALTA PERFORMANCE (Ajuste o Kd e o K_v na pista!)
-        kp = 13
-        kd = 80 
+        kp = 15
+        kd = 180 
         ki = 0      # Zere isso para retas de alta velocidade
         
         velocidade_maxima = 700  # Sua base antiga era 50 * 10
@@ -95,12 +95,19 @@ def sensor():
         direita = (meio2 * PESO_MEIO) + (fora2 * PESO_FORA)
         error = (direita - esquerda) * 0.5
 
+        # ======================================================
+        # ZONA MORTA DO VOLANTE (MATA A TREMEDEIRA NA RETA)
+        # ======================================================
+        if abs(error) < 6:
+            error = 0
+        # ======================================================
+
         derivative = error - old_error
         corr = (error * (kp * (-1))) + (derivative * kd)
     
        # --- O FREIO INTELIGENTE COM ZONA MORTA ---
         K_v = 2.0         # Aumentei o freio para ser mais agressivo quando precisar
-        ZONA_MORTA = 20   # Erros abaixo de 20 são considerados "reta"
+        ZONA_MORTA = 10   # Erros abaixo de 20 são considerados "reta"
         
         # O freio só calcula o que passar da Zona Morta
         if abs(error) > ZONA_MORTA:
@@ -117,10 +124,7 @@ def sensor():
         # Aplica a força de forma SIMÉTRICA
         powerB = base_dinamica - corr
         powerC = -base_dinamica - corr
-        
-        # ==========================================
-        # FALTAVA ISSO AQUI: Trava de limites e envio pro motor!
-        # ==========================================
+      
         powerB = max(min(int(powerB), 900), -900)
         powerC = max(min(int(powerC), 900), -900)
 
