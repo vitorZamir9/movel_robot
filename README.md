@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/acefdc68-4b8b-43fd-8b1b-efbaf6320b58" style="width:60%;" alt="Logo New Atom"/>
+  <img src="https://github.com/user-attachments/assets/09d795c5-2b72-4920-aec1-fe12ac1c8cf3" style="width:60%;" alt="Logo New Atom"/>
 </div>
 
 <br/>
@@ -124,3 +124,4 @@ Este projeto está licenciado sob a licença [COLOQUE A LICENÇA AQUI, ex: MIT o
 
 ---
 *A equipa New Atom incentiva o compartilhamento de conhecimento. Sente-te à vontade para explorar o nosso código para entender como implementamos a integração serial entre Raspberry e EV3 e o uso de IA no resgate!*
+
