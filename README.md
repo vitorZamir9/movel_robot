@@ -54,11 +54,11 @@
 
 <br/>
 
-<p align="center">
-  Para cumprir todas as tarefas com precisão de nível WorldSkills, desenvolvemos a <b>Gabi</b> utilizando uma arquitetura híbrida de hardware: combinamos a robustez do controlo de motores do LEGO EV3 com o alto poder de processamento de IA e Visão Computacional de uma Raspberry Pi 4.
+<p align="justify">
+  Para cumprir todas as tarefas com precisão na <b>OBR</b> e na <b>RoboCup Junior Rescue Line</b>, desenvolvemos a <b>Gabi</b> utilizando uma arquitetura híbrida de hardware: combinamos a robustez do controlo de motores do LEGO EV3 com o alto poder de processamento de IA e Visão Computacional de uma Raspberry Pi 4.
 </p>
 
-<p align="center">
+<p align="justify">
   Neste repositório, detalhamos o nosso sistema de seguir linha com PID Dinâmico (Freio Inteligente) e a nossa árvore de decisão baseada em processamento de imagem puro e redes neurais.
 </p>
 
@@ -108,7 +108,7 @@
 - **Pedro Henrique** - <i>Engenheiro de CAD:</i> Responsável por toda a modelagem 3D, encaixes, suporte de sensores e estrutura física da Gabi.
 - **Vinícius Deybson** - <i>Engenheiro Mecânico:</i> Especialista em montagem, sistemas de tração, fabricação das rodas (silicone Shore A) e integridade estrutural.
 - **João Cardoso** - <i>Programador:</i> Desenvolvedor das lógicas de controlo, malhas de PID e processamento de imagem em Python.
-- **Vitor Zamir** - <i>Mentor:</i> Estudante de Ciência da Computação na UniFBV, Embaixador FIRST e competidor da modalidade de Robótica Móvel (WorldSkills #23). Auxilia a equipa com arquitetura de software de alta performance e estratégia de prova.
+- **Vitor Zamir** - <i>Mentor:</i> Estudante de Ciência da Computação na UniFBV, Embaixador FIRST e competidor da modalidade de Robótica Móvel. Auxilia a equipa com arquitetura de software de alta performance e estratégia de prova.
 
 ### Conquistas
 - [Ex: 1º Lugar Regional OBR 202X]
