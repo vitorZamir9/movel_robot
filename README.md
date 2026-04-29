@@ -1,8 +1,8 @@
 <div align="center">
-  <img src="[<img width="830" height="744" alt="WhatsApp Image 2026-04-29 at 12 17 24" src="https://github.com/user-attachments/assets/acefdc68-4b8b-43fd-8b1b-efbaf6320b58" />
-]" style="width:100%;" alt="Robô Gabi - New Atom"/>
+  <img src="[<img width="830" height="744"  src="https://github.com/user-attachments/assets/acefdc68-4b8b-43fd-8b1b-efbaf6320b58" />
+]" style="width:50%;" />
 </div>
-<img width="1325" height="950" alt="Captura de tela 2026-04-29 121129" src="https://github.com/user-attachments/assets/e4f3ef25-246f-46e3-932f-bba93bd69158" />
+<img width="1325" height="950"  src="https://github.com/user-attachments/assets/e4f3ef25-246f-46e3-932f-bba93bd69158" />
 
 <br/>
 <br/>
