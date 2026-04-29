@@ -112,7 +112,7 @@ def sensor():
         # ==========================================
         # LEITURA SERIAL NÃO-BLOQUEANTE DA CÂMERA E GIROSCÓPIO
         # ==========================================
-        data = None #ser.read_all()
+        data = ser.read_all() # <-- CORREÇÃO: Tiramos o 'None' para ele ouvir a Raspberry!
         
         if data:
             try:
@@ -136,7 +136,8 @@ def sensor():
                             pass
                         continue # Pula os prints e beeps pra não poluir, volta pro loop
 
-                    #print("LIDO DA CAMERA:", cmd)
+                    # Voltei o print para você ver os comandos chegando na tela do EV3
+                    print("LIDO DA CAMERA:", cmd)
 
                     # ==========================================
                     # LÓGICAS DO VERDE COM BEEPS E AÇÕES
