@@ -28,8 +28,8 @@ pretoesq = 0
 pretodir = 0
 integral = 0
 derivative = 0
-PESO_MEIO = 0.95
-PESO_FORA = 2.85
+PESO_MEIO = 1.0
+PESO_FORA = 2.25
 contE = 0
 contD = 0
 
@@ -84,60 +84,35 @@ def sensor():
         meio2 = retorno[2]
         fora2 = retorno[3]
        
-        # VALORES DE ALTA PERFORMANCE (Ajuste o Kd e o K_v na pista!)
-        kp = 15
-        kd = 180 
-        ki = 0      # Zere isso para retas de alta velocidade
-        
-        velocidade_maxima = 700  # Sua base antiga era 50 * 10
+        kp = 2
+        kd = 0.01
+        ki = 0.01
+        base = 100
 
         esquerda = (meio1 * PESO_MEIO) + (fora1 * PESO_FORA)
         direita = (meio2 * PESO_MEIO) + (fora2 * PESO_FORA)
         error = (direita - esquerda) * 0.5
 
-        # ======================================================
-        # ZONA MORTA DO VOLANTE (MATA A TREMEDEIRA NA RETA)
-        # ======================================================
-        if abs(error) < 6:
-            error = 0
-        # ======================================================
-
+        integral += error * 0.01 
         derivative = error - old_error
-        corr = (error * (kp * (-1))) + (derivative * kd)
+        corr = (error * (kp * (-1))) + (derivative * kd) + (integral * ki)
     
-       # --- O FREIO INTELIGENTE COM ZONA MORTA ---
-        K_v = 2.0         # Aumentei o freio para ser mais agressivo quando precisar
-        ZONA_MORTA = 10   # Erros abaixo de 20 são considerados "reta"
-        
-        # O freio só calcula o que passar da Zona Morta
-        if abs(error) > ZONA_MORTA:
-            # Subtrai da base apenas a intensidade da curva que excede a zona morta
-            frenagem = (abs(error) - ZONA_MORTA) * K_v
-            base_dinamica = velocidade_maxima - frenagem
-        else:
-            # Na reta (erro pequeno), velocidade total sem restrições!
-            base_dinamica = velocidade_maxima
-        
-        # Trava de segurança para não parar na curva
-        base_dinamica = max(base_dinamica, 100) 
-
-        # Aplica a força de forma SIMÉTRICA
-        powerB = base_dinamica - corr
-        powerC = -base_dinamica - corr
-      
-        powerB = max(min(int(powerB), 900), -900)
-        powerC = max(min(int(powerC), 900), -900)
+        powerB = base - corr
+        powerC = -base - corr
+        increPLUS= 0.5
+        INCREplus= 1.0
+        powerB = max(min(int(powerB * (increPLUS if powerB > 0 else INCREplus)), 900), -900)
+        powerC = max(min(int(powerC * (INCREplus if powerC > 0 else increPLUS)), 900), -900)
 
         motorB.dc(powerB)
         motorC.dc(powerC)
-        # ==========================================
 
         old_error = error
         
         # ==========================================
         # LEITURA SERIAL NÃO-BLOQUEANTE DA CÂMERA E GIROSCÓPIO
         # ==========================================
-        data = 1#ser.read_all()
+        data = None #ser.read_all()
         
         if data:
             try:
@@ -161,7 +136,7 @@ def sensor():
                             pass
                         continue # Pula os prints e beeps pra não poluir, volta pro loop
 
-                    print("LIDO DA CAMERA:", cmd)
+                    #print("LIDO DA CAMERA:", cmd)
 
                     # ==========================================
                     # LÓGICAS DO VERDE COM BEEPS E AÇÕES
