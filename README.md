@@ -1,6 +1,5 @@
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/acefdc68-4b8b-43fd-8b1b-efbaf6320b58" style="width:40%;" />
-  <img src="https://github.com/user-attachments/assets/e4f3ef25-246f-46e3-932f-bba93bd69158" style="width:40%;" />
+  <img src="https://github.com/user-attachments/assets/acefdc68-4b8b-43fd-8b1b-efbaf6320b58" style="width:60%;" alt="Logo New Atom"/>
 </div>
 
 <br/>
@@ -35,7 +34,7 @@
   Este é o repositório oficial da equipa brasileira <b>New Atom</b>. Aqui documentamos o desenvolvimento do nosso robô <b>Gabi</b>, projetado para competir na modalidade de Resgate (Rescue Line / OBR).
 </p>
 
-## 📌 Sobre a Competição
+## Sobre a Competição
 <p align="center"><i>
   "A área de desastre é muito perigosa para os humanos alcançarem as vítimas. A sua equipa recebeu uma tarefa desafiadora. O robô deve ser capaz de realizar uma missão de resgate de forma totalmente autônoma, sem assistência humana. O robô deve ser durável e inteligente o suficiente para navegar por terrenos traiçoeiros com colinas, desníveis e destroços sem ficar preso. Ao alcançar as vítimas, ele deve transportá-las cuidadosamente para a área de evacuação..."
 </i></p>
@@ -48,21 +47,32 @@
   O objetivo da competição é desenvolver um robô autônomo capaz de superar obstáculos como redutores de velocidade, rampas, encruzilhadas (com marcadores verdes) e falhas na linha preta. Ao final do trajeto, o robô precisa identificar a entrada da zona de resgate (linha prata), varrer a área, identificar vítimas vivas e mortas e posicioná-las com segurança na área de evacuação, finalizando a missão de forma autônoma.
 </p>
 
-## 🤖 Sobre o Projeto "Gabi"
-<img src="https://github.com/user-attachments/assets/170f62e0-1124-4ba6-a08e-ad3780ab8201" align="right" style="width:20%;"/>
-<img src="https://github.com/user-attachments/assets/6e340f5f-063d-4faa-b0b2-b2e2ab948d8d" align="left" style="width:20%;"/>
+## Sobre o Projeto "Gabi"
 
-<p align="center">
-  Para cumprir todas as tarefas com precisão de nível WorldSkills, desenvolvemos a <b>Gabi</b> utilizando uma arquitetura híbrida de hardware: combinamos a robustez do controlo de motores do LEGO EV3 com o alto poder de processamento de IA e Visão Computacional de uma Raspberry Pi 4.
-</p>
+<table align="center" style="border-collapse: collapse; border: none;">
+  <tr style="border: none;">
+    <td width="25%" align="center" style="border: none;">
+      <img src="https://github.com/user-attachments/assets/6e340f5f-063d-4faa-b0b2-b2e2ab948d8d" width="100%" alt="Robô Real"/>
+    </td>
+    
+    <td width="50%" align="center" style="border: none; padding: 0 20px;">
+      <p align="justify">
+        Para cumprir todas as tarefas com precisão de nível WorldSkills, desenvolvemos a <b>Gabi</b> utilizando uma arquitetura híbrida de hardware: combinamos a robustez do controlo de motores do LEGO EV3 com o alto poder de processamento de IA e Visão Computacional de uma Raspberry Pi 4.
+      </p>
+      <p align="justify">
+        Neste repositório, detalhamos o nosso sistema de seguir linha com PID Dinâmico (Freio Inteligente) e a nossa árvore de decisão baseada em processamento de imagem puro e redes neurais.
+      </p>
+    </td>
 
-<p align="justify">
-  Neste repositório, detalhamos o nosso sistema de seguir linha com PID Dinâmico (Freio Inteligente) e a nossa árvore de decisão baseada em processamento de imagem puro e redes neurais.
-</p>
+    <td width="25%" align="center" style="border: none;">
+      <img src="https://github.com/user-attachments/assets/170f62e0-1124-4ba6-a08e-ad3780ab8201" width="100%" alt="CAD do Robô"/>
+    </td>
+  </tr>
+</table>
 
-<br clear="both"/>
+<br/>
 
-### ⚙️ Componentes Principais
+### Componentes Principais
 
 <p align="justify">
   Além do chassi personalizado impresso em 3D e rodas adaptadas (com pneus moldados em silicone de alta aderência), utilizamos os seguintes componentes eletrônicos para garantir a máxima performance a 10.1V:
@@ -79,7 +89,7 @@
 - [COLOQUE AQUI: Bateria LiPo ou de Íon de Lítio utilizada]
 - [COLOQUE AQUI: Outros sensores, garra, ou servos utilizados]
 
-## 💻 Software & Lógica
+## Software & Lógica
 
 ### Controlo de Baixo Nível (EV3 MicroPython)
 <p align="justify">
@@ -96,7 +106,7 @@
   Ao detetar a fita prata de entrada do resgate, a Raspberry suspende a câmera inferior e ativa a câmera IMX179 acoplada à garra. Treinamos um modelo <b>YOLOv8</b> otimizado para CPU que deteta vítimas vivas (Silver Ball) e mortas (Black Ball) com alta confiança. O sistema calcula a área em píxeis e a posição (esquerda/meio/direita) da vítima no frame, enviando as coordenadas exatas para o EV3 realizar a aproximação final e o resgate.
 </p>
 
-## 👥 Sobre a Equipa New Atom
+## Sobre a Equipa New Atom
 
 <p align="justify">
   A equipa <b>New Atom</b> é formada por estudantes apaixonados por robótica, com um histórico forte em competições como OBR, FLL, FTC e eventos técnicos. Dividimos as nossas funções para otimizar o desenvolvimento de um robô de alto nível:
@@ -107,17 +117,17 @@
 - **João Cardoso** - <i>Programador:</i> Desenvolvedor das lógicas de controlo, malhas de PID e processamento de imagem em Python.
 - **Vitor Zamir** - <i>Mentor:</i> Estudante de Ciência da Computação na UniFBV, Embaixador FIRST e competidor da modalidade de Robótica Móvel (WorldSkills #23). Auxilia a equipa com arquitetura de software de alta performance e estratégia de prova.
 
-### 🏆 Conquistas
+### Conquistas
 - [Ex: 1º Lugar Regional OBR 202X]
 - [Ex: Prémio de Melhor Design de Robô - Estadual OBR 202X]
 - [Adicione mais conquistas aqui]
 
-## 🔗 Links Úteis
+## Links Úteis
 
 - [COLOQUE AQUI: Link para o vídeo do robô Gabi na pista]
 - [COLOQUE AQUI: Link do Dataset do YOLOv8 (Roboflow) se for público]
 
-## 📄 Licença
+## Licença
 Este projeto está licenciado sob a licença [COLOQUE A LICENÇA AQUI, ex: MIT ou GNU GPLv3] - veja o ficheiro [LICENSE](LICENSE) para detalhes.
 
 ---
