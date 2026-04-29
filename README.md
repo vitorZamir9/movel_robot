@@ -49,8 +49,8 @@
 
 ## Sobre o Projeto "Gabi"
 
-<img  src="https://github.com/user-attachments/assets/7e18d79d-2732-4e4d-9318-c8937dd9182f" align="right" width="40%"/>
-<img  src="https://github.com/user-attachments/assets/71ba48c8-0c16-47d5-8de7-86fb43a616d1" align="left" width="28%"/>
+<img src="https://github.com/user-attachments/assets/7e18d79d-2732-4e4d-9318-c8937dd9182f" align="right" width="28%"/>
+<img src="https://github.com/user-attachments/assets/71ba48c8-0c16-47d5-8de7-86fb43a616d1" align="left" width="28%"/>
 
 <br/>
 
@@ -64,6 +64,7 @@
 
 <br clear="both"/>
 <br/>
+
 ### Componentes Principais
 
 <p align="justify">
@@ -124,4 +125,3 @@ Este projeto está licenciado sob a licença [COLOQUE A LICENÇA AQUI, ex: MIT o
 
 ---
 *A equipa New Atom incentiva o compartilhamento de conhecimento. Sente-te à vontade para explorar o nosso código para entender como implementamos a integração serial entre Raspberry e EV3 e o uso de IA no resgate!*
-
