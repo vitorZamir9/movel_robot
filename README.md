@@ -1,8 +1,7 @@
 <div align="center">
-  <img src="[<img width="830" height="744"  src="https://github.com/user-attachments/assets/acefdc68-4b8b-43fd-8b1b-efbaf6320b58" />
-]" style="width:50%;" />
+  <img src="https://github.com/user-attachments/assets/acefdc68-4b8b-43fd-8b1b-efbaf6320b58" style="width:40%;" />
+  <img src="https://github.com/user-attachments/assets/e4f3ef25-246f-46e3-932f-bba93bd69158" style="width:40%;" />
 </div>
-<img width="520" height="450"  src="https://github.com/user-attachments/assets/e4f3ef25-246f-46e3-932f-bba93bd69158" />
 
 <br/>
 <br/>
@@ -50,8 +49,8 @@
 </p>
 
 ## 🤖 Sobre o Projeto "Gabi"
-<img src="[<img width="1325" height="950" alt="Captura de tela 2026-04-29 121129" src="https://github.com/user-attachments/assets/170f62e0-1124-4ba6-a08e-ad3780ab8201" />]" align="right" style="width:26%;"/>
-<img src="[<img width="3024" height="4032" alt="WhatsApp Image 2026-04-29 at 12 20 53" src="https://github.com/user-attachments/assets/6e340f5f-063d-4faa-b0b2-b2e2ab948d8d" />]" align="left" style="width:25%;"/>
+<img src="https://github.com/user-attachments/assets/170f62e0-1124-4ba6-a08e-ad3780ab8201" align="right" style="width:20%;"/>
+<img src="https://github.com/user-attachments/assets/6e340f5f-063d-4faa-b0b2-b2e2ab948d8d" align="left" style="width:20%;"/>
 
 <p align="center">
   Para cumprir todas as tarefas com precisão de nível WorldSkills, desenvolvemos a <b>Gabi</b> utilizando uma arquitetura híbrida de hardware: combinamos a robustez do controlo de motores do LEGO EV3 com o alto poder de processamento de IA e Visão Computacional de uma Raspberry Pi 4.
