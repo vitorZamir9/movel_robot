@@ -49,29 +49,21 @@
 
 ## Sobre o Projeto "Gabi"
 
-<table align="center" style="border-collapse: collapse; border: none;">
-  <tr style="border: none;">
-    <td width="25%" align="center" style="border: none;">
-      <img src="https://github.com/user-attachments/assets/6e340f5f-063d-4faa-b0b2-b2e2ab948d8d" width="100%" alt="Robô Real"/>
-    </td>
-    
-    <td width="50%" align="center" style="border: none; padding: 0 20px;">
-      <p align="justify">
-        Para cumprir todas as tarefas com precisão de nível WorldSkills, desenvolvemos a <b>Gabi</b> utilizando uma arquitetura híbrida de hardware: combinamos a robustez do controlo de motores do LEGO EV3 com o alto poder de processamento de IA e Visão Computacional de uma Raspberry Pi 4.
-      </p>
-      <p align="justify">
-        Neste repositório, detalhamos o nosso sistema de seguir linha com PID Dinâmico (Freio Inteligente) e a nossa árvore de decisão baseada em processamento de imagem puro e redes neurais.
-      </p>
-    </td>
-
-    <td width="25%" align="center" style="border: none;">
-      <img src="https://github.com/user-attachments/assets/170f62e0-1124-4ba6-a08e-ad3780ab8201" width="100%" alt="CAD do Robô"/>
-    </td>
-  </tr>
-</table>
+<img src="https://github.com/user-attachments/assets/170f62e0-1124-4ba6-a08e-ad3780ab8201" align="right" width="28%"/>
+<img src="https://github.com/user-attachments/assets/6e340f5f-063d-4faa-b0b2-b2e2ab948d8d" align="left" width="28%"/>
 
 <br/>
 
+<p align="center">
+  Para cumprir todas as tarefas com precisão de nível WorldSkills, desenvolvemos a <b>Gabi</b> utilizando uma arquitetura híbrida de hardware: combinamos a robustez do controlo de motores do LEGO EV3 com o alto poder de processamento de IA e Visão Computacional de uma Raspberry Pi 4.
+</p>
+
+<p align="center">
+  Neste repositório, detalhamos o nosso sistema de seguir linha com PID Dinâmico (Freio Inteligente) e a nossa árvore de decisão baseada em processamento de imagem puro e redes neurais.
+</p>
+
+<br clear="both"/>
+<br/>
 ### Componentes Principais
 
 <p align="justify">
