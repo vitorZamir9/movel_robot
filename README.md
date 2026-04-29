@@ -31,7 +31,7 @@
 <br/>
 
 <p align="center">
-  Este é o repositório oficial da equipa brasileira <b>New Atom</b>. Aqui documentamos o desenvolvimento do nosso robô <b>Gabi</b>, projetado para competir na modalidade de Resgate (Rescue Line / OBR).
+  Este é o repositório oficial da equipe brasileira <b>New Atom</b>. Aqui documentamos o desenvolvimento do nosso robô <b>Gabi</b>, projetado para competir na modalidade de Resgate (Rescue Line / OBR).
 </p>
 
 ## Sobre a Competição
