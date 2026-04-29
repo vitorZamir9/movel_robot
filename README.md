@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/09d795c5-2b72-4920-aec1-fe12ac1c8cf3" style="width:60%;" alt="Logo New Atom"/>
+  <img src="https://github.com/user-attachments/assets/a547579f-f725-4e2e-8bf1-caec1e7137d9" style="width:60%;" alt="Logo New Atom"/>
 </div>
 
 <br/>
