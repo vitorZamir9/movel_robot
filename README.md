@@ -49,7 +49,7 @@
 
 ## Sobre o Projeto "Gabi"
 
-<img src="https://github.com/user-attachments/assets/170f62e0-1124-4ba6-a08e-ad3780ab8201" align="right" width="28%"/>
+<img src="https://github.com/user-attachments/assets/170f62e0-1124-4ba6-a08e-ad3780ab8201" align="right" width="36%"/>
 <img src="https://github.com/user-attachments/assets/6e340f5f-063d-4faa-b0b2-b2e2ab948d8d" align="left" width="28%"/>
 
 <br/>
