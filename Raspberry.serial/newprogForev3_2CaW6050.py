@@ -73,7 +73,8 @@ W, H = 320, 240
 CENTRO_X = W // 2
 BASE_Y = H
 
-GREEN_MIN = np.array([35, 40, 40])
+# --- AJUSTE ANTI-REFLEXO NA FITA PRETA ---
+GREEN_MIN = np.array([40, 80, 40])
 GREEN_MAX = np.array([90, 255, 255])
 BLACK_MAX = np.array([180, 255, 60]) 
 
@@ -150,6 +151,9 @@ def processar_linha_vetorial(frame):
     mask_black = cv2.inRange(hsv, np.array([0, 0, 0]), BLACK_MAX)
     mask_green = cv2.inRange(hsv, GREEN_MIN, GREEN_MAX)
 
+    kernel_green = np.ones((5, 5), np.uint8)
+    mask_green = cv2.morphologyEx(mask_green, cv2.MORPH_OPEN, kernel_green)
+
     kernel_clean = np.ones((5, 5), np.uint8)
     mask_black = cv2.morphologyEx(mask_black, cv2.MORPH_OPEN, kernel_clean)
 
@@ -173,11 +177,17 @@ def processar_linha_vetorial(frame):
     greens_brutos = []
     
     for cnt in contours_grn:
-        if cv2.contourArea(cnt) > 200:  
+        area = cv2.contourArea(cnt)
+        if area > 1000:  
             x, y, w, h = cv2.boundingRect(cnt)
-            if 0.5 <= float(w)/h <= 2.0:
+            proporcao = float(w)/h
+            
+            solidez = area / (w * h)
+            
+            if 0.5 <= proporcao <= 2.0 and solidez > 0.45:
                 mask_this_green = np.zeros_like(mask_green)
                 cv2.drawContours(mask_this_green, [cnt], -1, 255, -1)
+                
                 if cv2.countNonZero(cv2.bitwise_and(mask_black_dilated, mask_this_green)) > 0:
                     greens_brutos.append((x, y, w, h))
                     cv2.rectangle(hud, (x, y), (x+w, y+h), (0, 255, 0), 2)
@@ -191,23 +201,30 @@ def processar_linha_vetorial(frame):
                 greens_validos.append(g)
         greens_validos = sorted(greens_validos, key=lambda g: g[0])
 
+    # ==========================================================
+    # ÁRVORE DE DECISÃO TÁTICA PARA O EV3 ("MEMÓRIA")
+    # ==========================================================
     if len(greens_validos) >= 1:
         cy_verde_media = sum([g[1] + (g[3] // 2) for g in greens_validos]) / len(greens_validos)
         verde_depois = cy_verde_media < (alvo_y - 10)
         
         if verde_depois:
-            comando_serial = "pelo menos 1 verde depois da linha preta"
+            # ---> ALTERADO AQUI: A Rasp agora avisa o EV3 sobre o verde depois da linha
+            comando_serial = "verde depois"
         else:
             if len(greens_validos) >= 2:
-                comando_serial = "dois verdes antes da linha preta"
+                # Beco detectado pela câmara
+                comando_serial = "dois verdes"
             else:
                 gx, gy, gw, gh = greens_validos[0]
                 cx_verde = gx + (gw // 2)
                 
                 if cx_verde < alvo_x: 
-                    comando_serial = "1 verde esquerda antes da linha preta"
+                    # Preparar curva à esquerda
+                    comando_serial = "esquerda antes"
                 else: 
-                    comando_serial = "1 verde direita antes da linha preta"
+                    # Preparar curva à direita
+                    comando_serial = "direita antes"
     else:
         comando_serial = "frente"
 
@@ -250,21 +267,17 @@ try:
             dt_mpu = tempo_atual_mpu - tempo_anterior_mpu
             tempo_anterior_mpu = tempo_atual_mpu
             
-            # Lê Acelerómetros
             accel_x = ler_dados_mpu(ACCEL_XOUT) / 16384.0
             accel_y = ler_dados_mpu(ACCEL_YOUT) / 16384.0
             accel_z = ler_dados_mpu(ACCEL_ZOUT) / 16384.0
             
-            # Calcula Arfagem (Invertida) e Rotação (Calibrada)
             arfagem_pitch = -math.degrees(math.atan2(-accel_x, math.sqrt(accel_y**2 + accel_z**2)))
             rotacao_roll = math.degrees(math.atan2(accel_y, accel_z)) - offset_roll
             
-            # Calcula Guinada (Yaw) via integração
             gyro_z = ler_dados_mpu(GYRO_ZOUT) / 131.0
             if abs(gyro_z) > 1.0:
                 guinada_yaw += gyro_z * dt_mpu
 
-            # Envia para o EV3 e imprime na tela a cada 0.5s para não bugar a serial
             if (tempo_atual_mpu - tempo_ultimo_print_mpu) > 0.5:
                 str_mpu = f"MPU_Z:{guinada_yaw:.1f}\n"
                 if ser: ser.write(str_mpu.encode())
@@ -298,7 +311,6 @@ try:
         start_time = time.time()
         msg_serial = None
 
-        # ---- LÓGICA DA LINHA (IMX500) ----
         if modo_atual == "linha" and picam2 is not None:
             frame = picam2.capture_array("main")
             frame = cv2.flip(frame, -1) 
@@ -313,7 +325,6 @@ try:
                     msg_serial = f"{comando_verde}\n"
                     last_detection = {"time": time.time(), "side": None, "cmd": comando_verde}
 
-        # ---- LÓGICA DE RESGATE/YOLO (IMX179) ----
         elif modo_atual in ["bolas", "triangulo"] and cap_usb is not None:
             cap_usb.grab()
             ret, frame = cap_usb.retrieve()
@@ -321,7 +332,6 @@ try:
             if ret:
                 hud_frame = frame.copy()
                 
-                # --- DETECÇÃO DE BOLAS (YOLO) ---
                 if modo_atual == "bolas":
                     results = yolo_ball(frame, imgsz=160, device='cpu', half=False, verbose=False, conf=0.80)[0]
                     
@@ -348,7 +358,6 @@ try:
                                 msg_serial = f"Detectado: {classe}\nArea: {area_pixels}px\nLado: {side}\n"
                                 last_detection = {"time": time.time(), "side": side, "cmd": None}
 
-                # --- GEOMETRIA DOS TRIÂNGULOS (OPENCV PURO) ---
                 elif modo_atual == "triangulo":
                     hsv_resgate = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
                     
