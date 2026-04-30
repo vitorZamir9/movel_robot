@@ -20,7 +20,10 @@ Picamera2.set_logging(logging.ERROR)
 # ============ CONFIGURAÇÃO DO GIROSCÓPIO (MPU6050) ============
 MPU_ADDR = 0x68
 PWR_MGMT_1 = 0x6B
-GYRO_XOUT_H = 0x43
+ACCEL_XOUT = 0x3B
+ACCEL_YOUT = 0x3D
+ACCEL_ZOUT = 0x3F
+GYRO_ZOUT = 0x47  # Eixo Z do giroscópio
 
 try:
     bus = smbus2.SMBus(1)
@@ -31,16 +34,15 @@ except Exception as e:
     print(f"\n[AVISO] MPU6050 não encontrado ou fio solto! Erro: {e}")
     mpu_ativo = False
 
-def ler_giroscopio_z():
+def ler_dados_mpu(registo):
     if not mpu_ativo: return 0.0
     try:
-        high = bus.read_byte_data(MPU_ADDR, GYRO_XOUT_H + 4)
-        low = bus.read_byte_data(MPU_ADDR, GYRO_XOUT_H + 5)
-        val = ((high << 8) | low)
-        if val > 32768:
-            val = val - 65536
-        # Fator de escala 131.0 para +/- 250 graus/s
-        return val / 131.0
+        high = bus.read_byte_data(MPU_ADDR, registo)
+        low = bus.read_byte_data(MPU_ADDR, registo + 1)
+        valor = ((high << 8) | low)
+        if valor > 32768:
+            valor = valor - 65536
+        return valor
     except:
         return 0.0
 
@@ -79,7 +81,6 @@ BLACK_MAX = np.array([180, 255, 60])
 last_detection = {"time": 0, "side": None, "cmd": None} 
 picam2 = None  
 cap_usb = None 
-tempo_ultimo_gyro = time.time() # <--- Controle de tempo do MPU
 
 # ============ GERENCIADORES DE CÂMERA E VÍDEO ============
 def iniciar_imx500():
@@ -190,9 +191,6 @@ def processar_linha_vetorial(frame):
                 greens_validos.append(g)
         greens_validos = sorted(greens_validos, key=lambda g: g[0])
 
-    # ==========================================================
-    # ÁRVORE DE DECISÃO GEOMÉTRICA (ANTES vs DEPOIS)
-    # ==========================================================
     if len(greens_validos) >= 1:
         cy_verde_media = sum([g[1] + (g[3] // 2) for g in greens_validos]) / len(greens_validos)
         verde_depois = cy_verde_media < (alvo_y - 10)
@@ -212,12 +210,30 @@ def processar_linha_vetorial(frame):
                     comando_serial = "1 verde direita antes da linha preta"
     else:
         comando_serial = "frente"
-    # ==========================================================
 
     cv2.line(hud, (CENTRO_X, BASE_Y), (alvo_x, alvo_y), (0, 0, 255), 2)
     cv2.putText(hud, f"CMD: {comando_serial}", (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
     return comando_serial, hud
+
+# ============ CALIBRAÇÃO INICIAL DO MPU6050 ============
+offset_roll = 0.0
+guinada_yaw = 0.0
+tempo_anterior_mpu = time.time()
+tempo_ultimo_print_mpu = time.time()
+
+if mpu_ativo:
+    print("\n[*] A calibrar a Rotação para começar em 0...")
+    print("[!] MANTÉM O ROBÔ PARADO!")
+    soma_roll = 0.0
+    for _ in range(50):
+        ay = ler_dados_mpu(ACCEL_YOUT) / 16384.0
+        az = ler_dados_mpu(ACCEL_ZOUT) / 16384.0
+        soma_roll += math.degrees(math.atan2(ay, az))
+        time.sleep(0.02)
+    offset_roll = soma_roll / 50.0
+    print(f"[+] Calibração concluída! Offset de Rotação: {offset_roll:.2f}°\n")
+    tempo_anterior_mpu = time.time()
 
 # ============ ESTADO INICIAL (FALLBACK) ============
 print("\n[+] SISTEMA DUAL-CAMERA (COM DVR) PRONTO [+]")
@@ -226,13 +242,38 @@ iniciar_imx500()
 
 try:
     while True:
-        # --- TELEMETRIA DO GIROSCÓPIO (A cada 0.5s) ---
-        if mpu_ativo and (time.time() - tempo_ultimo_gyro) > 0.5:
-            z_val = ler_giroscopio_z()
-            print(f"[MPU6050] Eixo Z: {z_val:6.1f} graus/s")
-            tempo_ultimo_gyro = time.time()
+        # ==========================================
+        # 1. PROCESSAMENTO CONTÍNUO DO GIROSCÓPIO
+        # ==========================================
+        if mpu_ativo:
+            tempo_atual_mpu = time.time()
+            dt_mpu = tempo_atual_mpu - tempo_anterior_mpu
+            tempo_anterior_mpu = tempo_atual_mpu
+            
+            # Lê Acelerómetros
+            accel_x = ler_dados_mpu(ACCEL_XOUT) / 16384.0
+            accel_y = ler_dados_mpu(ACCEL_YOUT) / 16384.0
+            accel_z = ler_dados_mpu(ACCEL_ZOUT) / 16384.0
+            
+            # Calcula Arfagem (Invertida) e Rotação (Calibrada)
+            arfagem_pitch = -math.degrees(math.atan2(-accel_x, math.sqrt(accel_y**2 + accel_z**2)))
+            rotacao_roll = math.degrees(math.atan2(accel_y, accel_z)) - offset_roll
+            
+            # Calcula Guinada (Yaw) via integração
+            gyro_z = ler_dados_mpu(GYRO_ZOUT) / 131.0
+            if abs(gyro_z) > 1.0:
+                guinada_yaw += gyro_z * dt_mpu
 
-        # 1. ESCUTAR O EV3
+            # Envia para o EV3 e imprime na tela a cada 0.5s para não bugar a serial
+            if (tempo_atual_mpu - tempo_ultimo_print_mpu) > 0.5:
+                str_mpu = f"MPU_Z:{guinada_yaw:.1f}\n"
+                if ser: ser.write(str_mpu.encode())
+                print(f"[MPU] Roll: {rotacao_roll:.1f}° | Pitch: {arfagem_pitch:.1f}° | Yaw: {guinada_yaw:.1f}°")
+                tempo_ultimo_print_mpu = tempo_atual_mpu
+
+        # ==========================================
+        # 2. ESCUTAR O EV3
+        # ==========================================
         if ser and ser.in_waiting:
             cmd = ser.read(ser.in_waiting).decode('ascii', 'ignore').strip()
             
@@ -251,15 +292,15 @@ try:
                 iniciar_imx179()
                 modo_atual = "triangulo"
 
-        # 2. PROCESSAMENTO
+        # ==========================================
+        # 3. PROCESSAMENTO DE VISÃO
+        # ==========================================
         start_time = time.time()
         msg_serial = None
 
         # ---- LÓGICA DA LINHA (IMX500) ----
         if modo_atual == "linha" and picam2 is not None:
             frame = picam2.capture_array("main")
-            
-            # IMX500 invertida 180 graus fisicamente
             frame = cv2.flip(frame, -1) 
             
             comando_verde, hud_frame = processar_linha_vetorial(frame)
@@ -342,13 +383,15 @@ try:
                 if gravador_atual:
                     gravador_atual.write(hud_frame)
 
-        # 3. ENVIO SERIAL
+        # ==========================================
+        # 4. ENVIO SERIAL (COMANDOS DE VISÃO)
+        # ==========================================
         if msg_serial and ser is not None:
             ser.write(msg_serial.encode())
             print(f" [EV3] <- {msg_serial.strip()} | FPS: {1/(time.time()-start_time):.1f}")
 
 except KeyboardInterrupt:
-    print("\n[*] Encerrando sistema de visão...")
+    print("\n[*] Encerrando sistema de visão e telemetria...")
 finally:
     parar_imx500()
     parar_imx179()
