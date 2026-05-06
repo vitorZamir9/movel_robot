@@ -138,7 +138,7 @@ def sensor():
              if pretodir > 0:
                 pretodir -= 1
 
-        # ==========================================
+       # ==========================================
         # 4. LEITURA DA CÂMARA E GIROSCÓPIO (MEMÓRIA)
         # ==========================================
         data = ser.read_all()
@@ -191,14 +191,54 @@ def sensor():
                 ev3.speaker.beep(400) 
                 print(">>> EXECUTANDO VERDE DIREITA")
                 tanki.stop()
+                
+                # --- LÓGICA NOVA: GIROSCÓPIO ---
+                # Defina aqui quanto você quer somar ao valor atual (ex: 90 ou -90 dependendo do seu eixo)
+                angulo_desejado = 90 
+                alvo_giro = gyro_rasp_z + angulo_desejado
+                # -------------------------------
+
                 motorB.dc(999)
                 motorC.dc(999)
                 wait(200)
+
+                # --- JEITO QUE TAVA ANTES (COMENTADO) ---
+                # while True:
+                #     retorno = sensor1.read(2)
+                #     if retorno[1] <= 65: # Verifica meio1
+                #         tanki.stop()
+                #         break        
+                # ----------------------------------------
+                
+                # --- NOVO WHILE COM GIROSCÓPIO ---
                 while True:
-                    retorno = sensor1.read(2)
-                    if retorno[1] <= 65: # Verifica meio1
-                        tanki.stop()
-                        break        
+                    # Atualiza o giroscópio no meio do giro
+                    data = ser.read_all()
+                    if data:
+                        try:
+                            buffer_serial += data.decode('utf-8', 'ignore')
+                            while '\n' in buffer_serial:
+                                linha_cmd, buffer_serial = buffer_serial.split('\n', 1)
+                                cmd = linha_cmd.strip()
+                                if cmd.startswith("MPU_Z:"):
+                                    try:
+                                        gyro_rasp_z = float(cmd.split(":")[1].strip())
+                                    except:
+                                        pass
+                        except:
+                            pass
+                    
+                    # Verifica se cruzou a linha do alvo
+                    if angulo_desejado > 0:
+                        if gyro_rasp_z >= alvo_giro: 
+                            tanki.stop()
+                            break
+                    else:
+                        if gyro_rasp_z <= alvo_giro: 
+                            tanki.stop()
+                            break
+                # ---------------------------------
+
                 motorB.stop()
                 motorC.stop()
                 previsao_camera = None
@@ -211,14 +251,51 @@ def sensor():
                 ev3.speaker.beep(200) 
                 print(">>> EXECUTANDO VERDE ESQUERDA")
                 tanki.stop()
+                
+                # --- LÓGICA NOVA: GIROSCÓPIO ---
+                angulo_desejado = -90 # Ajuste para o ângulo exato de esquerda do seu robô
+                alvo_giro = gyro_rasp_z + angulo_desejado
+                # -------------------------------
+
                 motorB.dc(-999)
                 motorC.dc(-999)
                 wait(200)
+
+                # --- JEITO QUE TAVA ANTES (COMENTADO) ---
+                # while True:
+                #     retorno = sensor1.read(2)
+                #     if retorno[2] <= 65: # Verifica meio2 (direita pra esquerda)
+                #         tanki.stop()
+                #         break        
+                # ----------------------------------------
+                
+                # --- NOVO WHILE COM GIROSCÓPIO ---
                 while True:
-                    retorno = sensor1.read(2)
-                    if retorno[2] <= 65: # Verifica meio2 (direita pra esquerda)
-                        tanki.stop()
-                        break        
+                    data = ser.read_all()
+                    if data:
+                        try:
+                            buffer_serial += data.decode('utf-8', 'ignore')
+                            while '\n' in buffer_serial:
+                                linha_cmd, buffer_serial = buffer_serial.split('\n', 1)
+                                cmd = linha_cmd.strip()
+                                if cmd.startswith("MPU_Z:"):
+                                    try:
+                                        gyro_rasp_z = float(cmd.split(":")[1].strip())
+                                    except:
+                                        pass
+                        except:
+                            pass
+                            
+                    if angulo_desejado > 0:
+                        if gyro_rasp_z >= alvo_giro: 
+                            tanki.stop()
+                            break
+                    else:
+                        if gyro_rasp_z <= alvo_giro: 
+                            tanki.stop()
+                            break
+                # ---------------------------------
+                
                 motorB.stop()
                 motorC.stop()
                 previsao_camera = None 
@@ -230,19 +307,68 @@ def sensor():
                 tanki.turn(30)
                 tanki.straight(190)
                 tanki.stop()
+                
+                # --- LÓGICA NOVA: GIROSCÓPIO ---
+                angulo_desejado = 180 # Alvo do Beco (ajuste sinal se ele girar pra direita/esquerda)
+                alvo_giro = gyro_rasp_z + angulo_desejado
+                # -------------------------------
+
                 motorB.dc(999)
                 motorC.dc(999)
+                
+                # --- JEITO QUE TAVA ANTES (COMENTADO) ---
+                # while True:
+                #     retorno = sensor1.read(2)
+                #     meio1 = retorno[1]
+                #     if meio1 <= 65:
+                #         tanki.stop()
+                #         contD = 0
+                #         contE = 0
+                #         contM = 0
+                #         pretodir = 0
+                #         pretoesq = 0
+                #         break        
+                # ----------------------------------------
+
+                # --- NOVO WHILE COM GIROSCÓPIO ---
                 while True:
-                    retorno = sensor1.read(2)
-                    meio1 = retorno[1]
-                    if meio1 <= 65:
-                        tanki.stop()
-                        contD = 0
-                        contE = 0
-                        contM = 0
-                        pretodir = 0
-                        pretoesq = 0
-                        break        
+                    data = ser.read_all()
+                    if data:
+                        try:
+                            buffer_serial += data.decode('utf-8', 'ignore')
+                            while '\n' in buffer_serial:
+                                linha_cmd, buffer_serial = buffer_serial.split('\n', 1)
+                                cmd = linha_cmd.strip()
+                                if cmd.startswith("MPU_Z:"):
+                                    try:
+                                        gyro_rasp_z = float(cmd.split(":")[1].strip())
+                                    except:
+                                        pass
+                        except:
+                            pass
+                            
+                    if angulo_desejado > 0:
+                        if gyro_rasp_z >= alvo_giro: 
+                            tanki.stop()
+                            # Zerando as variáveis originais
+                            contD = 0
+                            contE = 0
+                            contM = 0
+                            pretodir = 0
+                            pretoesq = 0
+                            break
+                    else:
+                        if gyro_rasp_z <= alvo_giro: 
+                            tanki.stop()
+                            # Zerando as variáveis originais
+                            contD = 0
+                            contE = 0
+                            contM = 0
+                            pretodir = 0
+                            pretoesq = 0
+                            break
+                # ---------------------------------
+                
                 motorB.stop()
                 motorC.stop()
                 tanki.turn(-50)
