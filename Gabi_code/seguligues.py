@@ -15,7 +15,7 @@ ev3= EV3Brick()
 sensor1 = LUMPDevice(Port.S1)
 motorB = Motor(Port.B,gears=[12,25],positive_direction=Direction.COUNTERCLOCKWISE)
 motorC = Motor(Port.D,gears=[12,25],positive_direction=Direction.COUNTERCLOCKWISE)
-#ser = UARTDevice(Port.S6, baudrate=115200, timeout=0.1)
+ser = UARTDevice(Port.S6, baudrate=115200, timeout=0.1)
 #serialservo = UARTDevice(Port.S5, baudrate=115200, timeout=0.1)
 
 #VARIAVEIS/IMPORT
