@@ -118,7 +118,6 @@
 ## Links Úteis
 
 - [COLOQUE AQUI: Link para o vídeo do robô Gabi na pista]
-- [COLOQUE AQUI: Link do Dataset do YOLOv8 (Roboflow) se for público]
 
 ## Licença
 Este projeto está licenciado sob a licença [COLOQUE A LICENÇA AQUI, ex: MIT ou GNU GPLv3] - veja o ficheiro [LICENSE](LICENSE) para detalhes.
