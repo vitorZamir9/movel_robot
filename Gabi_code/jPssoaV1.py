@@ -92,7 +92,7 @@ def botao():
         
 
 def sensor():
-    global old_error  
+    global old_error  # AJEITAR ESSES VARIAVEL GLOBAL PRA QUE INVES DO GLOBAL AS VARIAVEIS FIQUE AQUI
     global sensor1  
     global pretodir
     global pretoesq
