@@ -12,7 +12,7 @@ import sys
 import time
 
 # Importa a tua nova classe!
-from control_verde import ControlVerde
+from controlVerde import ControlVerde
 
 ev3 = EV3Brick()
 sensor1 = LUMPDevice(Port.S1)
