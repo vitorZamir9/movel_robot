@@ -11,7 +11,7 @@ from pybricks.iodevices import UARTDevice
 from servos import Servos
 import sys
 
-####################################################################################################
+#####################################################################################################
 ev3= EV3Brick()
 
 guinadaAA= LUMPDevice(Port.S4)
