@@ -144,7 +144,8 @@ def sensor():
     global semvitima
     global sairdoRESGATE
     while True:
-        #teste rasp/teste agluma coisa
+        #teste rasp/teste agluma coisa/ 
+        #aqui explica como os servos sao usados
         Anguly.read(4)
         guinadaAA.read(4)
         wait(100)
