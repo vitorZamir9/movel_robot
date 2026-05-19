@@ -250,7 +250,11 @@ def sensor():
         verdeMeio = H3 >=(95-alvo) and H3 <=(140+alvo) and S3 >=(47-alvo) and S3 <=(73+alvo) and V3 >=(40-alvo) and V3 <=(80+alvo)
         verdeEsquerda = H2 >=(95-alvo) and H2 <=(140+alvo) and S2 >=(47-alvo) and S2 <=(70+alvo) and V2 >=(40-alvo) and V2 <=(80+alvo)
         if verdeDireita or verdeEsquerda or verdeMeio:
-            if  verdeDireita  :
+            
+            if  verdeDireita :
+                #ajeitar perguntando:
+                #o outro sensor ta vendo verde? 
+                #os sensores de linha ta vendo preto?
                 tanki.stop()
                 tanki.turn(70)
                 tanki.straight(90)
