@@ -17,10 +17,9 @@ sensor1 = LUMPDevice(Port.S1)
 motorB = Motor(Port.B,gears=[12,25],positive_direction=Direction.COUNTERCLOCKWISE)
 motorC = Motor(Port.D,gears=[12,25],positive_direction=Direction.COUNTERCLOCKWISE)
 ser = UARTDevice(Port.S6, baudrate=115200, timeout=0.1)
-<<<<<<< HEAD
 #serialservo = UARTDevice(Port.S5, baudrate=115200, timeout=0.1)
-=======
->>>>>>> 09cd6c45a4ae876b40fd01bd2099c3e849b052a0
+
+
 
 # VARIAVEIS / IMPORT
 error = 0
