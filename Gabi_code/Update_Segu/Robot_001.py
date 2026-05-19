@@ -270,6 +270,10 @@ def sensor():
                 while True:
                     # Atualiza o giroscópio no meio do giro
                     data = ser.read_all()
+                    retorno = sensor1.read(0)
+                    fora1 = retorno[0]#esquerda REAL>>>direita
+                    wait(100)
+                    print(fora1)
                     if data:
                         try:
                             buffer_serial += data.decode('utf-8', 'ignore')
@@ -284,13 +288,17 @@ def sensor():
                         except:
                             pass
                     # Verifica se cruzou a linha do alvo
-                    if angulo_desejado > 0:
-                        if gyro_rasp_z >= alvo_giro: 
+                    if angulo_desejado > 0 or fora1 <= 50:
+                        if gyro_rasp_z >= alvo_giro or fora1 <= 50: 
                             tanki.stop()
+                            pretodir = 0
+                            pretoesq = 0
                             break
                     else:
-                        if gyro_rasp_z <= alvo_giro: 
+                        if gyro_rasp_z <= alvo_giro or fora1 <= 50: 
                             tanki.stop()
+                            pretodir = 0
+                            pretoesq = 0
                             break
                 # ---------------------------------
                 motorB.stop()
@@ -314,6 +322,10 @@ def sensor():
                 # --- NOVO WHILE COM GIROSCÓPIO ---
                 while True:
                     data = ser.read_all()
+                    retorno = sensor1.read(0)
+                    fora2 = retorno[3]#direita  REAL>>>esquerda
+                    wait(100)
+                    print(fora2)
                     if data:
                         try:
                             buffer_serial += data.decode('utf-8', 'ignore')
@@ -327,12 +339,12 @@ def sensor():
                                         pass
                         except:
                             pass                      
-                    if angulo_desejado > 0:
-                        if gyro_rasp_z >= alvo_giro: 
+                    if angulo_desejado > 0 or fora2 <= 50:
+                        if gyro_rasp_z >= alvo_giro or fora2 <= 50: 
                             tanki.stop()
                             break
                     else:
-                        if gyro_rasp_z <= alvo_giro: 
+                        if gyro_rasp_z <= alvo_giro or fora2 <= 50: 
                             tanki.stop()
                             break
                 # ---------------------------------
@@ -462,7 +474,6 @@ def sensor():
                         tanki.stop()
                         pretodir = 0
                         pretoesq = 0
-                        contGap=0
                         break
                 print("fez")
                 wait(100)
