@@ -11,7 +11,7 @@ from pybricks.iodevices import UARTDevice
 from servos import Servos
 import sys
 
-####################################################################################################
+#####################################################################################################
 ev3= EV3Brick()
 
 guinadaAA= LUMPDevice(Port.S4)
@@ -92,7 +92,7 @@ def botao():
         
 
 def sensor():
-    global old_error  
+    global old_error  # AJEITAR ESSES VARIAVEL GLOBAL PRA QUE INVES DO GLOBAL AS VARIAVEIS FIQUE AQUI
     global sensor1  
     global pretodir
     global pretoesq
@@ -144,7 +144,8 @@ def sensor():
     global semvitima
     global sairdoRESGATE
     while True:
-        #teste rasp/teste agluma coisa
+        #teste rasp/teste agluma coisa/ 
+        #aqui explica como os servos sao usados
         Anguly.read(4)
         guinadaAA.read(4)
         wait(100)
