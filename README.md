@@ -31,16 +31,16 @@
 <br/>
 
 <p align="center">
-  Este é o repositório oficial da equipa brasileira <b>New Atom</b>. Aqui documentamos o desenvolvimento do nosso robô <b>Gabi</b>, projetado para competir na modalidade de Resgate (Rescue Line / OBR).
+  Este é o repositório oficial da equipe brasileira <b>New Atom</b>. Aqui documentamos o desenvolvimento do nosso robô <b>Gabi</b>, projetado para competir na modalidade de Resgate (Rescue Line / OBR).
 </p>
 
 ## Sobre a Competição
 <p align="center"><i>
-  "A área de desastre é muito perigosa para os humanos alcançarem as vítimas. A sua equipa recebeu uma tarefa desafiadora. O robô deve ser capaz de realizar uma missão de resgate de forma totalmente autônoma, sem assistência humana. O robô deve ser durável e inteligente o suficiente para navegar por terrenos traiçoeiros com colinas, desníveis e destroços sem ficar preso. Ao alcançar as vítimas, ele deve transportá-las cuidadosamente para a área de evacuação..."
+  "A área de resgate é muito perigosa para os humanos alcançarem as vítimas. A sua equipa recebeu uma tarefa desafiadora. O robô deve ser capaz de realizar uma missão de resgate de forma totalmente autônoma, sem assistência humana. O robô deve ser durável e inteligente o suficiente para navegar por terrenos traiçoeiros com colinas, desníveis e destroços sem ficar preso. Ao alcançar as vítimas, ele deve transportá-las cuidadosamente para a área de evacuação..."
 </i></p>
 
 <div align="center">
-  <img src="[LINK_IMAGEM_PISTA]" style="width:70%;"/>
+  <img src="https://private-user-images.githubusercontent.com/100859276/363510327-a0c5800d-fcd0-47f1-990c-3d6951691d1c.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3Nzc0OTE1NDksIm5iZiI6MTc3NzQ5MTI0OSwicGF0aCI6Ii8xMDA4NTkyNzYvMzYzNTEwMzI3LWEwYzU4MDBkLWZjZDAtNDdmMS05OTBjLTNkNjk1MTY5MWQxYy5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjYwNDI5JTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI2MDQyOVQxOTM0MDlaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT1jOGQ2NzUxMDgwMzZkZjMxMDc1MzgxNTU2YTBkNGQzOWNhNzU2ZGZiMjYzMzg5ZWI5MGE3NjE4NTE3ZGJmNDViJlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCZyZXNwb25zZS1jb250ZW50LXR5cGU9aW1hZ2UlMkZwbmcifQ.UwHvrhlFCXPWQa_A-zszZy_3U309LtPTPypqP8U07OA" style="width:70%;"/>
 </div>
 
 <p align="justify">
@@ -102,7 +102,7 @@
 ## Sobre a Equipa New Atom
 
 <p align="justify">
-  A equipa <b>New Atom</b> é formada por estudantes apaixonados por robótica, com um histórico forte em competições como OBR, FLL, FTC e eventos técnicos. Dividimos as nossas funções para otimizar o desenvolvimento de um robô de alto nível:
+  A equipe <b>New Atom</b> é formada por estudantes apaixonados por robótica, com um histórico forte em competições como OBR, FLL, FTC e eventos técnicos. Dividimos as nossas funções para otimizar o desenvolvimento de um robô de alto nível:
 </p>
 
 - **Pedro Henrique** - <i>Engenheiro de CAD:</i> Responsável por toda a modelagem 3D, encaixes, suporte de sensores e estrutura física da Gabi.
@@ -118,10 +118,9 @@
 ## Links Úteis
 
 - [COLOQUE AQUI: Link para o vídeo do robô Gabi na pista]
-- [COLOQUE AQUI: Link do Dataset do YOLOv8 (Roboflow) se for público]
 
 ## Licença
 Este projeto está licenciado sob a licença [COLOQUE A LICENÇA AQUI, ex: MIT ou GNU GPLv3] - veja o ficheiro [LICENSE](LICENSE) para detalhes.
 
 ---
-*A equipa New Atom incentiva o compartilhamento de conhecimento. Sente-te à vontade para explorar o nosso código para entender como implementamos a integração serial entre Raspberry e EV3 e o uso de IA no resgate!*
+*A equipe New Atom incentiva o compartilhamento de conhecimento. Sente-te à vontade para explorar o nosso código para entender como implementamos a integração serial entre Raspberry e EV3 e o uso de IA no resgate!*
