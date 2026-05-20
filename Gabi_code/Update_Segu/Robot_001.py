@@ -10,6 +10,8 @@ from pybricks.media.ev3dev import SoundFile, ImageFile
 from pybricks.iodevices import UARTDevice
 import sys
 import time
+from servos import Servos
+from segue import Segue
 
 ####################################################################################################
 ev3= EV3Brick()
@@ -252,7 +254,7 @@ def sensor():
 
         if verdeDireita or verdeEsquerda or verdeMeio or previsao_camera != None:
             
-            if  previsao_camera == "direita" or verdeDireita :
+            if verdeDireita :
                 if meio1 >= 60 or meio2 >= 60 :
                     tanki.stop()
                     tanki.turn(70)
@@ -275,40 +277,6 @@ def sensor():
                     motorB.stop()
                     motorC.stop()
                     previsao_camera = None
-                    
-                    # [NOVO - HANDSHAKE] Avisa a Raspberry que terminou o giro e ela pode destrancar
-                    ser.write(b"passou_verde\n")
-            elif verdeDireita:
-                if meio1 >= 60 or meio2 >= 60 :
-                    tanki.stop()
-                    tanki.turn(70)
-                    tanki.straight(90)
-                    tanki.stop()
-                    ev3.speaker.beep(400) 
-                    print(">>> EXECUTANDO VERDE DIREITA")
-                    tanki.stop()
-                    motorB.dc(100)
-                    motorC.dc(100)
-                    while True:
-                        retorno = sensor1.read(2)
-                        fora1 = retorno[0]
-                        meio1 = retorno[1]
-                        meio2 = retorno[2]
-                        fora2 = retorno[3]
-                        if fora1 <= 40  :
-                            tanki.stop()
-                            pretodir = 0
-                            pretoesq = 0
-                            break
-                    else:
-                        if gyro_rasp_z <= alvo_giro or fora1 <= 50: 
-                            tanki.stop()
-                            pretodir = 0
-                            pretoesq = 0
-                            break
-                    motorB.stop()
-                    motorC.stop()
-                    previsao_camera = None 
                     
                     # [NOVO - HANDSHAKE] Avisa a Raspberry que terminou o giro e ela pode destrancar
                     ser.write(b"passou_verde\n")
@@ -356,24 +324,6 @@ def sensor():
                     
                     # [NOVO - HANDSHAKE] Avisa a Raspberry que terminou o giro e ela pode destrancar
                     ser.write(b"passou_verde\n")
-            elif verdeDireita:
-                if verdeEsquerda:
-                    tanki.stop()
-                    ev3.speaker.beep(600) 
-                    print(">>> EXECUTANDO BECO")
-                    tanki.turn(30)
-                    tanki.straight(190)
-                    tanki.stop()
-                    
-                    motorB.stop()
-                    motorC.stop()
-                    tanki.turn(-50)
-                    tanki.stop()
-                    previsao_camera = None # Limpa a memória
-                    
-                    # [NOVO - HANDSHAKE] Avisa a Raspberry que terminou o giro e ela pode destrancar
-                    ser.write(b"passou_verde\n")
-
             elif previsao_camera == "depois" and meio1 <= 30 or meio2 <= 30 and cloresq == 1 or clordir == 1:
                 tanki.stop()
                 ev3.speaker.beep(800, 200) 
