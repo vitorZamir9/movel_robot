@@ -443,6 +443,7 @@ def sensor():
         # ==========================================
         # 10. CONTROLO PID (SEGUIR LINHA)
         # ==========================================
+        Segue.PID(fora1,meio1,meio2,fora2)
         kp = 2.5 #essas 4 variaveis vao sair daqui quando ja estiver com a programação que o robo identifica inclinação
         kd = 0.1
         ki = 0.01
