@@ -255,7 +255,7 @@ def sensor():
         previsao_camera = grein.MoveGreen(
         H1, S1, V1, H2, S2, V2, H3, S3, V3, alvo, 
         fora1, meio1, meio2, fora2, previsao_camera, cloresq, clordir
-    )
+        )
         # ==========================================
         # 9. ALL SENSORS DETECTED WHITE
         # ==========================================
