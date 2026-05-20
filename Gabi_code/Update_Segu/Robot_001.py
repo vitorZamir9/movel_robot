@@ -25,6 +25,10 @@ serialservo = UARTDevice(Port.S5, baudrate=115200, timeout=0.1)
 servosP= Servos(serialservo,True)
 
 # VARIAVEIS / IMPORT
+kp_atual = 0
+kd_atual = 0
+ki_atual = 0
+base_atual = 0
 error = 0
 powerB = 0
 powerC = 0
@@ -46,7 +50,7 @@ grein = Green(tanki, motorB, motorC, sensor1, ev3, ser, motores)
 
 # ---> VARIÁVEIS DE COMUNICAÇÃO COM A RASPBERRY <---
 gyro_rasp_z = 0.0 
-
+gyro_rasp_y = 0.0
 previsao_camera = None # Memória da câmara para o verde
 
 #### initi ####
@@ -80,6 +84,10 @@ def botao():
 def sensor():
     global old_error  
     global sensor1  
+    global kp_atual
+    global kd_atual
+    global ki_atual
+    global base_atual
     global derivative
     global integral
     global motorB
@@ -151,8 +159,14 @@ def sensor():
         # ==========================================
         # 2. VERIFICAÇÃO DE INCLINAÇÃO
         # ==========================================
-        #print(afagem)
-        # FAZER AMANÃ
+        # Se gyro_rasp_y for maior que 10, o robô está subindo
+        # Se for menor que -10, está descendo
+        if 'gyro_rasp_y' in globals() and gyro_rasp_y > 10:
+            kp_atual, ki_atual, base_atual = 3.0, 0.02, 180 # Força na subida
+        elif 'gyro_rasp_y' in globals() and gyro_rasp_y < -10:
+            kp_atual, ki_atual, base_atual = 2.0, 0.01, 100 # Cuidado na descida
+        else:
+            kp_atual, ki_atual, base_atual = 2.5, 0.01, 120 # Plano
         # ==========================================
         # 3. VERIFICAÇÃO SE O ROBÔ ESTÁ PARADO
         # ==========================================
@@ -237,6 +251,12 @@ def sensor():
                         except:
                             pass
                         continue 
+                    if cmd.startswith("MPU_P:"): # Agora olha pro Pitch
+                        try:
+                            gyro_rasp_y = float(cmd.split(":")[1].strip())
+                        except:
+                            pass
+                        continue
                     # Atualiza a Memória Tática da câmara para o verde
                     print("CAMERA VÊ O FUTURO:", cmd)
                     if "esquerda antes" in cmd:
