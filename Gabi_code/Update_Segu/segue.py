@@ -10,7 +10,6 @@ class Segue:
         self.old_error = 0
         self.PESO_MEIO = 1.0
         self.PESO_FORA = 2.25
-        
     
     def PID(self,fora1,meio1,meio2,fora2):
         #essas 4 variaveis vao sair daqui quando ja estiver com a programação que o robo identifica inclinação
