@@ -311,110 +311,165 @@ def sensor():
                     tanki.turn(-50)
                     tanki.stop()
                     previsao_camera = None # Limpa a memória
+                else:
 
 
                 #acrescenatar aqui verificação de verde depois.!!!
-
-
-
-                
-                tanki.stop()
-                tanki.turn(70)
-                tanki.straight(90)
-                tanki.stop()
-                ev3.speaker.beep(400) 
-                print(">>> EXECUTANDO VERDE DIREITA")
-                tanki.stop()
-                # --- LÓGICA NOVA: GIROSCÓPIO ---
-                # Defina aqui quanto você quer somar ao valor atual (ex: 90 ou -90 dependendo do seu eixo)
-                angulo_desejado = 90 
-                alvo_giro = gyro_rasp_z + angulo_desejado
-                # -------------------------------
-                motorB.dc(999)
-                motorC.dc(999)
-                wait(200)      
-                # --- NOVO WHILE COM GIROSCÓPIO ---
-                while True:
-                    # Atualiza o giroscópio no meio do giro
-                    data = ser.read_all()
-                    retorno = sensor1.read(0)
-                    fora1 = retorno[0]#esquerda REAL>>>direita
-                    wait(100)
-                    print(fora1)
-                    if data:
-                        try:
-                            buffer_serial += data.decode('utf-8', 'ignore')
-                            while '\n' in buffer_serial:
-                                linha_cmd, buffer_serial = buffer_serial.split('\n', 1)
-                                cmd = linha_cmd.strip()
-                                if cmd.startswith("MPU_Z:"):
-                                    try:
-                                        gyro_rasp_z = float(cmd.split(":")[1].strip())
-                                    except:
-                                        pass
-                        except:
-                            pass
-                    # Verifica se cruzou a linha do alvo
-                    if angulo_desejado > 0 or fora1 <= 50:
-                        if gyro_rasp_z >= alvo_giro or fora1 <= 50: 
-                            tanki.stop()
-                            pretodir = 0
-                            pretoesq = 0
-                            break
-                    else:
-                        if gyro_rasp_z <= alvo_giro or fora1 <= 50: 
-                            tanki.stop()
-                            pretodir = 0
-                            pretoesq = 0
-                            break
+                    tanki.stop()
+                    tanki.turn(70)
+                    tanki.straight(90)
+                    tanki.stop()
+                    ev3.speaker.beep(400) 
+                    print(">>> EXECUTANDO VERDE DIREITA")
+                    tanki.stop()
+                    # --- LÓGICA NOVA: GIROSCÓPIO ---
+                    # Defina aqui quanto você quer somar ao valor atual (ex: 90 ou -90 dependendo do seu eixo)
+                    angulo_desejado = 90 
+                    alvo_giro = gyro_rasp_z + angulo_desejado
+                    # -------------------------------
+                    motorB.dc(999)
+                    motorC.dc(999)
+                    wait(200)      
+                    # --- NOVO WHILE COM GIROSCÓPIO ---
+                    while True:
+                        # Atualiza o giroscópio no meio do giro
+                        data = ser.read_all()
+                        retorno = sensor1.read(0)
+                        fora1 = retorno[0]#esquerda REAL>>>direita
+                        wait(100)
+                        print(fora1)
+                        if data:
+                            try:
+                                buffer_serial += data.decode('utf-8', 'ignore')
+                                while '\n' in buffer_serial:
+                                    linha_cmd, buffer_serial = buffer_serial.split('\n', 1)
+                                    cmd = linha_cmd.strip()
+                                    if cmd.startswith("MPU_Z:"):
+                                        try:
+                                            gyro_rasp_z = float(cmd.split(":")[1].strip())
+                                        except:
+                                            pass
+                            except:
+                                pass
+                        # Verifica se cruzou a linha do alvo
+                        if angulo_desejado > 0 or fora1 <= 50:
+                            if gyro_rasp_z >= alvo_giro or fora1 <= 50: 
+                                tanki.stop()
+                                pretodir = 0
+                                pretoesq = 0
+                                break
+                        else:
+                            if gyro_rasp_z <= alvo_giro or fora1 <= 50: 
+                                tanki.stop()
+                                pretodir = 0
+                                pretoesq = 0
+                                break
                 # ---------------------------------
                 motorB.stop()
                 motorC.stop()
                 previsao_camera = None
             elif verdeEsquerda :
-                tanki.stop()
-                tanki.turn(70)
-                tanki.straight(-90)
-                tanki.stop()
-                ev3.speaker.beep(200) 
-                print(">>> EXECUTANDO VERDE ESQUERDA")
-                tanki.stop()
-                # --- LÓGICA NOVA: GIROSCÓPIO ---
-                angulo_desejado = -90 # Ajuste para o ângulo exato de esquerda do seu robô
-                alvo_giro = gyro_rasp_z + angulo_desejado
-                # -------------------------------
-                motorB.dc(-999)
-                motorC.dc(-999)
-                wait(200)
-                # --- NOVO WHILE COM GIROSCÓPIO ---
-                while True:
-                    data = ser.read_all()
-                    retorno = sensor1.read(0)
-                    fora2 = retorno[3]#direita  REAL>>>esquerda
-                    wait(100)
-                    print(fora2)
-                    if data:
-                        try:
-                            buffer_serial += data.decode('utf-8', 'ignore')
-                            while '\n' in buffer_serial:
-                                linha_cmd, buffer_serial = buffer_serial.split('\n', 1)
-                                cmd = linha_cmd.strip()
-                                if cmd.startswith("MPU_Z:"):
-                                    try:
-                                        gyro_rasp_z = float(cmd.split(":")[1].strip())
-                                    except:
-                                        pass
-                        except:
-                            pass                      
-                    if angulo_desejado > 0 or fora2 <= 50:
-                        if gyro_rasp_z >= alvo_giro or fora2 <= 50: 
-                            tanki.stop()
-                            break
-                    else:
-                        if gyro_rasp_z <= alvo_giro or fora2 <= 50: 
-                            tanki.stop()
-                            break
-                # ---------------------------------
+                wait(20)
+                if verdeDireita:#verifica beco
+                    tanki.stop()
+                    ev3.speaker.beep(600) 
+                    print(">>> EXECUTANDO BECO")
+                    tanki.turn(30)
+                    tanki.straight(190)
+                    tanki.stop()
+                    # --- LÓGICA NOVA: GIROSCÓPIO ---
+                    angulo_desejado = 180 # Alvo do Beco (ajuste sinal se ele girar pra direita/esquerda)
+                    alvo_giro = gyro_rasp_z + angulo_desejado
+                    # -------------------------------
+                    motorB.dc(999)
+                    motorC.dc(999)
+                    # --- NOVO WHILE COM GIROSCÓPIO ---
+                    while True:
+                        data = ser.read_all()
+                        if data:
+                            try:
+                                buffer_serial += data.decode('utf-8', 'ignore')
+                                while '\n' in buffer_serial:
+                                    linha_cmd, buffer_serial = buffer_serial.split('\n', 1)
+                                    cmd = linha_cmd.strip()
+                                    if cmd.startswith("MPU_Z:"):
+                                        try:
+                                            gyro_rasp_z = float(cmd.split(":")[1].strip())
+                                        except:
+                                            pass
+                            except:
+                                pass    
+                        if angulo_desejado > 0:
+                            if gyro_rasp_z >= alvo_giro: 
+                                tanki.stop()
+                                # Zerando as variáveis originais
+                                contD = 0
+                                contE = 0
+                                contM = 0
+                                pretodir = 0
+                                pretoesq = 0
+                                break
+                        else:
+                            if gyro_rasp_z <= alvo_giro: 
+                                tanki.stop()
+                                # Zerando as variáveis originais
+                                contD = 0
+                                contE = 0
+                                contM = 0
+                                pretodir = 0
+                                pretoesq = 0
+                                break
+                    # ---------------------------------
+                    motorB.stop()
+                    motorC.stop()
+                    tanki.turn(-50)
+                    tanki.stop()
+                    previsao_camera = None # Limpa a memória
+                else:
+
+                    tanki.stop()
+                    tanki.turn(70)
+                    tanki.straight(-90)
+                    tanki.stop()
+                    ev3.speaker.beep(200) 
+                    print(">>> EXECUTANDO VERDE ESQUERDA")
+                    tanki.stop()
+                    # --- LÓGICA NOVA: GIROSCÓPIO ---
+                    angulo_desejado = -90 # Ajuste para o ângulo exato de esquerda do seu robô
+                    alvo_giro = gyro_rasp_z + angulo_desejado
+                    # -------------------------------
+                    motorB.dc(-999)
+                    motorC.dc(-999)
+                    wait(200)
+                    # --- NOVO WHILE COM GIROSCÓPIO ---
+                    while True:
+                        data = ser.read_all()
+                        retorno = sensor1.read(0)
+                        fora2 = retorno[3]#direita  REAL>>>esquerda
+                        wait(100)
+                        print(fora2)
+                        if data:
+                            try:
+                                buffer_serial += data.decode('utf-8', 'ignore')
+                                while '\n' in buffer_serial:
+                                    linha_cmd, buffer_serial = buffer_serial.split('\n', 1)
+                                    cmd = linha_cmd.strip()
+                                    if cmd.startswith("MPU_Z:"):
+                                        try:
+                                            gyro_rasp_z = float(cmd.split(":")[1].strip())
+                                        except:
+                                            pass
+                            except:
+                                pass                      
+                        if angulo_desejado > 0 or fora2 <= 50:
+                            if gyro_rasp_z >= alvo_giro or fora2 <= 50: 
+                                tanki.stop()
+                                break
+                        else:
+                            if gyro_rasp_z <= alvo_giro or fora2 <= 50: 
+                                tanki.stop()
+                                break
+                    # ---------------------------------
                 motorB.stop()
                 motorC.stop()
                 previsao_camera = None 
