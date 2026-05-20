@@ -8,7 +8,6 @@ from pybricks.tools import wait, StopWatch, DataLog
 from pybricks.robotics import DriveBase
 from pybricks.media.ev3dev import SoundFile, ImageFile
 from pybricks.iodevices import UARTDevice
-from servos import Servos
 import sys
 import time
 
@@ -249,47 +248,54 @@ def sensor():
         verdeDireita = H1 >=(95-alvo) and H1 <=(140+alvo) and S1 >=(47-alvo) and S1 <=(70+alvo) and V1 >=(40-alvo) and V1 <=(80+alvo)
         verdeMeio = H3 >=(95-alvo) and H3 <=(140+alvo) and S3 >=(47-alvo) and S3 <=(73+alvo) and V3 >=(40-alvo) and V3 <=(80+alvo)
         verdeEsquerda = H2 >=(95-alvo) and H2 <=(140+alvo) and S2 >=(47-alvo) and S2 <=(70+alvo) and V2 >=(40-alvo) and V2 <=(80+alvo)
-        if verdeDireita or verdeEsquerda or verdeMeio:
-            if  previsao_camera == "direita" and verdeDireita  :
-                tanki.stop()
-                tanki.turn(70)
-                tanki.straight(90)
-                tanki.stop()
-                ev3.speaker.beep(400) 
-                print(">>> EXECUTANDO VERDE DIREITA")
-                tanki.stop()
-                # --- LÓGICA NOVA: GIROSCÓPIO ---
-                # Defina aqui quanto você quer somar ao valor atual (ex: 90 ou -90 dependendo do seu eixo)
-                angulo_desejado = 90 
-                alvo_giro = gyro_rasp_z + angulo_desejado
-                # -------------------------------
-                motorB.dc(999)
-                motorC.dc(999)
-                wait(200)      
-                # --- NOVO WHILE COM GIROSCÓPIO ---
-                while True:
-                    # Atualiza o giroscópio no meio do giro
-                    data = ser.read_all()
-                    retorno = sensor1.read(0)
-                    fora1 = retorno[0]#esquerda REAL>>>direita
-                    wait(100)
-                    print(fora1)
-                    if data:
-                        try:
-                            buffer_serial += data.decode('utf-8', 'ignore')
-                            while '\n' in buffer_serial:
-                                linha_cmd, buffer_serial = buffer_serial.split('\n', 1)
-                                cmd = linha_cmd.strip()
-                                if cmd.startswith("MPU_Z:"):
-                                    try:
-                                        gyro_rasp_z = float(cmd.split(":")[1].strip())
-                                    except:
-                                        pass
-                        except:
-                            pass
-                    # Verifica se cruzou a linha do alvo
-                    if angulo_desejado > 0 or fora1 <= 50:
-                        if gyro_rasp_z >= alvo_giro or fora1 <= 50: 
+        fora1 , meio1 , meio2 , fora2
+
+        if verdeDireita or verdeEsquerda or verdeMeio or previsao_camera != None:
+            
+            if  previsao_camera == "direita" or verdeDireita :
+                if meio1 >= 60 or meio2 >= 60 :
+                    tanki.stop()
+                    tanki.turn(70)
+                    tanki.straight(90)
+                    tanki.stop()
+                    ev3.speaker.beep(400) 
+                    print(">>> EXECUTANDO VERDE DIREITA + camera")
+                    tanki.stop()
+                    motorB.dc(100)
+                    motorC.dc(100)
+                    while True:
+                        retorno = sensor1.read(2)
+                        fora1 = retorno[0]
+                        meio1 = retorno[1]
+                        meio2 = retorno[2]
+                        fora2 = retorno[3]
+                        if fora1 <= 40  :
+                            tanki.stop()
+                            break
+                    motorB.stop()
+                    motorC.stop()
+                    previsao_camera = None
+                    
+                    # [NOVO - HANDSHAKE] Avisa a Raspberry que terminou o giro e ela pode destrancar
+                    ser.write(b"passou_verde\n")
+            elif verdeDireita:
+                if meio1 >= 60 or meio2 >= 60 :
+                    tanki.stop()
+                    tanki.turn(70)
+                    tanki.straight(90)
+                    tanki.stop()
+                    ev3.speaker.beep(400) 
+                    print(">>> EXECUTANDO VERDE DIREITA")
+                    tanki.stop()
+                    motorB.dc(100)
+                    motorC.dc(100)
+                    while True:
+                        retorno = sensor1.read(2)
+                        fora1 = retorno[0]
+                        meio1 = retorno[1]
+                        meio2 = retorno[2]
+                        fora2 = retorno[3]
+                        if fora1 <= 40  :
                             tanki.stop()
                             pretodir = 0
                             pretoesq = 0
@@ -300,113 +306,75 @@ def sensor():
                             pretodir = 0
                             pretoesq = 0
                             break
-                # ---------------------------------
-                motorB.stop()
-                motorC.stop()
-                previsao_camera = None
-            elif previsao_camera == "esquerda" and verdeEsquerda :
-                tanki.stop()
-                tanki.turn(70)
-                tanki.straight(-90)
-                tanki.stop()
-                ev3.speaker.beep(200) 
-                print(">>> EXECUTANDO VERDE ESQUERDA")
-                tanki.stop()
-                # --- LÓGICA NOVA: GIROSCÓPIO ---
-                angulo_desejado = -90 # Ajuste para o ângulo exato de esquerda do seu robô
-                alvo_giro = gyro_rasp_z + angulo_desejado
-                # -------------------------------
-                motorB.dc(-999)
-                motorC.dc(-999)
-                wait(200)
-                # --- NOVO WHILE COM GIROSCÓPIO ---
-                while True:
-                    data = ser.read_all()
-                    retorno = sensor1.read(0)
-                    fora2 = retorno[3]#direita  REAL>>>esquerda
-                    wait(100)
-                    print(fora2)
-                    if data:
-                        try:
-                            buffer_serial += data.decode('utf-8', 'ignore')
-                            while '\n' in buffer_serial:
-                                linha_cmd, buffer_serial = buffer_serial.split('\n', 1)
-                                cmd = linha_cmd.strip()
-                                if cmd.startswith("MPU_Z:"):
-                                    try:
-                                        gyro_rasp_z = float(cmd.split(":")[1].strip())
-                                    except:
-                                        pass
-                        except:
-                            pass                      
-                    if angulo_desejado > 0 or fora2 <= 50:
-                        if gyro_rasp_z >= alvo_giro or fora2 <= 50: 
+                    motorB.stop()
+                    motorC.stop()
+                    previsao_camera = None 
+                    
+                    # [NOVO - HANDSHAKE] Avisa a Raspberry que terminou o giro e ela pode destrancar
+                    ser.write(b"passou_verde\n")
+            elif verdeEsquerda:
+                if meio1 >= 60 or meio2 >= 60 :
+                    tanki.stop()
+                    tanki.turn(70)
+                    tanki.straight(-90)
+                    tanki.stop()
+                    ev3.speaker.beep(200) 
+                    print(">>> EXECUTANDO VERDE ESQUERDA")
+                    tanki.stop()
+                    motorB.dc(-100)
+                    motorC.dc(-100)
+                    while True:
+                        retorno = sensor1.read(2)
+                        fora1 = retorno[0]
+                        meio1 = retorno[1]
+                        meio2 = retorno[2]
+                        fora2 = retorno[3]
+                        if fora2 <= 40  :
                             tanki.stop()
                             break
-                    else:
-                        if gyro_rasp_z <= alvo_giro or fora2 <= 50: 
-                            tanki.stop()
-                            break
-                # ---------------------------------
-                motorB.stop()
-                motorC.stop()
-                previsao_camera = None 
-            elif previsao_camera == "beco" and verdeDireita and verdeEsquerda:
-                tanki.stop()
-                ev3.speaker.beep(600) 
-                print(">>> EXECUTANDO BECO")
-                tanki.turn(30)
-                tanki.straight(190)
-                tanki.stop()
-                # --- LÓGICA NOVA: GIROSCÓPIO ---
-                angulo_desejado = 180 # Alvo do Beco (ajuste sinal se ele girar pra direita/esquerda)
-                alvo_giro = gyro_rasp_z + angulo_desejado
-                # -------------------------------
-                motorB.dc(999)
-                motorC.dc(999)
-                # --- NOVO WHILE COM GIROSCÓPIO ---
-                while True:
-                    data = ser.read_all()
-                    if data:
-                        try:
-                            buffer_serial += data.decode('utf-8', 'ignore')
-                            while '\n' in buffer_serial:
-                                linha_cmd, buffer_serial = buffer_serial.split('\n', 1)
-                                cmd = linha_cmd.strip()
-                                if cmd.startswith("MPU_Z:"):
-                                    try:
-                                        gyro_rasp_z = float(cmd.split(":")[1].strip())
-                                    except:
-                                        pass
-                        except:
-                            pass    
-                    if angulo_desejado > 0:
-                        if gyro_rasp_z >= alvo_giro: 
-                            tanki.stop()
-                            # Zerando as variáveis originais
-                            contD = 0
-                            contE = 0
-                            contM = 0
-                            pretodir = 0
-                            pretoesq = 0
-                            break
-                    else:
-                        if gyro_rasp_z <= alvo_giro: 
-                            tanki.stop()
-                            # Zerando as variáveis originais
-                            contD = 0
-                            contE = 0
-                            contM = 0
-                            pretodir = 0
-                            pretoesq = 0
-                            break
-                # ---------------------------------
-                motorB.stop()
-                motorC.stop()
-                tanki.turn(-50)
-                tanki.stop()
-                previsao_camera = None # Limpa a memória
-            elif previsao_camera == "depois":
+                    motorB.stop()
+                    motorC.stop()
+                    previsao_camera = None 
+                    
+                    # [NOVO - HANDSHAKE] Avisa a Raspberry que terminou o giro e ela pode destrancar
+                    ser.write(b"passou_verde\n")
+            elif previsao_camera == "dois verdes" or verdeDireita :
+                wait(10)
+                if verdeEsquerda :
+                    tanki.stop()
+                    ev3.speaker.beep(600) 
+                    print(">>> EXECUTANDO BECO + camera")
+                    tanki.turn(30)
+                    tanki.straight(190)
+                    tanki.stop()
+                    
+                    motorB.stop()
+                    motorC.stop()
+                    tanki.turn(-50)
+                    tanki.stop()
+                    previsao_camera = None # Limpa a memória
+                    
+                    # [NOVO - HANDSHAKE] Avisa a Raspberry que terminou o giro e ela pode destrancar
+                    ser.write(b"passou_verde\n")
+            elif verdeDireita:
+                if verdeEsquerda:
+                    tanki.stop()
+                    ev3.speaker.beep(600) 
+                    print(">>> EXECUTANDO BECO")
+                    tanki.turn(30)
+                    tanki.straight(190)
+                    tanki.stop()
+                    
+                    motorB.stop()
+                    motorC.stop()
+                    tanki.turn(-50)
+                    tanki.stop()
+                    previsao_camera = None # Limpa a memória
+                    
+                    # [NOVO - HANDSHAKE] Avisa a Raspberry que terminou o giro e ela pode destrancar
+                    ser.write(b"passou_verde\n")
+
+            elif previsao_camera == "depois" and meio1 <= 30 or meio2 <= 30 and cloresq == 1 or clordir == 1:
                 tanki.stop()
                 ev3.speaker.beep(800, 200) 
                 print(">>> SEGUINDO POR TEMPO (GAP/DEPOIS)")
