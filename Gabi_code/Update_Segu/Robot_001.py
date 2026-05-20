@@ -9,6 +9,7 @@ from pybricks.robotics import DriveBase
 from pybricks.media.ev3dev import SoundFile, ImageFile
 from pybricks.iodevices import UARTDevice
 from servos import Servos
+from segue import Segue
 import sys
 import time
 
