@@ -10,6 +10,8 @@ from pybricks.media.ev3dev import SoundFile, ImageFile
 from pybricks.iodevices import UARTDevice
 import sys
 import time
+from servos import Servos
+from segue import Segue
 
 ####################################################################################################
 ev3= EV3Brick()
