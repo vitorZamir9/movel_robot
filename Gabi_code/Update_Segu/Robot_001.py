@@ -13,6 +13,7 @@ import time
 from servos import Servos
 from segue import Segue
 from green import Green
+from black909 import Black909
 
 ####################################################################################################
 ev3= EV3Brick()
@@ -45,8 +46,9 @@ tanki = DriveBase(motorB, motorC, wheel_diameter= 55.5 , axle_track=104.0) #isso
 tanki.settings(straight_speed=999999, straight_acceleration=999999, turn_rate=999999, turn_acceleration=99999)
 
 #------> funções classes <------
-motores = Segue(motorB,motorC)
+motores = Segue(motorB, motorC)
 grein = Green(tanki, motorB, motorC, sensor1, ev3, ser, motores)
+blackMove = Black909(tanki, motorB, motorC, sensor1, ev3)
 
 # ---> VARIÁVEIS DE COMUNICAÇÃO COM A RASPBERRY <---
 gyro_rasp_z = 0.0 
@@ -293,77 +295,7 @@ def sensor():
         # 9. ALL SENSORS DETECTED WHITE
         # ==========================================
         if fora1 >= 90 and fora2 >= 90 and meio1 >= 90 and meio2 >= 90:
-            if pretodir > 0: 
-                print("90preto esquerda")
-                tanki.turn(10)
-                tanki.stop() 
-                motorB.stop()
-                wait(100)
-                ev3.speaker.beep()
-                motorB.dc(-100)
-                motorC.dc(-100)
-                motorB.dc(-100)
-                motorC.dc(-100)
-                retorno = sensor1.read(0)
-                fora2 = retorno[3]#direita  REAL>>>esquerda
-                wait(100)
-                while True:
-                    retorno = sensor1.read(0)
-                    fora2 = retorno[3]#direita  REAL>>>esquerda
-                    wait(100)
-                    print(fora2)
-                    if fora2 <= 50 :
-                        tanki.stop()
-                        pretodir = 0
-                        pretoesq = 0
-                        break
-                print("fez")
-                wait(100)
-                motorB.stop()
-                motorC.stop()    
-            #tsttttttttttttttttttt direitaaaaaaaaaaaa
-            #tsttttttttttttttttttt direitaaaaaaaaaaaa
-            #tsttttttttttttttttttt direitaaaaaaaaaaaa
-            elif pretoesq > 0:
-                print("90preto direita")
-                tanki.turn(10)
-                tanki.stop() 
-                motorB.stop()
-                wait(100)
-                ev3.speaker.beep()
-                motorB.dc(100)
-                motorC.dc(100)
-                motorB.dc(100)
-                motorC.dc(100)
-                retorno = sensor1.read(0)
-                fora1 = retorno[0]#esquerda REAL>>>direita
-                wait(100)
-                while True:
-                    retorno = sensor1.read(0)
-                    fora1 = retorno[0]#esquerda REAL>>>direita
-                    wait(100)
-                    print(fora1)
-                    if fora1 <= 50 :
-                        tanki.stop()
-                        pretodir = 0
-                        pretoesq = 0
-                        contGap=0
-                        break
-                print("fez")
-                wait(100)
-                motorB.stop()
-                motorC.stop()
-                #tsttttttttttttttttttt esquerdaaaaaaaaaaaaa
-                #tsttttttttttttttttttt esquerdaaaaaaaaaaaaa
-                #tsttttttttttttttttttt esquerdaaaaaaaaaaaaa
-            else:
-                # GAP
-                ev3.speaker.beep(100)
-                tanki.stop()
-                #fazer com que o robo agora va para o outro lado
-                #ou seja fazer com que o robo va para frente ate ver a linha preta
-                #utilizar os sensores fora1,meio1,meio2,fora2 para poder identificar a linha
-                #importante que o gap não atrapalhe a correção quando o robo perde a linha
+            pretoesq, pretodir = blackMove.blackORwhite(fora1, meio1, meio2, fora2, pretoesq, pretodir)
         # ==========================================
         # 10. CONTROLO PID (SEGUIR LINHA)
         # ==========================================
