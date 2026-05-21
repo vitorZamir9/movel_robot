@@ -170,7 +170,20 @@ def sensor():
         # ==========================================
         # 3. VERIFICAÇÃO SE O ROBÔ ESTÁ PARADO
         # ==========================================
-        
+        # tanki.state()[3] > rotação do eixo graus por segundos
+        parado=0
+        print(tanki.state()[3],"parado: ",parado)
+        if tanki.state()[3] > 60:
+            # Se estiver alta a rotação dos eixos ele zera a informação que ta parado
+            parado = 0
+        elif tanki.state()[3] < 20:
+            # Se tiver baixa a rotação dos eixos ele começa a somar
+            parado = parado + 1
+        elif parado > 20 :
+            tanki.stop()
+            ev3.speaker.beep(600)# aviso sonoro
+            # Aqui coloca a lógica doq fazer quando ele estiver totalmente parado
+            break
         # ==========================================
         # 4. RED TAPE
         # ==========================================
