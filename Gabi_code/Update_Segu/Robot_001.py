@@ -206,6 +206,11 @@ def sensor():
         esqgray1 = B1 > 50 and B1 < 66 and C1 > 24 and C1 < 31 and cloresq == 6
         mindgray1 = B3 > 50 and B3 < 66 and C3 > 24 and C3 < 31 and clormind == 6 #calibrar o prata não reflectivo
         dirgray1 = B2 > 50 and B2 < 66 and C2> 24 and C2 < 31 and clordir == 6
+        if esqgray and mindgray and dirgray or y==0 :
+            wait(10)
+            if esqgray and mindgray and dirgray and y==0 :
+                tanki.stop()
+                ev3.speaker.beep(900)
         # ==========================================
         # 6. BUMPER PRESSED/ULTRASSÔNICO
         # ==========================================
