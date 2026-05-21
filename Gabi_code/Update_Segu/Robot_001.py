@@ -14,6 +14,7 @@ from servos import Servos
 from segue import Segue
 from green import Green
 from black909 import Black909
+from silver import Silver
 
 ####################################################################################################
 ev3= EV3Brick()
@@ -49,7 +50,16 @@ tanki.settings(straight_speed=999999, straight_acceleration=999999, turn_rate=99
 motores = Segue(motorB, motorC)
 grein = Green(tanki, motorB, motorC, sensor1, ev3, ser, motores)
 blackMove = Black909(tanki, motorB, motorC, sensor1, ev3)
-
+silver = Silver(
+    tanki      = tanki,
+    motorB     = motorB,
+    motorC     = motorC,
+    sensor1    = sensor1,
+    multiplex1 = multiplex1,
+    ev3        = ev3,
+    ser        = ser,
+    servosP    = servosP
+)
 # ---> VARIÁVEIS DE COMUNICAÇÃO COM A RASPBERRY <---
 gyro_rasp_z = 0.0 
 gyro_rasp_y = 0.0
@@ -206,11 +216,43 @@ def sensor():
         esqgray1 = B1 > 50 and B1 < 66 and C1 > 24 and C1 < 31 and cloresq == 6
         mindgray1 = B3 > 50 and B3 < 66 and C3 > 24 and C3 < 31 and clormind == 6 #calibrar o prata não reflectivo
         dirgray1 = B2 > 50 and B2 < 66 and C2> 24 and C2 < 31 and clordir == 6
-        if esqgray and mindgray and dirgray :
+        if esqgray and mindgray and dirgray:
             wait(10)
-            if esqgray and mindgray and dirgray  :
+            if esqgray and mindgray and dirgray:
                 tanki.stop()
                 ev3.speaker.beep(900)
+ 
+                # ==========================================
+                # RESGATE — chama a classe Silver
+                # ==========================================
+                entradaR = silver.enter(esqgray, mindgray, dirgray)
+                print("Entrada no resgate:", entradaR)
+ 
+                # Pegar vítimas vivas (Silver Ball) — 2 no total
+                resultado_vivas = silver.clawLife()
+                print("Resultado clawLife:", resultado_vivas)
+ 
+                # Pegar vítima morta (Black Ball) — 1 no total
+                resultado_mortas = silver.clawDead()
+                print("Resultado clawDead:", resultado_mortas)
+ 
+                # Verificação dos dados de vítimas
+                print("=== VERIFICAÇÃO FINAL DE VÍTIMAS ===")
+                print("Total:", silver.vitimas,
+                      "| Black:", silver.vitimaBLACK,
+                      "| Silver:", silver.vitimaSILVER)
+ 
+                # Entregar nos triângulos (se pegou todas)
+                if resultado_mortas["sairdoRESGATE"] == 0:
+                    silver.triangulo()
+ 
+                # Sair do resgate
+                silver.exit()
+ 
+                # Retomar seguir linha
+                tanki.settings(straight_speed=999999, straight_acceleration=999999,
+                                turn_rate=999999, turn_acceleration=99999)
+                continue  # volta pro loop de seguir linha
         # ==========================================
         # 6. BUMPER PRESSED/ULTRASSÔNICO
         # ==========================================
