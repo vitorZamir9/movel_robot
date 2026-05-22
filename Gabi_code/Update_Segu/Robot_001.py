@@ -41,13 +41,13 @@ pretodir = 0
 integral = 0
 derivative = 0
 PESO_MEIO = 1.0
-PESO_FORA = 2.25
+PESO_FORA = 2.275
 #----> drivebase <----
 tanki = DriveBase(motorB, motorC, wheel_diameter= 55.5 , axle_track=104.0) #isso funciona para movimentos do robô, alguns, mas é melhor usar o motorB e C dc
 tanki.settings(straight_speed=999999, straight_acceleration=999999, turn_rate=999999, turn_acceleration=99999)
 
 #------> funções classes <------
-motores = Segue(motorB, motorC)
+motores = Segue(motorB, motorC, PESO_FORA, PESO_MEIO)
 grein = Green(tanki, motorB, motorC, sensor1, ev3, ser, motores)
 blackMove = Black909(tanki, motorB, motorC, sensor1, ev3)
 silver = Silver(
@@ -150,7 +150,7 @@ def sensor():
         S1, S3, S2 = (retorno[21]*2), (retorno[24]*2), (retorno[27]*2)
         V1, V3, V2 = (retorno[22]*2), (retorno[25]*2), (retorno[28]*2)
         
-        alvo = 15 # Alvo para a calibração do HSV do verde
+        alvo = 18 # Alvo para a calibração do HSV do verde
         # ==========================================
         # 1.1 LEITURA DO SENSOR MULTIPLEX
         # ==========================================
@@ -173,18 +173,18 @@ def sensor():
         # ==========================================
         # Se gyro_rasp_y for maior que 10, o robô está subindo
         # Se for menor que -10, está descendo
-        if 'gyro_rasp_y' in globals() and gyro_rasp_y > 10:
-            kp_atual, ki_atual, base_atual = 3.0, 0.02, 180 # Força na subida
-        elif 'gyro_rasp_y' in globals() and gyro_rasp_y < -10:
-            kp_atual, ki_atual, base_atual = 2.0, 0.01, 100 # Cuidado na descida
-        else:
-            kp_atual, ki_atual, base_atual = 2.5, 0.01, 120 # Plano
+        #if gyro_rasp_y > 10:
+        #    kp_atual, ki_atual, base_atual = 3.0, 0.02, 180   # subindo
+        #elif gyro_rasp_y < -10:
+        #    kp_atual, ki_atual, base_atual = 2.0, 0.01, 100   # descendo
+        #else:
+        #    kp_atual, ki_atual, base_atual = 2.5, 0.01, 120   # plano
         # ==========================================
         # 3. VERIFICAÇÃO SE O ROBÔ ESTÁ PARADO
         # ==========================================
         # tanki.state()[3] > rotação do eixo graus por segundos
         parado=0
-        print(tanki.state()[3],"parado: ",parado)
+        #print(tanki.state()[3],"parado: ",parado)
         if tanki.state()[3] > 60:
             # Se estiver alta a rotação dos eixos ele zera a informação que ta parado
             parado = 0
@@ -216,9 +216,10 @@ def sensor():
         esqgray1 = B1 > 50 and B1 < 66 and C1 > 24 and C1 < 31 and cloresq == 6
         mindgray1 = B3 > 50 and B3 < 66 and C3 > 24 and C3 < 31 and clormind == 6 #calibrar o prata não reflectivo
         dirgray1 = B2 > 50 and B2 < 66 and C2> 24 and C2 < 31 and clordir == 6
+        y=1
         if esqgray and mindgray and dirgray:
             wait(10)
-            if esqgray and mindgray and dirgray:
+            if esqgray and mindgray and dirgray and y==0:
                 tanki.stop()
                 ev3.speaker.beep(900)
  
@@ -336,8 +337,8 @@ def sensor():
         # ==========================================
         previsao_camera = grein.MoveGreen(
         H1, S1, V1, H2, S2, V2, H3, S3, V3, alvo, 
-        fora1, meio1, meio2, fora2, previsao_camera, cloresq, clordir
-        )
+        fora1, meio1, meio2, fora2, previsao_camera, cloresq, clordir,
+        pretoesq, pretodir)
         # ==========================================
         # 9. ALL SENSORS DETECTED WHITE
         # ==========================================
@@ -346,7 +347,7 @@ def sensor():
         # ==========================================
         # 10. CONTROLO PID (SEGUIR LINHA)
         # ==========================================
-        motores.PID(fora1,meio1,meio2,fora2,2.5,0.1,0.01,120)
+        motores.PID(fora1,meio1,meio2,fora2,2.4,0.1,0.01,120)
         # ==========================================
         # 11. BUTTON STOP IS ACTIVE
         # ==========================================
@@ -372,6 +373,19 @@ def sensor():
                 if botao_stop == 0:
                     motorB.stop()
                     motorC.stop() 
+
+def teste():
+    while True:
+        retorno = sensor1.read(2)
+
+        # Leitura dos sensores para seguir linha
+        fora1 = retorno[3] # esquerda 
+        meio1 = retorno[2] # esquerda 
+        meio2 = retorno[1] # direita  
+        fora2 = retorno[0] # direita  
+
+        print("fora1: ", fora1,"meio1: ", meio1,"meio2: ", meio2,"fora2: ", fora2)
+        wait(10)
 # ==========================================
 # MESA DE CALIBRAR
 # ==========================================
@@ -379,3 +393,4 @@ def sensor():
 #calibraBranco()
 #calibraPreto()
 sensor()
+#teste()

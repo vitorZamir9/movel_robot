@@ -1,5 +1,5 @@
 class Segue:
-    def __init__(self,motorB,motorC):
+    def __init__(self,motorB,motorC,PESO_FORA,PESO_MEIO):
         self.motorB = motorB
         self.motorC = motorC
         #self.kp = 2.5
@@ -8,8 +8,8 @@ class Segue:
         #self.base = 120
         self.integral = 0
         self.old_error = 0
-        self.PESO_MEIO = 1.0
-        self.PESO_FORA = 2.25
+        self.PESO_MEIO = PESO_MEIO
+        self.PESO_FORA = PESO_FORA
     
     def PID(self,fora1,meio1,meio2,fora2,kp,kd,ki,base):
         #essas 4 variaveis vao sair daqui quando ja estiver com a programação que o robo identifica inclinação

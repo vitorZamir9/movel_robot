@@ -21,11 +21,11 @@ class Black909:
             self.motorB.dc(-100)
             self.motorC.dc(-100)
             retorno = self.sensor1.read(0)
-            fora2 = retorno[3] #direita  REAL>>>esquerda
+            fora2 = retorno[3] #direita 
             wait(100)
             while True:
                 retorno = self.sensor1.read(0)
-                fora2 = retorno[3] #direita  REAL>>>esquerda
+                fora2 = retorno[3] #direita  
                 wait(100)
                 print(fora2)
                 if fora2 <= 50:
@@ -53,11 +53,11 @@ class Black909:
             self.motorB.dc(100)
             self.motorC.dc(100)
             retorno = self.sensor1.read(0)
-            fora1 = retorno[0] #esquerda REAL>>>direita
+            fora1 = retorno[0] #esquerda 
             wait(100)
             while True:
                 retorno = self.sensor1.read(0)
-                fora1 = retorno[0] #esquerda REAL>>>direita
+                fora1 = retorno[0] #esquerda 
                 wait(100)
                 print(fora1)
                 if fora1 <= 50:
@@ -76,24 +76,9 @@ class Black909:
             
         else:
             # GAP
-            self.ev3.speaker.beep(100)
-            self.tanki.stop()
+            self.ev3.speaker.beep(1000)
+            print("gaap")
             
-            # Vai para frente reto
-            self.tanki.drive(100, 0)
-            
-            # Fica lendo até achar a linha preta
-            while True:
-                retorno = self.sensor1.read(2) # Lê todos os sensores
-                fora1_gap = retorno[0]
-                meio1_gap = retorno[1]
-                meio2_gap = retorno[2]
-                fora2_gap = retorno[3]
-                
-                if fora1_gap <= 50 or meio1_gap <= 50 or meio2_gap <= 50 or fora2_gap <= 50:
-                    self.tanki.stop()
-                    break
-
             #fazer com que o robo agora va para o outro lado
             #ou seja fazer com que o robo va para frente ate ver a linha preta
             #utilizar os sensores fora1,meio1,meio2,fora2 para poder identificar a linha
