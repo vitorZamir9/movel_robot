@@ -169,16 +169,52 @@ def sensor():
         ChoqueESQ= retorno1[4]
         ChoqueDIR= retorno1[7]
         # ==========================================
-        # 2. VERIFICAÇÃO DE INCLINAÇÃO
+        # 1.2 LEITURA SERIAL — GIROSCÓPIO E CÂMERA
+        # Precisa estar antes do módulo 2 para gyro_rasp_y estar atualizado
         # ==========================================
-        # Se gyro_rasp_y for maior que 10, o robô está subindo
-        # Se for menor que -10, está descendo
-        #if gyro_rasp_y > 10:
-        #    kp_atual, ki_atual, base_atual = 3.0, 0.02, 180   # subindo
-        #elif gyro_rasp_y < -10:
-        #    kp_atual, ki_atual, base_atual = 2.0, 0.01, 100   # descendo
-        #else:
-        #    kp_atual, ki_atual, base_atual = 2.5, 0.01, 120   # plano
+        data = ser.read_all()
+        if data:
+            try:
+                buffer_serial += data.decode('utf-8', 'ignore')
+                while '\n' in buffer_serial:
+                    linha_cmd, buffer_serial = buffer_serial.split('\n', 1)
+                    cmd = linha_cmd.strip()
+                    if not cmd or cmd == "frente":
+                        continue
+                    if cmd.startswith("MPU_Z:"):
+                        try:
+                            gyro_rasp_z = float(cmd.split(":")[1].strip())
+                        except:
+                            pass
+                        continue
+                    if cmd.startswith("MPU_P:"):
+                        try:
+                            gyro_rasp_y = float(cmd.split(":")[1].strip())
+                        except:
+                            pass
+                        continue
+                    # Atualiza a Memória Tática da câmara para o verde
+                    print("CAMERA VÊ O FUTURO:", cmd)
+                    if "esquerda antes" in cmd:
+                        previsao_camera = "esquerda"
+                    elif "direita antes" in cmd:
+                        previsao_camera = "direita"
+                    elif "dois verdes" in cmd:
+                        previsao_camera = "beco"
+                    elif "verde depois" in cmd:
+                        previsao_camera = "depois"
+            except Exception as e:
+                pass
+        # ==========================================
+        # 2. VERIFICAÇÃO DE INCLINAÇÃO
+        # gyro_rasp_y já está atualizado pelo módulo 1.2
+        # ==========================================
+        if gyro_rasp_y > 10:
+            kp_atual, ki_atual, base_atual = 3.0, 0.02, 180   # subindo
+        elif gyro_rasp_y < -10:
+            kp_atual, ki_atual, base_atual = 2.0, 0.01, 100   # descendo
+        else:
+            kp_atual, ki_atual, base_atual = 2.5, 0.01, 120   # plano
         # ==========================================
         # 3. VERIFICAÇÃO SE O ROBÔ ESTÁ PARADO
         # ==========================================
@@ -297,43 +333,8 @@ def sensor():
              if pretodir > 0:
                 pretodir -= 1
         # ==========================================
-        # 8. ATUALIZAR LEITURA CÂMERA PRÉ-GREEN E GIROSCÓPIO
-        # ==========================================
-        data = ser.read_all()
-        if data:
-            try:
-                buffer_serial += data.decode('utf-8', 'ignore')
-                while '\n' in buffer_serial:
-                    linha_cmd, buffer_serial = buffer_serial.split('\n', 1)
-                    cmd = linha_cmd.strip()
-                    if not cmd or cmd == "frente":
-                        continue
-                    if cmd.startswith("MPU_Z:"):
-                        try:
-                            gyro_rasp_z = float(cmd.split(":")[1].strip())
-                        except:
-                            pass
-                        continue 
-                    if cmd.startswith("MPU_P:"): # Agora olha pro Pitch
-                        try:
-                            gyro_rasp_y = float(cmd.split(":")[1].strip())
-                        except:
-                            pass
-                        continue
-                    # Atualiza a Memória Tática da câmara para o verde
-                    print("CAMERA VÊ O FUTURO:", cmd)
-                    if "esquerda antes" in cmd:
-                        previsao_camera = "esquerda"
-                    elif "direita antes" in cmd:
-                        previsao_camera = "direita"
-                    elif "dois verdes" in cmd:
-                        previsao_camera = "beco"
-                    elif "verde depois" in cmd:
-                        previsao_camera = "depois"     
-            except Exception as e:
-                pass
-        # ==========================================
-        # 8.1 GREEN
+        # 8. GREEN
+        # A leitura serial foi movida para o módulo 1.2
         # ==========================================
         previsao_camera = grein.MoveGreen(
         H1, S1, V1, H2, S2, V2, H3, S3, V3, alvo, 
