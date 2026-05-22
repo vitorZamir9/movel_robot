@@ -126,10 +126,10 @@ def sensor():
         retorno = sensor1.read(2)
 
         # Leitura dos sensores para seguir linha
-        fora1 = retorno[0] # esquerda REAL>>>direita
-        meio1 = retorno[1] # esquerda REAL>>>direita
-        meio2 = retorno[2] # direita  REAL>>>esquerda
-        fora2 = retorno[3] # direita  REAL>>>esquerda
+        fora1 = retorno[3] # esquerda 
+        meio1 = retorno[2] # esquerda 
+        meio2 = retorno[1] # direita  
+        fora2 = retorno[0] # direita  
 
         # Leitura da posição do sensor sobre a linha preta
         posicao = (retorno[29]*2)
