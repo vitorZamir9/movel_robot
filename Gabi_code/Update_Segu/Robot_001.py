@@ -12,6 +12,9 @@ import sys
 import time
 from servos import Servos
 from segue import Segue
+from green import Green
+from black909 import Black909
+from silver import Silver
 
 ####################################################################################################
 ev3= EV3Brick()
@@ -24,6 +27,10 @@ serialservo = UARTDevice(Port.S5, baudrate=115200, timeout=0.1)
 servosP= Servos(serialservo,True)
 
 # VARIAVEIS / IMPORT
+kp_atual = 0
+kd_atual = 0
+ki_atual = 0
+base_atual = 0
 error = 0
 powerB = 0
 powerC = 0
@@ -34,15 +41,29 @@ pretodir = 0
 integral = 0
 derivative = 0
 PESO_MEIO = 1.0
-PESO_FORA = 2.25
-
-# ---> VARIÁVEIS DE COMUNICAÇÃO COM A RASPBERRY <---
-gyro_rasp_z = 0.0 
-
-previsao_camera = None # Memória da câmara para o verde
-
+PESO_FORA = 2.275
+#----> drivebase <----
 tanki = DriveBase(motorB, motorC, wheel_diameter= 55.5 , axle_track=104.0) #isso funciona para movimentos do robô, alguns, mas é melhor usar o motorB e C dc
 tanki.settings(straight_speed=999999, straight_acceleration=999999, turn_rate=999999, turn_acceleration=99999)
+
+#------> funções classes <------
+motores = Segue(motorB, motorC, PESO_FORA, PESO_MEIO)
+grein = Green(tanki, motorB, motorC, sensor1, ev3, ser, motores)
+blackMove = Black909(tanki, motorB, motorC, sensor1, ev3)
+silver = Silver(
+    tanki      = tanki,
+    motorB     = motorB,
+    motorC     = motorC,
+    sensor1    = sensor1,
+    multiplex1 = multiplex1,
+    ev3        = ev3,
+    ser        = ser,
+    servosP    = servosP
+)
+# ---> VARIÁVEIS DE COMUNICAÇÃO COM A RASPBERRY <---
+gyro_rasp_z = 0.0 
+gyro_rasp_y = 0.0
+previsao_camera = None # Memória da câmara para o verde
 
 #### initi ####
 def calibraBranco(): #todos os sensores no branco, o mínimo de sommbra possível, robô virado para a luz
@@ -75,6 +96,10 @@ def botao():
 def sensor():
     global old_error  
     global sensor1  
+    global kp_atual
+    global kd_atual
+    global ki_atual
+    global base_atual
     global derivative
     global integral
     global motorB
@@ -125,7 +150,7 @@ def sensor():
         S1, S3, S2 = (retorno[21]*2), (retorno[24]*2), (retorno[27]*2)
         V1, V3, V2 = (retorno[22]*2), (retorno[25]*2), (retorno[28]*2)
         
-        alvo = 15 # Alvo para a calibração do HSV do verde
+        alvo = 18 # Alvo para a calibração do HSV do verde
         # ==========================================
         # 1.1 LEITURA DO SENSOR MULTIPLEX
         # ==========================================
@@ -146,12 +171,31 @@ def sensor():
         # ==========================================
         # 2. VERIFICAÇÃO DE INCLINAÇÃO
         # ==========================================
-        #print(afagem)
-        # FAZER AMANÃ
+        # Se gyro_rasp_y for maior que 10, o robô está subindo
+        # Se for menor que -10, está descendo
+        #if gyro_rasp_y > 10:
+        #    kp_atual, ki_atual, base_atual = 3.0, 0.02, 180   # subindo
+        #elif gyro_rasp_y < -10:
+        #    kp_atual, ki_atual, base_atual = 2.0, 0.01, 100   # descendo
+        #else:
+        #    kp_atual, ki_atual, base_atual = 2.5, 0.01, 120   # plano
         # ==========================================
         # 3. VERIFICAÇÃO SE O ROBÔ ESTÁ PARADO
         # ==========================================
-
+        # tanki.state()[3] > rotação do eixo graus por segundos
+        parado=0
+        #print(tanki.state()[3],"parado: ",parado)
+        if tanki.state()[3] > 60:
+            # Se estiver alta a rotação dos eixos ele zera a informação que ta parado
+            parado = 0
+        elif tanki.state()[3] < 20:
+            # Se tiver baixa a rotação dos eixos ele começa a somar
+            parado = parado + 1
+        elif parado > 20 :
+            tanki.stop()
+            ev3.speaker.beep(600)# aviso sonoro
+            # Aqui coloca a lógica doq fazer quando ele estiver totalmente parado
+            break
         # ==========================================
         # 4. RED TAPE
         # ==========================================
@@ -172,6 +216,44 @@ def sensor():
         esqgray1 = B1 > 50 and B1 < 66 and C1 > 24 and C1 < 31 and cloresq == 6
         mindgray1 = B3 > 50 and B3 < 66 and C3 > 24 and C3 < 31 and clormind == 6 #calibrar o prata não reflectivo
         dirgray1 = B2 > 50 and B2 < 66 and C2> 24 and C2 < 31 and clordir == 6
+        y=1
+        if esqgray and mindgray and dirgray:
+            wait(10)
+            if esqgray and mindgray and dirgray and y==0:
+                tanki.stop()
+                ev3.speaker.beep(900)
+ 
+                # ==========================================
+                # RESGATE — chama a classe Silver
+                # ==========================================
+                entradaR = silver.enter(esqgray, mindgray, dirgray)
+                print("Entrada no resgate:", entradaR)
+ 
+                # Pegar vítimas vivas (Silver Ball) — 2 no total
+                resultado_vivas = silver.clawLife()
+                print("Resultado clawLife:", resultado_vivas)
+ 
+                # Pegar vítima morta (Black Ball) — 1 no total
+                resultado_mortas = silver.clawDead()
+                print("Resultado clawDead:", resultado_mortas)
+ 
+                # Verificação dos dados de vítimas
+                print("=== VERIFICAÇÃO FINAL DE VÍTIMAS ===")
+                print("Total:", silver.vitimas,
+                      "| Black:", silver.vitimaBLACK,
+                      "| Silver:", silver.vitimaSILVER)
+ 
+                # Entregar nos triângulos (se pegou todas)
+                if resultado_mortas["sairdoRESGATE"] == 0:
+                    silver.triangulo()
+ 
+                # Sair do resgate
+                silver.exit()
+ 
+                # Retomar seguir linha
+                tanki.settings(straight_speed=999999, straight_acceleration=999999,
+                                turn_rate=999999, turn_acceleration=99999)
+                continue  # volta pro loop de seguir linha
         # ==========================================
         # 6. BUMPER PRESSED/ULTRASSÔNICO
         # ==========================================
@@ -215,7 +297,7 @@ def sensor():
              if pretodir > 0:
                 pretodir -= 1
         # ==========================================
-        # 8. ATUALIZAR LEITURA CÂMERA PRÉ-GREEN
+        # 8. ATUALIZAR LEITURA CÂMERA PRÉ-GREEN E GIROSCÓPIO
         # ==========================================
         data = ser.read_all()
         if data:
@@ -232,6 +314,12 @@ def sensor():
                         except:
                             pass
                         continue 
+                    if cmd.startswith("MPU_P:"): # Agora olha pro Pitch
+                        try:
+                            gyro_rasp_y = float(cmd.split(":")[1].strip())
+                        except:
+                            pass
+                        continue
                     # Atualiza a Memória Tática da câmara para o verde
                     print("CAMERA VÊ O FUTURO:", cmd)
                     if "esquerda antes" in cmd:
@@ -247,226 +335,19 @@ def sensor():
         # ==========================================
         # 8.1 GREEN
         # ==========================================
-        verdeDireita = H1 >=(95-alvo) and H1 <=(140+alvo) and S1 >=(47-alvo) and S1 <=(70+alvo) and V1 >=(40-alvo) and V1 <=(80+alvo)
-        verdeMeio = H3 >=(95-alvo) and H3 <=(140+alvo) and S3 >=(47-alvo) and S3 <=(73+alvo) and V3 >=(40-alvo) and V3 <=(80+alvo)
-        verdeEsquerda = H2 >=(95-alvo) and H2 <=(140+alvo) and S2 >=(47-alvo) and S2 <=(70+alvo) and V2 >=(40-alvo) and V2 <=(80+alvo)
-        fora1 , meio1 , meio2 , fora2
-
-        if verdeDireita or verdeEsquerda or verdeMeio or previsao_camera != None:
-            
-            if verdeDireita :
-                if meio1 >= 60 or meio2 >= 60 :
-                    tanki.stop()
-                    tanki.turn(70)
-                    tanki.straight(90)
-                    tanki.stop()
-                    ev3.speaker.beep(400) 
-                    print(">>> EXECUTANDO VERDE DIREITA + camera")
-                    tanki.stop()
-                    motorB.dc(100)
-                    motorC.dc(100)
-                    while True:
-                        retorno = sensor1.read(2)
-                        fora1 = retorno[0]
-                        meio1 = retorno[1]
-                        meio2 = retorno[2]
-                        fora2 = retorno[3]
-                        if fora1 <= 40  :
-                            tanki.stop()
-                            break
-                    motorB.stop()
-                    motorC.stop()
-                    previsao_camera = None
-                    
-                    # [NOVO - HANDSHAKE] Avisa a Raspberry que terminou o giro e ela pode destrancar
-                    ser.write(b"passou_verde\n")
-            elif verdeEsquerda:
-                if meio1 >= 60 or meio2 >= 60 :
-                    tanki.stop()
-                    tanki.turn(70)
-                    tanki.straight(-90)
-                    tanki.stop()
-                    ev3.speaker.beep(200) 
-                    print(">>> EXECUTANDO VERDE ESQUERDA")
-                    tanki.stop()
-                    motorB.dc(-100)
-                    motorC.dc(-100)
-                    while True:
-                        retorno = sensor1.read(2)
-                        fora1 = retorno[0]
-                        meio1 = retorno[1]
-                        meio2 = retorno[2]
-                        fora2 = retorno[3]
-                        if fora2 <= 40  :
-                            tanki.stop()
-                            break
-                    motorB.stop()
-                    motorC.stop()
-                    previsao_camera = None 
-                    
-                    # [NOVO - HANDSHAKE] Avisa a Raspberry que terminou o giro e ela pode destrancar
-                    ser.write(b"passou_verde\n")
-            elif previsao_camera == "dois verdes" or verdeDireita :
-                wait(10)
-                if verdeEsquerda :
-                    tanki.stop()
-                    ev3.speaker.beep(600) 
-                    print(">>> EXECUTANDO BECO + camera")
-                    tanki.turn(30)
-                    tanki.straight(190)
-                    tanki.stop()
-                    
-                    motorB.stop()
-                    motorC.stop()
-                    tanki.turn(-50)
-                    tanki.stop()
-                    previsao_camera = None # Limpa a memória
-                    
-                    # [NOVO - HANDSHAKE] Avisa a Raspberry que terminou o giro e ela pode destrancar
-                    ser.write(b"passou_verde\n")
-            elif previsao_camera == "depois" and meio1 <= 30 or meio2 <= 30 and cloresq == 1 or clordir == 1:
-                tanki.stop()
-                ev3.speaker.beep(800, 200) 
-                print(">>> SEGUINDO POR TEMPO (GAP/DEPOIS)")
-                cronometro = StopWatch()
-                tempo_limite = 500  # <--- DEFINE AQUI O TEMPO EM MILISSEGUNDOS (1.5s)
-                while cronometro.time() < tempo_limite:
-                    # É OBRIGATÓRIO ler os sensores dentro do while para o PID funcionar
-                    retorno = sensor1.read(2)
-                    fora1 = retorno[0]
-                    meio1 = retorno[1]
-                    meio2 = retorno[2]
-                    fora2 = retorno[3]
-
-                    kp = 2
-                    kd = 0
-                    ki = 0.15
-                    base = 100
-
-                    esquerda = (meio1 * PESO_MEIO) + (fora1 * PESO_FORA)
-                    direita = (meio2 * PESO_MEIO) + (fora2 * PESO_FORA)
-                    error = (direita - esquerda) * 0.5
-
-                    integral += error * 0.01 
-                    derivative = error - old_error
-                    corr = (error * (kp * (-1))) + (derivative * kd) + (integral * ki)
-                
-                    powerB = base - corr
-                    powerC = -base - corr
-                    increPLUS = 0.5
-                    INCREplus = 1.0
-                    powerB = max(min(int(powerB * (increPLUS if powerB > 0 else INCREplus)), 900), -900)
-                    powerC = max(min(int(powerC * (INCREplus if powerC > 0 else increPLUS)), 900), -900)
-
-                    motorB.dc(powerB)
-                    motorC.dc(powerC)
-                    old_error = error
-                    wait(10) # Pequena pausa para estabilizar o processador
-                
-                previsao_camera = None 
-                print(">>> TEMPO ESGOTADO: Voltando ao loop principal")
+        previsao_camera = grein.MoveGreen(
+        H1, S1, V1, H2, S2, V2, H3, S3, V3, alvo, 
+        fora1, meio1, meio2, fora2, previsao_camera, cloresq, clordir,
+        pretoesq, pretodir)
         # ==========================================
         # 9. ALL SENSORS DETECTED WHITE
         # ==========================================
         if fora1 >= 90 and fora2 >= 90 and meio1 >= 90 and meio2 >= 90:
-            if pretodir > 0: 
-                print("90preto esquerda")
-                tanki.turn(10)
-                tanki.stop() 
-                motorB.stop()
-                wait(100)
-                ev3.speaker.beep()
-                motorB.dc(-100)
-                motorC.dc(-100)
-                motorB.dc(-100)
-                motorC.dc(-100)
-                retorno = sensor1.read(0)
-                fora2 = retorno[3]#direita  REAL>>>esquerda
-                wait(100)
-                while True:
-                    retorno = sensor1.read(0)
-                    fora2 = retorno[3]#direita  REAL>>>esquerda
-                    wait(100)
-                    print(fora2)
-                    if fora2 <= 50 :
-                        tanki.stop()
-                        pretodir = 0
-                        pretoesq = 0
-                        break
-                print("fez")
-                wait(100)
-                motorB.stop()
-                motorC.stop()    
-            #tsttttttttttttttttttt direitaaaaaaaaaaaa
-            #tsttttttttttttttttttt direitaaaaaaaaaaaa
-            #tsttttttttttttttttttt direitaaaaaaaaaaaa
-            elif pretoesq > 0:
-                print("90preto direita")
-                tanki.turn(10)
-                tanki.stop() 
-                motorB.stop()
-                wait(100)
-                ev3.speaker.beep()
-                motorB.dc(100)
-                motorC.dc(100)
-                motorB.dc(100)
-                motorC.dc(100)
-                retorno = sensor1.read(0)
-                fora1 = retorno[0]#esquerda REAL>>>direita
-                wait(100)
-                while True:
-                    retorno = sensor1.read(0)
-                    fora1 = retorno[0]#esquerda REAL>>>direita
-                    wait(100)
-                    print(fora1)
-                    if fora1 <= 50 :
-                        tanki.stop()
-                        pretodir = 0
-                        pretoesq = 0
-                        contGap=0
-                        break
-                print("fez")
-                wait(100)
-                motorB.stop()
-                motorC.stop()
-                #tsttttttttttttttttttt esquerdaaaaaaaaaaaaa
-                #tsttttttttttttttttttt esquerdaaaaaaaaaaaaa
-                #tsttttttttttttttttttt esquerdaaaaaaaaaaaaa
-            else:
-                # GAP
-                ev3.speaker.beep(100)
-                tanki.stop()
-                #fazer com que o robo agora va para o outro lado
-                #ou seja fazer com que o robo va para frente ate ver a linha preta
-                #utilizar os sensores fora1,meio1,meio2,fora2 para poder identificar a linha
-                #importante que o gap não atrapalhe a correção quando o robo perde a linha
+            pretoesq, pretodir = blackMove.blackORwhite(fora1, meio1, meio2, fora2, pretoesq, pretodir)
         # ==========================================
         # 10. CONTROLO PID (SEGUIR LINHA)
         # ==========================================
-        kp = 2.5 #essas 4 variaveis vao sair daqui quando ja estiver com a programação que o robo identifica inclinação
-        kd = 0.1
-        ki = 0.01
-        base = 120
-
-        esquerda = (meio1 * PESO_MEIO) + (fora1 * PESO_FORA)
-        direita = (meio2 * PESO_MEIO) + (fora2 * PESO_FORA)
-        error = (direita - esquerda) * 0.5
-
-        integral += error * 0.01 
-        derivative = error - old_error
-        corr = (error * (kp * (-1))) + (derivative * kd) + (integral * ki)
-    
-        powerB = base - corr
-        powerC = -base - corr
-        increPLUS= 0.5
-        INCREplus= 1.0
-        powerB = max(min(int(powerB * (increPLUS if powerB > 0 else INCREplus)), 900), -900)
-        powerC = max(min(int(powerC * (INCREplus if powerC > 0 else increPLUS)), 900), -900)
-
-        motorB.dc(powerB)
-        motorC.dc(powerC)
-
-        old_error = error
+        motores.PID(fora1,meio1,meio2,fora2,2.4,0.1,0.01,120)
         # ==========================================
         # 11. BUTTON STOP IS ACTIVE
         # ==========================================
@@ -492,6 +373,19 @@ def sensor():
                 if botao_stop == 0:
                     motorB.stop()
                     motorC.stop() 
+
+def teste():
+    while True:
+        retorno = sensor1.read(2)
+
+        # Leitura dos sensores para seguir linha
+        fora1 = retorno[3] # esquerda 
+        meio1 = retorno[2] # esquerda 
+        meio2 = retorno[1] # direita  
+        fora2 = retorno[0] # direita  
+
+        print("fora1: ", fora1,"meio1: ", meio1,"meio2: ", meio2,"fora2: ", fora2)
+        wait(10)
 # ==========================================
 # MESA DE CALIBRAR
 # ==========================================
@@ -499,3 +393,4 @@ def sensor():
 #calibraBranco()
 #calibraPreto()
 sensor()
+#teste()
