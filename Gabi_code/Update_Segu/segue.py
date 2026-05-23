@@ -19,7 +19,7 @@ class Segue:
         self.base = base
         esquerda = (meio1 * self.PESO_MEIO) + (fora1 * self.PESO_FORA)
         direita = (meio2 * self.PESO_MEIO) + (fora2 * self.PESO_FORA)
-        error = (direita - esquerda) * 0.5
+        error = (esquerda - direita) * 0.5
 
         self.integral += error * 0.01 
         derivative = error - self.old_error
