@@ -15,6 +15,7 @@ from segue import Segue
 from green import Green
 from black909 import Black909
 from silver import Silver
+from gapwhite import Gapwhite
 
 ####################################################################################################
 ev3= EV3Brick()
@@ -27,10 +28,10 @@ serialservo = UARTDevice(Port.S5, baudrate=115200, timeout=0.1)
 servosP= Servos(serialservo,True)
 
 # VARIAVEIS / IMPORT
-kp_atual = 0
-kd_atual = 0
-ki_atual = 0
-base_atual = 0
+kp_atual = 2.5
+kd_atual = 0.01
+ki_atual = 0.01
+base_atual = 120
 error = 0
 powerB = 0
 powerC = 0
@@ -42,6 +43,7 @@ integral = 0
 derivative = 0
 PESO_MEIO = 1.0
 PESO_FORA = 2.275
+parado=0
 #----> drivebase <----
 tanki = DriveBase(motorB, motorC, wheel_diameter= 55.5 , axle_track=104.0) #isso funciona para movimentos do robô, alguns, mas é melhor usar o motorB e C dc
 tanki.settings(straight_speed=999999, straight_acceleration=999999, turn_rate=999999, turn_acceleration=99999)
@@ -60,6 +62,7 @@ silver = Silver(
     ser        = ser,
     servosP    = servosP
 )
+gap = Gapwhite(tanki, motorB, motorC, sensor1, ev3)
 # ---> VARIÁVEIS DE COMUNICAÇÃO COM A RASPBERRY <---
 gyro_rasp_z = 0.0 
 gyro_rasp_y = 0.0
@@ -105,10 +108,12 @@ def sensor():
     global motorB
     global motorC
     global gyro_rasp_z 
+    global gyro_rasp_y
     global previsao_camera
     global pretodir
     global pretoesq
     global multiplex1
+    global parado
     
     buffer_serial = ""
     
@@ -168,7 +173,7 @@ def sensor():
         # Leitura dos botôes que servem pro parachoque
         ChoqueESQ= retorno1[4]
         ChoqueDIR= retorno1[7]
-        # ==========================================
+      # ==========================================
         # 1.2 LEITURA SERIAL — GIROSCÓPIO E CÂMERA
         # Precisa estar antes do módulo 2 para gyro_rasp_y estar atualizado
         # ==========================================
@@ -181,18 +186,28 @@ def sensor():
                     cmd = linha_cmd.strip()
                     if not cmd or cmd == "frente":
                         continue
-                    if cmd.startswith("MPU_Z:"):
+                    # --- LEITURA DO MPU (ROLL, PITCH, YAW) ---
+                    # Lê a linha: "[MPU] Roll: 1.2° | Pitch: 15.5° | Yaw: 3.4°"
+                    if "[MPU]" in cmd:
                         try:
-                            gyro_rasp_z = float(cmd.split(":")[1].strip())
-                        except:
+                            # Extrai Rotação (Roll) -> Eixo X
+                            texto_roll = cmd.split("Roll: ")[1].split("°")[0]
+                            gyro_rasp_x = float(texto_roll)
+                            
+                            # Extrai Arfagem (Pitch) -> Eixo Y
+                            texto_pitch = cmd.split("Pitch: ")[1].split("°")[0]
+                            gyro_rasp_y = float(texto_pitch)
+                            
+                            # Extrai Guinada (Yaw) -> Eixo Z
+                            texto_yaw = cmd.split("Yaw: ")[1].split("°")[0]
+                            gyro_rasp_z = float(texto_yaw)
+                            
+                            # Imprime os 3 valores lidos no painel do EV3
+                            # print(f"MPU Lido -> Roll: {gyro_rasp_x} | Pitch: {gyro_rasp_y} | Yaw: {gyro_rasp_z}")
+                        except (IndexError, ValueError):
                             pass
                         continue
-                    if cmd.startswith("MPU_P:"):
-                        try:
-                            gyro_rasp_y = float(cmd.split(":")[1].strip())
-                        except:
-                            pass
-                        continue
+                    # -----------------------------------------
                     # Atualiza a Memória Tática da câmara para o verde
                     print("CAMERA VÊ O FUTURO:", cmd)
                     if "esquerda antes" in cmd:
@@ -210,16 +225,19 @@ def sensor():
         # gyro_rasp_y já está atualizado pelo módulo 1.2
         # ==========================================
         if gyro_rasp_y > 10:
+            print("subindo")
             kp_atual, ki_atual, base_atual = 3.0, 0.02, 180   # subindo
         elif gyro_rasp_y < -10:
+            print("descendo")
             kp_atual, ki_atual, base_atual = 2.0, 0.01, 100   # descendo
         else:
+            print("plano")
             kp_atual, ki_atual, base_atual = 2.5, 0.01, 120   # plano
         # ==========================================
         # 3. VERIFICAÇÃO SE O ROBÔ ESTÁ PARADO
         # ==========================================
         # tanki.state()[3] > rotação do eixo graus por segundos
-        parado=0
+        #parado=0
         #print(tanki.state()[3],"parado: ",parado)
         if tanki.state()[3] > 60:
             # Se estiver alta a rotação dos eixos ele zera a informação que ta parado
@@ -227,10 +245,11 @@ def sensor():
         elif tanki.state()[3] < 20:
             # Se tiver baixa a rotação dos eixos ele começa a somar
             parado = parado + 1
-        elif parado > 20 :
+        elif parado > 100 :
             tanki.stop()
             ev3.speaker.beep(600)# aviso sonoro
             # Aqui coloca a lógica doq fazer quando ele estiver totalmente parado
+            print("saiu do codigo pq o robo ficou travado!")
             break
         # ==========================================
         # 4. RED TAPE
@@ -253,9 +272,9 @@ def sensor():
         mindgray1 = B3 > 50 and B3 < 66 and C3 > 24 and C3 < 31 and clormind == 6 #calibrar o prata não reflectivo
         dirgray1 = B2 > 50 and B2 < 66 and C2> 24 and C2 < 31 and clordir == 6
         y=1
-        if esqgray and mindgray and dirgray:
+        if esqgray and mindgray and dirgray or esqgray1 and mindgray1 and dirgray1:
             wait(10)
-            if esqgray and mindgray and dirgray and y==0:
+            if esqgray and mindgray and dirgray or esqgray1 and mindgray1 and dirgray1 and y==0:
                 tanki.stop()
                 ev3.speaker.beep(900)
  
@@ -343,12 +362,28 @@ def sensor():
         # ==========================================
         # 9. ALL SENSORS DETECTED WHITE
         # ==========================================
-        if fora1 >= 90 and fora2 >= 90 and meio1 >= 90 and meio2 >= 90:
-            pretoesq, pretodir = blackMove.blackORwhite(fora1, meio1, meio2, fora2, pretoesq, pretodir)
+        if fora1 > 90 and meio1 > 90 and meio2 > 90 and fora2 > 90:
+            motorB.dc(-100)
+            motorC.dc(100) #trás
+            retorno = sensor1.read(2)
+            while True:
+                retorno = sensor1.read(2)
+                fora1 = retorno[3] # esquerda 
+                meio1 = retorno[2] # esquerda 
+                meio2 = retorno[1] # direita  
+                fora2 = retorno[0] # direita 
+                if fora1 < 50 or meio1 < 50 or meio2 < 50 or fora2 < 50:
+                    motorB.stop()
+                    motorC.stop()
+                    break
+            if fora1 < 50 or fora2 < 50:
+                pretoesq, pretodir = blackMove.blackORwhite(fora1, meio1, meio2, fora2, pretoesq, pretodir)
+            else:
+                gap.Litleshirt(fora1, meio1, meio2, fora2, pretoesq, pretodir)
         # ==========================================
-        # 10. CONTROLO PID (SEGUIR LINHA)
+        # 10. CONTROLE PID (SEGUIR LINHA)
         # ==========================================
-        motores.PID(fora1,meio1,meio2,fora2,2.4,0.1,0.01,120)
+        motores.PID(fora1,meio1,meio2,fora2,kp_atual,kd_atual,ki_atual,base_atual)
         # ==========================================
         # 11. BUTTON STOP IS ACTIVE
         # ==========================================
@@ -375,7 +410,7 @@ def sensor():
                     motorB.stop()
                     motorC.stop() 
 
-def teste():
+def teste_Linha():
     while True:
         retorno = sensor1.read(2)
 
@@ -387,11 +422,22 @@ def teste():
 
         print("fora1: ", fora1,"meio1: ", meio1,"meio2: ", meio2,"fora2: ", fora2)
         wait(10)
+
+def serial():
+    global ser
+    while True:
+        ser.write(b'\r\linha\r\n')
+        #ser.write(b'\r\resgate_on\r\n')
+        #ser.write(b'\r\triangulo\r\n')
+        ser.read_all()
+        print(ser.read_all())
+        wait(100)
 # ==========================================
 # MESA DE CALIBRAR
 # ==========================================
 # Primeiro calibrar o branco e depois o preto
 #calibraBranco()
 #calibraPreto()
-sensor()
+#sensor()
 #teste()
+serial()
