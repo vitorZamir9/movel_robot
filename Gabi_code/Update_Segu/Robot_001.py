@@ -67,7 +67,11 @@ gap = Gapwhite(tanki, motorB, motorC, sensor1, ev3)
 gyro_rasp_z = 0.0 
 gyro_rasp_y = 0.0
 previsao_camera = None # Memória da câmara para o verde
-
+# --->Variáveis de controle do obstáculo pela câmera<---
+obstaculo_camera_pendente = False        # câmera avisou que viu obstáculo
+obstaculo_camera_aguardando_linha = False  # esperando câmera dizer os lados
+obstaculo_camera_resultado_linha = None  # "linha esquerda/direita/ambos/nenhum"
+tempo_espera_linha = 0.0                 # para o timeout de 3s
 #### initi ####
 def calibraBranco(): #todos os sensores no branco, o mínimo de sommbra possível, robô virado para a luz
     retorno = sensor1.read(3)
@@ -114,6 +118,10 @@ def sensor():
     global pretoesq
     global multiplex1
     global parado
+    global obstaculo_camera_pendente
+    global obstaculo_camera_aguardando_linha
+    global obstaculo_camera_resultado_linha
+    global tempo_espera_linha
     
     buffer_serial = ""
     
@@ -173,9 +181,8 @@ def sensor():
         # Leitura dos botôes que servem pro parachoque
         ChoqueESQ= retorno1[4]
         ChoqueDIR= retorno1[7]
-      # ==========================================
+        # ==========================================
         # 1.2 LEITURA SERIAL — GIROSCÓPIO E CÂMERA
-        # Precisa estar antes do módulo 2 para gyro_rasp_y estar atualizado
         # ==========================================
         data = ser.read_all()
         if data:
@@ -186,29 +193,34 @@ def sensor():
                     cmd = linha_cmd.strip()
                     if not cmd or cmd == "frente":
                         continue
-                    # --- LEITURA DO MPU (ROLL, PITCH, YAW) ---
-                    # Lê a linha: "[MPU] Roll: 1.2° | Pitch: 15.5° | Yaw: 3.4°"
+
+                    # --- LEITURA DO MPU ---
                     if "[MPU]" in cmd:
                         try:
-                            # Extrai Rotação (Roll) -> Eixo X
                             texto_roll = cmd.split("Roll: ")[1].split("°")[0]
                             gyro_rasp_x = float(texto_roll)
-                            
-                            # Extrai Arfagem (Pitch) -> Eixo Y
                             texto_pitch = cmd.split("Pitch: ")[1].split("°")[0]
                             gyro_rasp_y = float(texto_pitch)
-                            
-                            # Extrai Guinada (Yaw) -> Eixo Z
                             texto_yaw = cmd.split("Yaw: ")[1].split("°")[0]
                             gyro_rasp_z = float(texto_yaw)
-                            
-                            # Imprime os 3 valores lidos no painel do EV3
-                            # print(f"MPU Lido -> Roll: {gyro_rasp_x} | Pitch: {gyro_rasp_y} | Yaw: {gyro_rasp_z}")
                         except (IndexError, ValueError):
                             pass
                         continue
-                    # -----------------------------------------
-                    # Atualiza a Memória Tática da câmara para o verde
+
+                    # --- OBSTÁCULO DETECTADO PELA CÂMERA ---
+                    if "obstaculo detectado" in cmd:
+                        print("CÂMERA: Possível obstáculo à frente!")
+                        obstaculo_camera_pendente = True
+                        continue
+
+                    # --- RESPOSTA DA CÂMERA SOBRE OS LADOS DA LINHA ---
+                    if "linha " in cmd and obstaculo_camera_aguardando_linha:
+                        print(f"CÂMERA: Resultado da linha -> {cmd}")
+                        obstaculo_camera_resultado_linha = cmd  # "linha esquerda/direita/ambos/nenhum"
+                        obstaculo_camera_aguardando_linha = False
+                        continue
+
+                    # --- PREVISÃO DE VERDE ---
                     print("CAMERA VÊ O FUTURO:", cmd)
                     if "esquerda antes" in cmd:
                         previsao_camera = "esquerda"
@@ -218,6 +230,7 @@ def sensor():
                         previsao_camera = "beco"
                     elif "verde depois" in cmd:
                         previsao_camera = "depois"
+
             except Exception as e:
                 pass
         # ==========================================
@@ -310,10 +323,178 @@ def sensor():
                                 turn_rate=999999, turn_acceleration=99999)
                 continue  # volta pro loop de seguir linha
         # ==========================================
-        # 6. BUMPER PRESSED/ULTRASSÔNICO
+        # 6. BUMPER / CÂMERA / ULTRASSÔNICO
         # ==========================================
-        if ChoqueESQ == 1 or ChoqueDIR == 1 :  #aqui só esta a identificação do parachoque.Precisa atualizar e adicionar com o ultrassônico
-            print("Obstáculo detectado!")
+        # A câmera avisou que viu algo grande na frente.
+        # O EV3 para, confirma pra câmera, espera o resultado dos lados, e desvia.
+        if obstaculo_camera_pendente and not obstaculo_camera_aguardando_linha:
+            print("EV3: Obstáculo pela câmera! Parando para confirmar...")
+            tanki.stop()
+            wait(100)
+            # ALTERAR AQUI[] COM A IDENTIFICAÇÃO DO ULTRASSONICO
+            # Confirma pra Rasp que o EV3 também percebeu e quer saber os lados
+            ser.write(b"confirma obstaculo\n")
+            obstaculo_camera_pendente = False
+            obstaculo_camera_aguardando_linha = True
+            obstaculo_camera_resultado_linha = None
+            tempo_espera_linha = time.time()
+
+        # Aguardando o resultado dos lados da linha da câmera (com timeout de 3s)
+        if obstaculo_camera_aguardando_linha:
+            if obstaculo_camera_resultado_linha is not None:
+                resultado = obstaculo_camera_resultado_linha
+                obstaculo_camera_aguardando_linha = False
+                obstaculo_camera_resultado_linha = None
+                print(f"EV3: Executando desvio com base em '{resultado}'")
+
+                # -----------------------------------------------
+                # LÓGICA DE DESVIO BASEADA NOS LADOS DA LINHA
+                # -----------------------------------------------
+                # "linha esquerda"  → linha só na esq  → desvia pela DIREITA
+                # "linha direita"   → linha só na dir  → desvia pela ESQUERDA
+                # "linha ambos"     → linha dos dois   → desvia pelo lado com mais espaço (usa direita como padrão)
+                # "linha nenhum"    → sem linha visível → desvio padrão (esquerda)
+                # -----------------------------------------------
+                if resultado == "linha esquerda":
+                    # Linha à esquerda → espaço livre à direita → desvia pela direita
+                    print("Desvio: DIREITA (linha só na esq)")
+                    tanki.turn(50)
+                    tanki.straight(-150)
+                    tanki.stop()
+                    motorB.dc(-10)
+                    motorC.dc(100)
+                    wait(1000)
+                    while True:
+                        retorno = sensor1.read(2)
+                        fora1 = retorno[3]
+                        meio1 = retorno[2]
+                        meio2 = retorno[1]
+                        fora2 = retorno[0]
+                        wait(100)
+                        if fora2 < 40 or meio2 < 40:
+                            tanki.stop()
+                            break
+                    tanki.stop()
+                    wait(100)
+                    tanki.turn(30)
+                    tanki.stop()
+                    tanki.straight(-80)
+                    tanki.stop()
+                    wait(100)
+
+                elif resultado == "linha direita":
+                    # Linha à direita → espaço livre à esquerda → desvia pela esquerda (comportamento original)
+                    print("Desvio: ESQUERDA (linha só na dir)")
+                    tanki.turn(-50)
+                    tanki.straight(-150)
+                    tanki.stop()
+                    motorB.dc(100)
+                    motorC.dc(-10)
+                    wait(1000)
+                    while True:
+                        retorno = sensor1.read(2)
+                        fora1 = retorno[3]
+                        meio1 = retorno[2]
+                        meio2 = retorno[1]
+                        fora2 = retorno[0]
+                        wait(100)
+                        if fora1 < 40 or meio1 < 40:
+                            tanki.stop()
+                            break
+                    tanki.stop()
+                    wait(100)
+                    tanki.turn(-30)
+                    tanki.stop()
+                    tanki.straight(-80)
+                    tanki.stop()
+                    wait(100)
+
+                elif resultado == "linha ambos":
+                    # Linha dos dois lados → usa direita como padrão (mais seguro pro layout da pista)
+                    print("Desvio: DIREITA padrão (linha em ambos os lados)")
+                    tanki.turn(50)
+                    tanki.straight(-150)
+                    tanki.stop()
+                    motorB.dc(-10)
+                    motorC.dc(100)
+                    wait(1000)
+                    while True:
+                        retorno = sensor1.read(2)
+                        fora1 = retorno[3]
+                        meio1 = retorno[2]
+                        meio2 = retorno[1]
+                        fora2 = retorno[0]
+                        wait(100)
+                        if fora2 < 40 or meio2 < 40:
+                            tanki.stop()
+                            break
+                    tanki.stop()
+                    wait(100)
+                    tanki.turn(30)
+                    tanki.stop()
+                    tanki.straight(-80)
+                    tanki.stop()
+                    wait(100)
+
+                else:
+                    # "linha nenhum" ou qualquer outro caso → desvio padrão esquerda
+                    print("Desvio: ESQUERDA padrão (sem linha visível)")
+                    tanki.turn(-50)
+                    tanki.straight(-150)
+                    tanki.stop()
+                    motorB.dc(100)
+                    motorC.dc(-10)
+                    wait(1000)
+                    while True:
+                        retorno = sensor1.read(2)
+                        fora1 = retorno[3]
+                        meio1 = retorno[2]
+                        meio2 = retorno[1]
+                        fora2 = retorno[0]
+                        wait(100)
+                        if fora1 < 40 or meio1 < 40:
+                            tanki.stop()
+                            break
+                    tanki.stop()
+                    wait(100)
+                    tanki.turn(-30)
+                    tanki.stop()
+                    tanki.straight(-80)
+                    tanki.stop()
+                    wait(100)
+
+            elif (time.time() - tempo_espera_linha) > 3.0:
+                # Timeout: câmera não respondeu a tempo → desvio padrão esquerda
+                print("EV3: Timeout da câmera! Desvio padrão esquerda.")
+                obstaculo_camera_aguardando_linha = False
+                obstaculo_camera_resultado_linha = None
+                tanki.turn(-50)
+                tanki.straight(-150)
+                tanki.stop()
+                motorB.dc(100)
+                motorC.dc(-10)
+                wait(1000)
+                while True:
+                    retorno = sensor1.read(2)
+                    fora1 = retorno[3]
+                    meio1 = retorno[2]
+                    meio2 = retorno[1]
+                    fora2 = retorno[0]
+                    wait(100)
+                    if fora1 < 40 or meio1 < 40:
+                        tanki.stop()
+                        break
+                tanki.stop()
+                wait(100)
+                tanki.turn(-30)
+                tanki.stop()
+                tanki.straight(-80)
+                tanki.stop()
+                wait(100)
+
+        # --- 6B. BUMPER FÍSICO (mantido igual, funciona independente da câmera) ---
+        if ChoqueESQ == 1 or ChoqueDIR == 1:
+            print("Obstáculo detectado pelo bumper!")
             tanki.turn(-50)
             tanki.straight(-150)
             tanki.stop()
@@ -322,10 +503,10 @@ def sensor():
             wait(1000)
             while True:
                 retorno = sensor1.read(2)
-                fora1 = retorno[0]#esquerda REAL>>>direita
-                meio1 = retorno[1]#esquerda REAL>>>direita
-                meio2 = retorno[2]#direita  REAL>>>esquerda
-                fora2 = retorno[3]#direita  REAL>>>esquerda
+                fora1 = retorno[3]
+                meio1 = retorno[2]
+                meio2 = retorno[1]
+                fora2 = retorno[0]
                 wait(100)
                 if fora1 < 40 or meio1 < 40:
                     tanki.stop()
