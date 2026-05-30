@@ -67,3 +67,20 @@ Certifique-se de estar dentro da pasta `programacao_rasp4/` e execute:
 **Acessando as Câmeras (Dashboard):**
 Assim que o script principal estiver rodando, o servidor local (Flask) será iniciado. Você pode verificar as câmeras, funções e telemetria do robô acessando o seguinte endereço no navegador do seu computador:
 👉 http://10.42.0.1:5000/
+### Como Atualizar a Programação
+Para enviar novas atualizações de código do seu computador para o robô, o processo é muito fácil e automatizado. Siga estes passos para garantir que não haja erros de corrupção de arquivo:
+
+1. **Pare a execução atual no robô:** Antes de enviar a nova versão, vá no terminal SSH onde o script está rodando e pare a execução pressionando `Ctrl + C`. Isso é essencial para que a programação chegue completinha e sem erros de sobrescrita.
+
+2. **Edite e Salve o Código:** Abra a pasta local `PASTA_RASP` no seu editor (como o VS Code) e faça as modificações na programação principal.
+
+   > ⚠️ **MUITO IMPORTANTE:** Nunca esqueça de salvar o arquivo pressionando `Ctrl + S`. Se você não salvar, o sistema enviará a versão antiga para a Raspberry!
+
+3. **Execute o arquivo de envio:** Dentro da pasta `PASTA_RASP`, execute o arquivo `envia.bat`.
+   * Se estiver usando o VS Code, ao executar o `.bat`, ele abrirá o terminal integrado.
+
+4. **Autenticação:** O terminal irá pedir a senha da Raspberry Pi. Digite `senha123` e pressione Enter.
+
+5. **Pronto!** O script fará o envio automaticamente. Assim que concluir, basta voltar ao terminal do robô e rodar o comando:
+        
+        python3 RaspNewforEv3.py
