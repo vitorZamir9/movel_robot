@@ -66,7 +66,7 @@ Certifique-se de estar dentro da pasta `programacao_rasp4/` e execute:
 
 **Acessando as Câmeras (Dashboard):**
 Assim que o script principal estiver rodando, o servidor local (Flask) será iniciado. Você pode verificar as câmeras, funções e telemetria do robô acessando o seguinte endereço no navegador do seu computador:
-👉 http://10.42.0.1:5000/
+👉 http://100.88.179.72:5000
 ### Como Atualizar a Programação
 Para enviar novas atualizações de código do seu computador para o robô, o processo é muito fácil e automatizado. Siga estes passos para garantir que não haja erros de corrupção de arquivo:
 
