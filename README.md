@@ -101,7 +101,7 @@
   Ao detetar a fita prata de entrada do resgate, a Raspberry suspende a câmera inferior e ativa a câmera IMX179 acoplada à garra. Treinamos um modelo <b>YOLOv8</b> otimizado para CPU que deteta vítimas vivas (Silver Ball) e mortas (Black Ball) com alta confiança. O sistema calcula a área em píxeis e a posição (esquerda/meio/direita) da vítima no frame, enviando as coordenadas exatas para o EV3 realizar a aproximação final e o resgate.
 </p>
 
-## Sobre a Equipa New Atom
+## Sobre a Equipe New Atom
 
 <p align="justify">
   A equipe <b>New Atom</b> é formada por estudantes apaixonados por robótica, com um histórico forte em competições como OBR, FLL, FTC e eventos técnicos. Dividimos as nossas funções para otimizar o desenvolvimento de um robô de alto nível:
