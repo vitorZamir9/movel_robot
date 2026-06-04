@@ -98,16 +98,16 @@ GREEN_MIN = np.array([40, 80,  40])
 GREEN_MAX = np.array([90, 255, 255])
 
 # ─── PRATA REFLECTIVA (brilhante, foto 1) ──────────────────────
-SILVER_REFLECT_HSV_MIN = np.array([0,   0,  230])
-SILVER_REFLECT_HSV_MAX = np.array([180, 5, 255])
-SILVER_REFLECT_MIN_AREA = 3000
+SILVER_REFLECT_HSV_MIN = np.array([0,   0,  170])
+SILVER_REFLECT_HSV_MAX = np.array([180, 20, 255])
+SILVER_REFLECT_MIN_AREA = 1500
 
 # ─── CINZA FOSCO / NÃO-REFLECTIVO (foto 2) ─────────────────────
-SILVER_MATTE_HSV_MIN   = np.array([0,   0,  200])
-SILVER_MATTE_HSV_MAX   = np.array([180, 8, 229])
-SILVER_MATTE_MIN_AREA  = 5000
+SILVER_MATTE_HSV_MIN   = np.array([0,   0,  80])
+SILVER_MATTE_HSV_MAX   = np.array([180, 15, 185])
+SILVER_MATTE_MIN_AREA  = 2500
 
-SILVER_MIN_WIDTH_RATIO = 0.40
+SILVER_MIN_WIDTH_RATIO = 0.25
 RESGATE_BLACK_MIN_AREA = 2000
 
 # ══════════════════════════════════════════════════════════════════
@@ -250,10 +250,9 @@ def _detectar_silver_visao(frame_bgr):
             if cv2.contourArea(cnt) < min_area: continue
             x, y, w, h = cv2.boundingRect(cnt)
             if w < (W * SILVER_MIN_WIDTH_RATIO): continue
-            if h > 0 and float(w) / h < 3.0: continue
+            if h > 0 and float(w) / h < 1.5: continue
             return True, tipo
     return False, "nenhum"
-
 
 def detectar_prata(frame_bgr, hud=None):
     global _silver_infer_counter, _silver_confianca, _contador_frames_prata
@@ -389,7 +388,7 @@ def processar_linha_vetorial(frame):
         greens_validos.sort(key=lambda g: g[0])
 
     cnts_blk, _ = cv2.findContours(mask_black, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-    cnts_blk = [c for c in cnts_blk if cv2.contourArea(c) > 3000]
+    cnts_blk = [c for c in cnts_blk if cv2.contourArea(c) > 1500]
 
     alvo_x, alvo_y = CENTRO_X, H // 2
     comando_serial  = "frente"
