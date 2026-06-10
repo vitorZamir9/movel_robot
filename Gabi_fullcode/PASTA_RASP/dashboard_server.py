@@ -6,38 +6,38 @@ app = Flask(__name__)
 _lock = threading.Lock()
 
 _estado = {
-    "modo": "linha",
-    "cmd_camera": "frente",
+    "modo": "bolas",
+    "cmd_camera": "—",
     "obstaculo": "idle",
+    "obst_pct": 0.0,          # percentual 0–100 do score de obstáculo
     "previsao_verde": "—",
     "bumper": "livre",
     "gyro_roll": 0.0,
     "gyro_pitch": 0.0,
     "gyro_yaw": 0.0,
     "fps_imx500": 0.0,
-    "fps_imx179": 0.0,
-    # ── NOVOS: fitas ──────────────────────────────────────────────
-    "fita_prata": False,   # True quando prata visível (qualquer modo)
-    "fita_preta": False,   # True quando preta visível no modo resgate
-    "ultimo_aviso_fita": "—",  # última string de fita recebida
-    # ─────────────────────────────────────────────────────────────
+    # ── NPU ────────────────────────────────────────────────────
+    "npu_ativo": False,
+    "npu_modelo": "—",
+    # ───────────────────────────────────────────────────────────
     "log": [],
     "uptime_start": time.time(),
     "ev3_conectado": True,
 }
 
 _frame_imx500 = None
-_frame_imx179 = None
 
 _callback_modo       = None
 _callback_emergencia = None
 _callback_reset_gyro = None
+
 
 def registrar_callbacks(fn_modo=None, fn_emergencia=None, fn_reset_gyro=None):
     global _callback_modo, _callback_emergencia, _callback_reset_gyro
     _callback_modo       = fn_modo
     _callback_emergencia = fn_emergencia
     _callback_reset_gyro = fn_reset_gyro
+
 
 def atualizar_estado(**kwargs):
     with _lock:
@@ -49,36 +49,28 @@ def atualizar_estado(**kwargs):
             else:
                 _estado[k] = v
 
+
 def atualizar_frame_imx500(frame_bgr):
     global _frame_imx500
     import cv2
-    _, buf = cv2.imencode('.jpg', frame_bgr, [cv2.IMWRITE_JPEG_QUALITY, 65])
+    _, buf = cv2.imencode('.jpg', frame_bgr, [cv2.IMWRITE_JPEG_QUALITY, 70])
     with _lock:
         _frame_imx500 = buf.tobytes()
 
-def atualizar_frame_imx179(frame_bgr):
-    global _frame_imx179
-    import cv2
-    _, buf = cv2.imencode('.jpg', frame_bgr, [cv2.IMWRITE_JPEG_QUALITY, 65])
-    with _lock:
-        _frame_imx179 = buf.tobytes()
 
 def _gen_stream(get_fn):
     while True:
         f = get_fn()
         if f:
             yield b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + f + b'\r\n'
-        time.sleep(0.05)
+        time.sleep(0.04)
+
 
 @app.route('/stream/imx500')
 def stream_imx500():
     return Response(_gen_stream(lambda: _frame_imx500),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
 
-@app.route('/stream/imx179')
-def stream_imx179():
-    return Response(_gen_stream(lambda: _frame_imx179),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route('/api/estado')
 def api_estado():
@@ -87,13 +79,14 @@ def api_estado():
         d["uptime"] = int(time.time() - d["uptime_start"])
     return jsonify(d)
 
+
 @app.route('/api/comando', methods=['POST'])
 def api_comando():
     data = request.get_json()
     cmd  = data.get("cmd", "")
 
     if cmd == "modo" and _callback_modo:
-        novo = data.get("modo", "linha")
+        novo = data.get("modo", "bolas")
         _callback_modo(novo)
         atualizar_estado(log={"msg": f"Painel: modo → '{novo}'", "tipo": "ok"})
         return jsonify({"ok": True})
@@ -110,9 +103,11 @@ def api_comando():
 
     return jsonify({"ok": False, "erro": "comando desconhecido"})
 
+
 @app.route('/')
 def index():
     return render_template_string(HTML)
+
 
 # ══════════════════════════════════════════════════════════════════
 HTML = r"""<!DOCTYPE html>
@@ -122,128 +117,282 @@ HTML = r"""<!DOCTYPE html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>OBR Dashboard</title>
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:#0a0c14;font-family:'Segoe UI',system-ui,sans-serif;color:#e2e8f0;min-height:100vh}
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap');
 
-/* ── topbar ── */
-.topbar{background:#0f1220;border-bottom:1px solid #1e2440;padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between}
-.topbar-l{display:flex;align-items:center;gap:12px}
-.live-dot{width:9px;height:9px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-@keyframes scan{0%{top:0}100%{top:100%}}
-@keyframes blink-silver{0%,100%{opacity:1;box-shadow:0 0 8px #c0c0c060}50%{opacity:.5;box-shadow:none}}
-@keyframes blink-black{0%,100%{opacity:1;box-shadow:0 0 8px #ef444460}50%{opacity:.4;box-shadow:none}}
-.logo{font-size:15px;font-weight:700;color:#f1f5f9;letter-spacing:.5px}
-.logo-sub{font-size:11px;color:#334155;margin-left:2px}
-.topbar-r{display:flex;align-items:center;gap:20px;font-size:12px;color:#475569}
-.chip{color:#7dd3fc;font-family:monospace}
+  :root {
+    --bg:        #07090f;
+    --bg2:       #0c0f1a;
+    --bg3:       #111526;
+    --border:    #1b2035;
+    --border2:   #242b44;
+    --txt:       #c8d6f0;
+    --txt2:      #4a5578;
+    --txt3:      #2a3050;
+    --blue:      #3b82f6;
+    --blue-dim:  #1d3a6e;
+    --cyan:      #22d3ee;
+    --green:     #22c55e;
+    --amber:     #f59e0b;
+    --red:       #ef4444;
+    --silver:    #cbd5e1;
+    --purple:    #a855f7;
+    --orange:    #fb923c;
+    --mono:      'Share Tech Mono', monospace;
+    --sans:      'Rajdhani', sans-serif;
+  }
 
-/* ── layout ── */
-.main{padding:14px;display:grid;gap:12px}
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* ── mode bar ── */
-.mode-bar{background:#0f1220;border:1px solid #1e2440;border-radius:12px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
-.mlabel{font-size:10px;color:#334155;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
-.mbtns{display:flex;gap:8px}
-.mbtn{padding:7px 20px;border-radius:8px;border:1px solid #1e2440;background:transparent;color:#475569;font-size:13px;cursor:pointer;transition:all .18s;font-weight:500}
-.mbtn:hover{border-color:#334155;color:#94a3b8;background:#151929}
-.ml{background:#0ea5e918;border-color:#0ea5e9;color:#38bdf8}
-.mb{background:#f59e0b18;border-color:#f59e0b;color:#fbbf24}
-.mt{background:#a855f718;border-color:#a855f7;color:#c084fc}
-.pill{padding:5px 14px;border-radius:20px;font-size:12px;font-weight:700}
-.pl{background:#0ea5e918;color:#38bdf8;border:1px solid #0ea5e940}
-.pb{background:#f59e0b18;color:#fbbf24;border:1px solid #f59e0b40}
-.pt{background:#a855f718;color:#c084fc;border:1px solid #a855f740}
-.status-r{display:flex;align-items:center;gap:10px}
-.ebtn{padding:7px 16px;border-radius:8px;border:1px solid #ef444440;background:#ef444410;color:#f87171;font-size:12px;cursor:pointer;font-weight:700;transition:all .18s}
-.ebtn:hover{background:#ef444425}
+  body {
+    background: var(--bg);
+    font-family: var(--sans);
+    color: var(--txt);
+    min-height: 100vh;
+    font-size: 14px;
+  }
 
-/* ── câmeras ── */
-.cams{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-@media(max-width:600px){.cams,.bottom-grid{grid-template-columns:1fr}}
-.cam-card{background:#0f1220;border:1px solid #1e2440;border-radius:12px;overflow:hidden;transition:border-color .3s}
-.cam-card.silver-alert{border-color:#c0c0c0;box-shadow:0 0 12px #c0c0c025}
-.cam-card.black-alert{border-color:#ef4444;box-shadow:0 0 12px #ef444425}
-.cam-hdr{padding:9px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1e2440}
-.cam-t{font-size:11px;font-weight:600;color:#64748b;letter-spacing:.5px}
-.badge{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700}
-.b-on{background:#22c55e18;color:#4ade80;border:1px solid #22c55e30}
-.b-silver{background:#c0c0c018;color:#d4d4d4;border:1px solid #c0c0c050;animation:blink-silver .8s infinite}
-.b-black{background:#ef444418;color:#f87171;border:1px solid #ef444440;animation:blink-black .8s infinite}
-.cam-screen{position:relative;background:#060810;overflow:hidden}
-.cam-screen img{width:100%;height:auto;display:block;min-height:120px;object-fit:cover}
-.scanline{position:absolute;width:100%;height:2px;top:0;pointer-events:none;animation:scan 2.5s linear infinite}
-.sl-b{background:linear-gradient(90deg,transparent,#0ea5e930,transparent)}
-.sl-a{background:linear-gradient(90deg,transparent,#f59e0b25,transparent)}
-.sl-s{background:linear-gradient(90deg,transparent,#c0c0c040,transparent)}
-.cam-hud{position:absolute;bottom:6px;left:8px;right:8px;display:flex;justify-content:space-between;pointer-events:none}
-.hud-txt{font-size:10px;font-family:monospace;color:#0ea5e980}
-.hud-txt-a{color:#f59e0b80}
-.fita-overlay{position:absolute;top:0;left:0;right:0;padding:4px 8px;font-size:11px;font-weight:700;font-family:monospace;text-align:center;display:none}
-.fita-overlay.silver{background:#c0c0c030;color:#e2e2e2;border-bottom:1px solid #c0c0c050;display:block}
-.fita-overlay.black{background:#ef444420;color:#f87171;border-bottom:1px solid #ef444440;display:block}
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.06) 2px, rgba(0,0,0,.06) 4px);
+    pointer-events: none;
+    z-index: 9999;
+  }
 
-/* ── fita banner (barra de alerta de fita) ── */
-.fita-bar{display:none;border-radius:10px;padding:10px 16px;align-items:center;gap:10px;font-size:13px;font-weight:600}
-.fita-bar.show{display:flex}
-.fita-bar.silver{background:#c0c0c012;border:1px solid #c0c0c040;color:#d4d4d4}
-.fita-bar.black-fita{background:#ef444412;border:1px solid #ef444440;color:#f87171}
-.fita-bar-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  /* ── topbar ── */
+  .topbar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    height: 48px;
+    padding: 0 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .topbar-l { display: flex; align-items: center; gap: 14px; }
+  .logo { font-family: var(--mono); font-size: 14px; color: var(--cyan); letter-spacing: 2px; }
+  .logo-sub { font-size: 11px; color: var(--txt3); font-family: var(--mono); }
+  .topbar-r { display: flex; align-items: center; gap: 22px; font-family: var(--mono); font-size: 11px; color: var(--txt2); }
+  .chip { color: var(--cyan); }
 
-/* ── grid inferior ── */
-.bottom-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
-.card{background:#0f1220;border:1px solid #1e2440;border-radius:12px;padding:14px}
-.card-t{font-size:10px;color:#334155;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;display:flex;align-items:center;gap:6px}
-.cdot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+  .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
+  .live-dot { animation: pulse 2s infinite; }
 
-/* ── giroscópio ── */
-.gyro-row{display:flex;align-items:center;margin-bottom:9px;gap:8px}
-.gyro-lbl{font-size:11px;color:#475569;width:40px}
-.gyro-track{flex:1;height:3px;background:#1a1f35;border-radius:2px;overflow:hidden}
-.gyro-fill{height:100%;border-radius:2px;transition:width .5s}
-.gyro-val{font-size:12px;font-family:monospace;min-width:50px;text-align:right}
-.fps-row{display:flex;gap:8px;margin-top:10px}
-.fps-chip{flex:1;background:#060810;border-radius:8px;padding:8px;text-align:center}
-.fps-n{font-size:17px;font-weight:700;font-family:monospace;color:#38bdf8}
-.fps-s{font-size:10px;color:#334155;margin-top:1px}
+  .npu-badge { font-family: var(--mono); font-size: 10px; padding: 3px 9px; border-radius: 4px; font-weight: 700; letter-spacing: 1px; }
+  .npu-on  { background: #0d3320; color: #4ade80; border: 1px solid #16a34a50; }
+  .npu-off { background: #2a1a06; color: #fbbf24; border: 1px solid #d9770630; }
 
-/* ── estado ── */
-.cmd-row{background:#060810;border-radius:8px;padding:8px 12px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center}
-.cmd-k{font-size:11px;color:#334155}
-.cmd-v{font-size:12px;font-family:monospace;font-weight:600}
-.cv-ok{color:#22c55e}
-.cv-idle{color:#334155}
-.cv-warn{color:#f59e0b;animation:pulse .8s infinite}
-.cv-silver{color:#c0c0c0;animation:blink-silver .8s infinite}
-.cv-black{color:#f87171;animation:blink-black .8s infinite}
+  /* ── layout ── */
+  .main { padding: 12px; display: grid; gap: 10px; }
 
-/* ── fita indicadores no card de estado ── */
-.fita-pills{display:flex;gap:8px;margin-bottom:7px}
-.fita-pill{flex:1;border-radius:8px;padding:7px 8px;text-align:center;font-size:11px;font-weight:700;border:1px solid;transition:all .3s}
-.fp-silver-off{background:#1a1f35;border-color:#1e2440;color:#334155}
-.fp-silver-on{background:#c0c0c018;border-color:#c0c0c050;color:#d4d4d4;animation:blink-silver .8s infinite}
-.fp-black-off{background:#1a1f35;border-color:#1e2440;color:#334155}
-.fp-black-on{background:#ef444418;border-color:#ef444440;color:#f87171;animation:blink-black .8s infinite}
+  /* ── mode bar ── */
+  .mode-bar {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 11px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .mlabel { font-family: var(--mono); font-size: 9px; color: var(--txt3); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 7px; }
+  .mbtns { display: flex; gap: 7px; flex-wrap: wrap; }
+  .mbtn {
+    padding: 6px 18px; border-radius: 6px; border: 1px solid var(--border2);
+    background: transparent; color: var(--txt2);
+    font-family: var(--sans); font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all .15s; letter-spacing: .5px;
+  }
+  .mbtn:hover { color: var(--txt); background: var(--bg3); }
+  .mb  { background: #2a1a0610; border-color: var(--amber);  color: #fbbf24; }
+  .mt  { background: #1a102a10; border-color: var(--purple); color: #c084fc; }
+  .mo  { background: #1a0a0a10; border-color: var(--orange); color: #fb923c; }
 
-/* ── controles ── */
-.ctrl-btn{width:100%;padding:9px;border-radius:8px;border:1px solid #1e2440;background:transparent;color:#64748b;font-size:12px;cursor:pointer;transition:all .18s;font-weight:500;margin-bottom:7px;text-align:center}
-.ctrl-btn:hover{border-color:#334155;color:#94a3b8;background:#151929}
-.ctrl-btn-warn{border-color:#f59e0b30;color:#f59e0b}
-.ctrl-btn-warn:hover{background:#f59e0b10}
+  .pill { font-family: var(--mono); font-size: 11px; font-weight: 700; padding: 4px 14px; border-radius: 20px; letter-spacing: 1px; }
+  .pb { background: #2a1a0618; color: #fbbf24; border: 1px solid #f59e0b40; }
+  .pt { background: #1a102a18; color: #c084fc; border: 1px solid #a855f740; }
+  .po { background: #1a0a0a18; color: #fb923c; border: 1px solid #fb923c40; }
 
-/* ── log ── */
-.log-full{grid-column:1/-1}
-.log-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.log-wrap{background:#060810;border-radius:8px;padding:8px;max-height:110px;overflow-y:auto}
-.log-line{font-size:11px;font-family:monospace;display:flex;gap:8px;padding:2px 0;border-bottom:1px solid #0f1220}
-.log-line:last-child{border:none}
-.log-ts{color:#1e2440;min-width:52px}
-.log-ok{color:#22c55e}
-.log-warn{color:#f59e0b}
-.log-info{color:#38bdf8}
-.log-silver{color:#c0c0c0}
-.log-def{color:#334155}
-.conn-line{display:flex;align-items:center;gap:6px;font-size:11px;color:#22c55e;margin-top:10px}
+  .status-r { display: flex; align-items: center; gap: 10px; }
+  .ebtn {
+    padding: 7px 14px; border-radius: 7px; border: 1px solid #ef444440;
+    background: #ef444412; color: #f87171;
+    font-family: var(--sans); font-size: 12px; font-weight: 700;
+    cursor: pointer; letter-spacing: .5px; transition: all .15s;
+  }
+  .ebtn:hover { background: #ef444428; }
+
+  /* ── câmera ── */
+  .cam-wrap {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden;
+    transition: border-color .3s, box-shadow .3s;
+  }
+  .cam-wrap.obst-alert { border-color: var(--orange); box-shadow: 0 0 20px #fb923c25; }
+  .cam-hdr {
+    padding: 8px 14px; display: flex; align-items: center;
+    justify-content: space-between; border-bottom: 1px solid var(--border);
+  }
+  .cam-t { font-family: var(--mono); font-size: 10px; color: var(--txt2); letter-spacing: 1px; }
+  .cam-screen { position: relative; background: #020408; overflow: hidden; }
+  .cam-screen img { width: 100%; display: block; min-height: 180px; object-fit: cover; }
+
+  @keyframes scan { 0%{top:-2px} 100%{top:100%} }
+  .cam-scanline {
+    position: absolute; width: 100%; height: 2px; top: 0; left: 0;
+    pointer-events: none; animation: scan 3s linear infinite;
+    background: linear-gradient(90deg, transparent, #22d3ee30, transparent);
+  }
+  .cam-scanline.orange { background: linear-gradient(90deg, transparent, #fb923c30, transparent); }
+
+  .cam-hud {
+    position: absolute; bottom: 6px; left: 8px; right: 8px;
+    display: flex; justify-content: space-between; pointer-events: none;
+  }
+  .hud-txt { font-family: var(--mono); font-size: 10px; color: #22d3ee70; text-shadow: 0 0 6px #22d3ee40; }
+  .hud-txt.amber  { color: #f59e0b70; text-shadow: 0 0 6px #f59e0b40; }
+  .hud-txt.orange { color: #fb923c80; text-shadow: 0 0 6px #fb923c40; }
+
+  /* ── seção obstáculo ── */
+  .obst-section {
+    display: none;
+    background: var(--bg2);
+    border: 1px solid #fb923c40;
+    border-radius: 10px;
+    padding: 14px 16px;
+    gap: 12px;
+  }
+  .obst-section.visible { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media(max-width:500px) { .obst-section.visible { grid-template-columns: 1fr; } }
+
+  .obst-section-title {
+    grid-column: 1 / -1;
+    font-family: var(--mono); font-size: 9px; color: var(--orange);
+    letter-spacing: 2px; text-transform: uppercase;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .obst-big-indicator {
+    grid-column: 1 / -1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .obst-status-txt {
+    font-family: var(--mono); font-size: 18px; font-weight: 700;
+    flex: 1;
+  }
+  .ost-idle   { color: var(--txt3); }
+  .ost-detect { color: var(--orange); animation: pulse .7s infinite; }
+  .ost-wait   { color: var(--amber);  animation: pulse .5s infinite; }
+  .ost-verif  { color: var(--red);    animation: pulse .4s infinite; }
+
+  .obst-pct-wrap {
+    display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 80px;
+  }
+  .obst-pct-num { font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--orange); }
+  .obst-pct-lbl { font-family: var(--mono); font-size: 9px; color: var(--txt3); letter-spacing: 1px; }
+
+  .obst-bar-big-wrap {
+    grid-column: 1 / -1;
+    background: var(--bg); border-radius: 6px; height: 8px;
+    border: 1px solid var(--border); overflow: hidden;
+  }
+  .obst-bar-big-fill {
+    height: 100%; border-radius: 6px;
+    background: linear-gradient(90deg, #fb923c, #ef4444);
+    transition: width .5s;
+  }
+
+  .obst-info-card {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 7px; padding: 10px 12px;
+  }
+  .oic-lbl { font-family: var(--mono); font-size: 9px; color: var(--txt3); letter-spacing: 1px; margin-bottom: 5px; }
+  .oic-val { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--txt); }
+
+  /* ── grid inferior ── */
+  .bottom-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  @media(max-width:640px) { .bottom-grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 13px;
+  }
+  .card-t {
+    font-family: var(--mono); font-size: 9px; color: var(--txt3);
+    text-transform: uppercase; letter-spacing: 2px; margin-bottom: 11px;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .cdot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── giroscópio ── */
+  .gyro-row { display: flex; align-items: center; margin-bottom: 8px; gap: 8px; }
+  .gyro-lbl { font-family: var(--mono); font-size: 10px; color: var(--txt2); width: 44px; }
+  .gyro-track { flex: 1; height: 2px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+  .gyro-fill  { height: 100%; border-radius: 2px; transition: width .4s; }
+  .gyro-val   { font-family: var(--mono); font-size: 11px; min-width: 52px; text-align: right; }
+  .fps-row { display: flex; gap: 8px; margin-top: 10px; }
+  .fps-chip { flex: 1; background: var(--bg); border-radius: 7px; padding: 8px; text-align: center; border: 1px solid var(--border); }
+  .fps-n { font-family: var(--mono); font-size: 18px; font-weight: 700; color: var(--cyan); }
+  .fps-s { font-family: var(--mono); font-size: 9px; color: var(--txt3); margin-top: 2px; letter-spacing: 1px; }
+
+  /* ── status rows ── */
+  .cmd-row {
+    background: var(--bg); border-radius: 6px; padding: 7px 11px; margin-bottom: 6px;
+    display: flex; justify-content: space-between; align-items: center;
+    border: 1px solid var(--border);
+  }
+  .cmd-k { font-family: var(--mono); font-size: 10px; color: var(--txt2); letter-spacing: .5px; }
+  .cmd-v { font-family: var(--mono); font-size: 11px; font-weight: 700; }
+  .cv-ok   { color: var(--green); }
+  .cv-idle { color: var(--txt3); }
+  .cv-warn { color: var(--amber); animation: pulse .8s infinite; }
+  .cv-obst { color: var(--orange); animation: pulse .6s infinite; }
+
+  /* ── controles ── */
+  .ctrl-btn {
+    width: 100%; padding: 8px; border-radius: 7px;
+    border: 1px solid var(--border); background: transparent; color: var(--txt2);
+    font-family: var(--sans); font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all .15s; margin-bottom: 6px; text-align: center; letter-spacing: .5px;
+  }
+  .ctrl-btn:hover { border-color: var(--border2); color: var(--txt); background: var(--bg3); }
+  .ctrl-btn-warn { border-color: #f59e0b30; color: var(--amber); }
+  .ctrl-btn-warn:hover { background: #f59e0b10; }
+  .ctrl-btn-red  { border-color: #ef444430; color: #f87171; }
+  .ctrl-btn-red:hover  { background: #ef444410; }
+  .ctrl-btn-obst { border-color: #fb923c30; color: #fb923c; }
+  .ctrl-btn-obst:hover { background: #fb923c10; }
+
+  /* ── log ── */
+  .log-full { grid-column: 1 / -1; }
+  .log-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
+  .log-wrap {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 7px;
+    padding: 7px; max-height: 105px; overflow-y: auto;
+  }
+  .log-wrap::-webkit-scrollbar { width: 4px; }
+  .log-wrap::-webkit-scrollbar-track { background: transparent; }
+  .log-wrap::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  .log-line {
+    font-family: var(--mono); font-size: 10px;
+    display: flex; gap: 8px; padding: 2px 0;
+    border-bottom: 1px solid var(--bg3);
+  }
+  .log-line:last-child { border: none; }
+  .log-ts   { color: var(--txt3); min-width: 52px; }
+  .log-ok   { color: var(--green); }
+  .log-warn { color: var(--amber); }
+  .log-info { color: var(--cyan); }
+  .log-def  { color: var(--txt2); }
+
+  .conn-line { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10px; color: var(--green); margin-top: 9px; }
 </style>
 </head>
 <body>
@@ -251,13 +400,14 @@ body{background:#0a0c14;font-family:'Segoe UI',system-ui,sans-serif;color:#e2e8f
 <div class="topbar">
   <div class="topbar-l">
     <div class="live-dot"></div>
-    <span class="logo">OBR Dashboard</span>
+    <span class="logo">OBR // IMX500</span>
     <span class="logo-sub">Raspberry Pi 4</span>
   </div>
   <div class="topbar-r">
-    <span>IP: <span class="chip" id="ip-addr">carregando...</span></span>
-    <span>Uptime: <span class="chip" id="uptime">—</span></span>
-    <span id="conn-status" style="color:#22c55e">● conectado</span>
+    <span id="npu-badge" class="npu-badge npu-off">NPU OFF</span>
+    <span>IP: <span class="chip" id="ip-addr">—</span></span>
+    <span>UP: <span class="chip" id="uptime">—</span></span>
+    <span id="conn-status" style="color:var(--green)">● online</span>
   </div>
 </div>
 
@@ -268,55 +418,61 @@ body{background:#0a0c14;font-family:'Segoe UI',system-ui,sans-serif;color:#e2e8f
     <div>
       <div class="mlabel">Modo de operação</div>
       <div class="mbtns">
-        <button class="mbtn" id="btn-linha"     onclick="enviarModo('linha')">Linha</button>
         <button class="mbtn" id="btn-bolas"     onclick="enviarModo('bolas')">Bolas</button>
         <button class="mbtn" id="btn-triangulo" onclick="enviarModo('triangulo')">Triângulo</button>
+        <button class="mbtn" id="btn-obstaculo" onclick="enviarModo('obstaculo')">Obstáculo</button>
       </div>
     </div>
     <div class="status-r">
       <div class="live-dot"></div>
       <span class="pill" id="mode-pill">—</span>
-      <button class="ebtn" onclick="enviarEmergencia()">Parada de emergência</button>
+      <button class="ebtn" onclick="enviarEmergencia()">⚠ EMERGÊNCIA</button>
     </div>
   </div>
 
-  <!-- ── BANNER DE FITA (aparece quando detecta) ── -->
-  <div class="fita-bar" id="fita-bar">
-    <div class="fita-bar-dot" id="fita-bar-dot"></div>
-    <span id="fita-bar-txt">—</span>
+  <!-- ── CÂMERA IMX500 ── -->
+  <div class="cam-wrap" id="cam-imx500">
+    <div class="cam-hdr">
+      <span class="cam-t" id="cam500-titulo">IMX500 — AGUARDANDO</span>
+      <span style="font-family:var(--mono);font-size:9px;color:var(--txt2)" id="cam500-fps-badge">0.0 fps</span>
+    </div>
+    <div class="cam-screen">
+      <img src="/stream/imx500" alt="IMX500" onerror="this.style.minHeight='180px'">
+      <div class="cam-scanline" id="cam-scan"></div>
+      <div class="cam-hud">
+        <span class="hud-txt" id="hud-modo">MODE: —</span>
+        <span class="hud-txt orange" id="hud-obst">OBST: idle</span>
+        <span class="hud-txt" id="hud-fps">— fps</span>
+      </div>
+    </div>
   </div>
 
-  <!-- ── CÂMERAS ── -->
-  <div class="cams">
-    <div class="cam-card" id="cam-imx500">
-      <div class="cam-hdr">
-        <span class="cam-t" id="cam500-titulo">IMX500 — Seguidor de linha</span>
-        <span class="badge b-on" id="cam500-badge">AO VIVO</span>
-      </div>
-      <div class="cam-screen">
-        <div class="fita-overlay" id="fita-overlay-500"></div>
-        <img src="/stream/imx500" alt="IMX500" onerror="this.style.minHeight='130px'">
-        <div class="scanline sl-b" id="scan500"></div>
-        <div class="cam-hud">
-          <span class="hud-txt" id="hud-cmd">CMD: —</span>
-          <span class="hud-txt" id="hud-fps0">— fps</span>
-        </div>
+  <!-- ══ SEÇÃO OBSTÁCULO — visível apenas no modo obstáculo ══ -->
+  <div class="obst-section" id="obst-section">
+    <div class="obst-section-title">
+      <div style="width:6px;height:6px;border-radius:50%;background:var(--orange)"></div>
+      Detecção de Obstáculo
+    </div>
+
+    <div class="obst-big-indicator">
+      <span class="obst-status-txt ost-idle" id="obst-status-txt">IDLE</span>
+      <div class="obst-pct-wrap">
+        <span class="obst-pct-num" id="obst-pct-num">0</span>
+        <span class="obst-pct-lbl">SCORE %</span>
       </div>
     </div>
 
-    <div class="cam-card" id="cam-imx179">
-      <div class="cam-hdr">
-        <span class="cam-t">IMX179 — Obstáculo / Resgate</span>
-        <span class="badge b-on">AO VIVO</span>
-      </div>
-      <div class="cam-screen">
-        <img src="/stream/imx179" alt="IMX179" onerror="this.style.minHeight='130px'">
-        <div class="scanline sl-a"></div>
-        <div class="cam-hud">
-          <span class="hud-txt hud-txt-a" id="hud-obst">OBST: idle</span>
-          <span class="hud-txt hud-txt-a" id="hud-fps1">— fps</span>
-        </div>
-      </div>
+    <div class="obst-bar-big-wrap">
+      <div class="obst-bar-big-fill" id="obst-bar-big" style="width:0%"></div>
+    </div>
+
+    <div class="obst-info-card">
+      <div class="oic-lbl">ESTADO</div>
+      <div class="oic-val" id="oic-estado">idle</div>
+    </div>
+    <div class="obst-info-card">
+      <div class="oic-lbl">ÚLTIMO RESULTADO</div>
+      <div class="oic-val" id="oic-ultimo">—</div>
     </div>
   </div>
 
@@ -325,67 +481,65 @@ body{background:#0a0c14;font-family:'Segoe UI',system-ui,sans-serif;color:#e2e8f
 
     <!-- Giroscópio -->
     <div class="card">
-      <div class="card-t"><div class="cdot" style="background:#7dd3fc"></div>Giroscópio MPU6050</div>
+      <div class="card-t"><div class="cdot" style="background:var(--cyan)"></div>Giroscópio MPU6050</div>
       <div class="gyro-row">
         <span class="gyro-lbl">Roll X</span>
-        <div class="gyro-track"><div class="gyro-fill" id="gfx" style="background:#0ea5e9;width:50%"></div></div>
-        <span class="gyro-val" id="gvx" style="color:#38bdf8">0.0°</span>
+        <div class="gyro-track"><div class="gyro-fill" id="gfx" style="background:var(--blue);width:50%"></div></div>
+        <span class="gyro-val" id="gvx" style="color:var(--cyan)">0.0°</span>
       </div>
       <div class="gyro-row">
         <span class="gyro-lbl">Pitch Y</span>
-        <div class="gyro-track"><div class="gyro-fill" id="gfy" style="background:#22c55e;width:50%"></div></div>
-        <span class="gyro-val" id="gvy" style="color:#4ade80">0.0°</span>
+        <div class="gyro-track"><div class="gyro-fill" id="gfy" style="background:var(--green);width:50%"></div></div>
+        <span class="gyro-val" id="gvy" style="color:var(--green)">0.0°</span>
       </div>
       <div class="gyro-row">
         <span class="gyro-lbl">Yaw Z</span>
-        <div class="gyro-track"><div class="gyro-fill" id="gfz" style="background:#a855f7;width:50%"></div></div>
-        <span class="gyro-val" id="gvz" style="color:#c084fc">0.0°</span>
+        <div class="gyro-track"><div class="gyro-fill" id="gfz" style="background:var(--purple);width:50%"></div></div>
+        <span class="gyro-val" id="gvz" style="color:var(--purple)">0.0°</span>
       </div>
       <div class="fps-row">
-        <div class="fps-chip"><div class="fps-n" id="fps0">—</div><div class="fps-s">IMX500 fps</div></div>
-        <div class="fps-chip"><div class="fps-n" id="fps1">—</div><div class="fps-s">IMX179 fps</div></div>
+        <div class="fps-chip">
+          <div class="fps-n" id="fps0">—</div>
+          <div class="fps-s">IMX500 fps</div>
+        </div>
+        <div class="fps-chip">
+          <div class="fps-n" id="fps0b" style="color:var(--amber)">—</div>
+          <div class="fps-s">INFER fps</div>
+        </div>
       </div>
     </div>
 
     <!-- Estado do sistema -->
     <div class="card">
       <div class="card-t"><div class="cdot" style="background:#f87171"></div>Estado do sistema</div>
-
-      <!-- Pills de fita -->
-      <div class="fita-pills">
-        <div class="fita-pill fp-silver-off" id="pill-prata">⬜ PRATA (entrada)</div>
-        <div class="fita-pill fp-black-off"  id="pill-preta">⬛ PRETA (saída)</div>
-      </div>
-
-      <div class="cmd-row"><span class="cmd-k">Cmd câmera</span><span class="cmd-v cv-ok"  id="s-cmd">—</span></div>
-      <div class="cmd-row"><span class="cmd-k">Obstáculo</span><span class="cmd-v cv-idle" id="s-obst">idle</span></div>
-      <div class="cmd-row"><span class="cmd-k">Última fita</span><span class="cmd-v"        id="s-fita" style="color:#c0c0c0">—</span></div>
-      <div class="cmd-row"><span class="cmd-k">Previsão verde</span><span class="cmd-v cv-ok" id="s-verde">—</span></div>
-      <div class="cmd-row"><span class="cmd-k">Bumper</span><span class="cmd-v cv-idle"     id="s-bumper">livre</span></div>
+      <div class="cmd-row"><span class="cmd-k">Bumper</span><span class="cmd-v cv-idle" id="s-bumper">livre</span></div>
+      <div class="cmd-row"><span class="cmd-k">Modelo NPU</span><span class="cmd-v cv-ok" id="s-modelo" style="font-size:9px;overflow:hidden;text-overflow:ellipsis;max-width:120px">—</span></div>
+      <div class="cmd-row"><span class="cmd-k">Modo ativo</span><span class="cmd-v cv-ok" id="s-modo-ativo">—</span></div>
       <div class="conn-line">
-        <div style="width:6px;height:6px;border-radius:50%;background:#22c55e"></div>
-        <span id="s-ev3">EV3 conectado via serial</span>
+        <div style="width:5px;height:5px;border-radius:50%;background:var(--green)"></div>
+        <span id="s-ev3">EV3 serial</span>
       </div>
     </div>
 
     <!-- Controles rápidos -->
     <div class="card">
-      <div class="card-t"><div class="cdot" style="background:#22c55e"></div>Controles rápidos</div>
-      <button class="ctrl-btn" onclick="enviarModo('linha')">Enviar modo: Linha</button>
-      <button class="ctrl-btn" onclick="enviarModo('bolas')">Enviar modo: Bolas</button>
-      <button class="ctrl-btn" onclick="enviarModo('triangulo')">Enviar modo: Triângulo</button>
+      <div class="card-t"><div class="cdot" style="background:var(--green)"></div>Controles rápidos</div>
+      <button class="ctrl-btn"       onclick="enviarModo('bolas')">→ Modo: Bolas</button>
+      <button class="ctrl-btn"       onclick="enviarModo('triangulo')">→ Modo: Triângulo</button>
+      <button class="ctrl-btn ctrl-btn-obst" onclick="enviarModo('obstaculo')">→ Modo: Obstáculo</button>
       <button class="ctrl-btn ctrl-btn-warn" onclick="enviarResetGyro()">Reset giroscópio</button>
+      <button class="ctrl-btn ctrl-btn-red"  onclick="enviarEmergencia()">⚠ Parada de emergência</button>
     </div>
 
     <!-- Log -->
     <div class="card log-full">
       <div class="log-hdr">
         <div class="card-t" style="margin:0">
-          <div class="cdot" style="background:#334155"></div>Log de eventos
+          <div class="cdot" style="background:var(--txt3)"></div>Log de eventos
         </div>
         <button class="ctrl-btn"
-          style="width:auto;padding:3px 12px;margin:0;font-size:11px"
-          onclick="document.getElementById('log-wrap').innerHTML=''">Limpar</button>
+          style="width:auto;padding:2px 12px;margin:0;font-size:10px"
+          onclick="document.getElementById('log-wrap').innerHTML=''">limpar</button>
       </div>
       <div class="log-wrap" id="log-wrap"></div>
     </div>
@@ -394,133 +548,121 @@ body{background:#0a0c14;font-family:'Segoe UI',system-ui,sans-serif;color:#e2e8f
 </div>
 
 <script>
-const PILL    = {linha:['pl','Linha ativo'],bolas:['pb','Bolas ativo'],triangulo:['pt','Triângulo ativo']};
-const MBTN_CLS= {linha:'ml',bolas:'mb',triangulo:'mt'};
-const CAM500_TITULO = {
-  linha:    'IMX500 — Seguidor de linha',
-  bolas:    'IMX500 — Monitor de fitas (resgate)',
-  triangulo:'IMX500 — Monitor de fitas (resgate)',
+const PILL     = { bolas:['pb','BOLAS'], triangulo:['pt','TRIÂNGULO'], obstaculo:['po','OBSTÁCULO'] };
+const MBTN_CLS = { bolas:'mb', triangulo:'mt', obstaculo:'mo' };
+const CAM_TITULO = {
+  bolas:     'IMX500 — BOLAS',
+  triangulo: 'IMX500 — TRIÂNGULO',
+  obstaculo: 'IMX500 — OBSTÁCULO',
+};
+const OBST_LABELS = {
+  idle:                   ['ost-idle',   'IDLE'],
+  aguardando_confirmacao: ['ost-wait',   'AGUARDANDO EV3'],
+  verificando:            ['ost-verif',  'VERIFICANDO LADOS'],
 };
 
-let modoAtual  = '';
-let prataPrev  = false;
-let pretaPrev  = false;
-let fitaClearTimer = null;
-
-function atualizarFitas(d) {
-  const prata = d.fita_prata;
-  const preta = d.fita_preta;
-  const bar   = document.getElementById('fita-bar');
-  const barTxt= document.getElementById('fita-bar-txt');
-  const barDot= document.getElementById('fita-bar-dot');
-  const ov500 = document.getElementById('fita-overlay-500');
-  const pillS = document.getElementById('pill-prata');
-  const pillN = document.getElementById('pill-preta');
-  const cam500= document.getElementById('cam-imx500');
-  const scan  = document.getElementById('scan500');
-  const sfita = document.getElementById('s-fita');
-
-  // Atualiza última fita recebida
-  if (d.ultimo_aviso_fita && d.ultimo_aviso_fita !== '—') {
-    sfita.textContent = d.ultimo_aviso_fita;
-    sfita.style.color = d.ultimo_aviso_fita.includes('prata') ? '#c0c0c0' : '#f87171';
-  }
-
-  // Pill prata
-  pillS.className = 'fita-pill ' + (prata ? 'fp-silver-on' : 'fp-silver-off');
-
-  // Pill preta
-  pillN.className = 'fita-pill ' + (preta ? 'fp-black-on' : 'fp-black-off');
-
-  // Banner + overlay na câmera
-  if (prata) {
-    bar.className   = 'fita-bar show silver';
-    barDot.style.background = '#c0c0c0';
-    barTxt.textContent = '⬜  FITA PRATA detectada — ENTRADA DO RESGATE';
-    ov500.className = 'fita-overlay silver';
-    ov500.textContent = '★ ENTRADA RESGATE — PRATA DETECTADA';
-    cam500.className = 'cam-card silver-alert';
-    scan.className   = 'scanline sl-s';
-  } else if (preta) {
-    bar.className   = 'fita-bar show black-fita';
-    barDot.style.background = '#f87171';
-    barTxt.textContent = '⬛  FITA PRETA detectada — SAÍDA DO RESGATE';
-    ov500.className = 'fita-overlay black';
-    ov500.textContent = '✖ SAÍDA RESGATE — PRETA DETECTADA';
-    cam500.className = 'cam-card black-alert';
-    scan.className   = 'scanline sl-a';
-  } else {
-    bar.className   = 'fita-bar';
-    ov500.className = 'fita-overlay';
-    cam500.className= 'cam-card';
-    scan.className  = 'scanline sl-b';
-  }
-}
+let modoAtual   = '';
+let ultimoObst  = '—';
 
 function atualizarUI(d) {
   // ── Modo ──
   if (d.modo !== modoAtual) {
     modoAtual = d.modo;
-    ['linha','bolas','triangulo'].forEach(m => {
+    ['bolas','triangulo','obstaculo'].forEach(m => {
       document.getElementById('btn-'+m).className =
         'mbtn' + (m === modoAtual ? ' '+MBTN_CLS[m] : '');
     });
     const p = document.getElementById('mode-pill');
-    const [cls, txt] = PILL[modoAtual] || ['pl', modoAtual];
-    p.className = 'pill '+cls;
+    const [cls, txt] = PILL[modoAtual] || ['pb', modoAtual];
+    p.className = 'pill ' + cls;
     p.textContent = txt;
-    // Atualiza título da câmera IMX500 conforme o modo
-    document.getElementById('cam500-titulo').textContent =
-      CAM500_TITULO[modoAtual] || 'IMX500';
+    document.getElementById('cam500-titulo').textContent = CAM_TITULO[modoAtual] || 'IMX500';
+    document.getElementById('hud-modo').textContent = 'MODE: ' + modoAtual.toUpperCase();
+    document.getElementById('s-modo-ativo').textContent = modoAtual;
+
+    // mostrar/ocultar seção obstáculo
+    const sec = document.getElementById('obst-section');
+    sec.className = modoAtual === 'obstaculo' ? 'obst-section visible' : 'obst-section';
+
+    // cor scanline e borda câmera
+    const cam  = document.getElementById('cam-imx500');
+    const scan = document.getElementById('cam-scan');
+    if (modoAtual === 'obstaculo') {
+      cam.className  = 'cam-wrap obst-alert';
+      scan.className = 'cam-scanline orange';
+    } else {
+      cam.className  = 'cam-wrap';
+      scan.className = 'cam-scanline';
+    }
   }
 
+  // ── NPU badge ──
+  const npuBadge = document.getElementById('npu-badge');
+  npuBadge.textContent = d.npu_ativo ? 'NPU ON' : 'CPU fallback';
+  npuBadge.className   = 'npu-badge ' + (d.npu_ativo ? 'npu-on' : 'npu-off');
+  document.getElementById('s-modelo').textContent = d.npu_modelo || '—';
+
   // ── Giroscópio ──
-  const gyr = v => Math.min(100, (Math.abs(v)/180)*100 + 50);
   const fmt = v => (v>=0?'+':'')+parseFloat(v).toFixed(1)+'°';
-  document.getElementById('gvx').textContent  = fmt(d.gyro_roll);
-  document.getElementById('gvy').textContent  = fmt(d.gyro_pitch);
-  document.getElementById('gvz').textContent  = fmt(d.gyro_yaw);
-  document.getElementById('gfx').style.width  = gyr(d.gyro_roll)+'%';
-  document.getElementById('gfy').style.width  = gyr(d.gyro_pitch)+'%';
-  document.getElementById('gfz').style.width  = gyr(d.gyro_yaw)+'%';
+  const gyr = v => Math.min(100, (Math.abs(v)/180)*100 + 50);
+  document.getElementById('gvx').textContent = fmt(d.gyro_roll);
+  document.getElementById('gvy').textContent = fmt(d.gyro_pitch);
+  document.getElementById('gvz').textContent = fmt(d.gyro_yaw);
+  document.getElementById('gfx').style.width = gyr(d.gyro_roll)+'%';
+  document.getElementById('gfy').style.width = gyr(d.gyro_pitch)+'%';
+  document.getElementById('gfz').style.width = gyr(d.gyro_yaw)+'%';
 
   // ── FPS ──
-  document.getElementById('fps0').textContent     = parseFloat(d.fps_imx500).toFixed(1);
-  document.getElementById('fps1').textContent     = parseFloat(d.fps_imx179).toFixed(1);
-  document.getElementById('hud-fps0').textContent = parseFloat(d.fps_imx500).toFixed(1)+' fps';
-  document.getElementById('hud-fps1').textContent = parseFloat(d.fps_imx179).toFixed(1)+' fps';
+  const fps = parseFloat(d.fps_imx500).toFixed(1);
+  document.getElementById('fps0').textContent         = fps;
+  document.getElementById('fps0b').textContent        = fps;
+  document.getElementById('hud-fps').textContent      = fps + ' fps';
+  document.getElementById('cam500-fps-badge').textContent = fps + ' fps';
+
+  // ── Seção obstáculo ──
+  const pct      = parseFloat(d.obst_pct || 0);
+  const estado   = d.obstaculo || 'idle';
+  const hudObst  = document.getElementById('hud-obst');
+  const oicEst   = document.getElementById('oic-estado');
+  const oicUlt   = document.getElementById('oic-ultimo');
+  const bigTxt   = document.getElementById('obst-status-txt');
+  const bigBar   = document.getElementById('obst-bar-big');
+  const pctNum   = document.getElementById('obst-pct-num');
+
+  hudObst.textContent = 'OBST: ' + estado;
+  oicEst.textContent  = estado;
+  pctNum.textContent  = Math.round(pct);
+  bigBar.style.width  = Math.min(100, pct) + '%';
+
+  const [cls, label] = OBST_LABELS[estado] || ['ost-idle', estado.toUpperCase()];
+  bigTxt.className  = 'obst-status-txt ' + cls;
+  bigTxt.textContent = label;
+
+  // guarda último resultado de verificação
+  if (d.log && d.log.length) {
+    const last = [...d.log].reverse().find(l => l.msg.startsWith('Verificação:'));
+    if (last) oicUlt.textContent = last.msg.replace('Verificação: ', '');
+  }
 
   // ── Estado geral ──
-  document.getElementById('s-cmd').textContent    = d.cmd_camera;
-  document.getElementById('s-verde').textContent  = d.previsao_verde || '—';
   document.getElementById('s-bumper').textContent = d.bumper || 'livre';
-  document.getElementById('hud-cmd').textContent  = 'CMD: '+d.cmd_camera;
-
-  const obstEl  = document.getElementById('s-obst');
-  const obstHud = document.getElementById('hud-obst');
-  obstEl.textContent  = d.obstaculo;
-  obstHud.textContent = 'OBST: '+d.obstaculo;
-  obstEl.className = 'cmd-v '+(d.obstaculo==='idle'?'cv-idle':'cv-warn');
 
   // ── Uptime ──
-  const up=d.uptime||0;
-  const hh=String(Math.floor(up/3600)).padStart(2,'0');
-  const mm=String(Math.floor((up%3600)/60)).padStart(2,'0');
-  const ss=String(up%60).padStart(2,'0');
+  const up = d.uptime || 0;
+  const hh = String(Math.floor(up/3600)).padStart(2,'0');
+  const mm = String(Math.floor((up%3600)/60)).padStart(2,'0');
+  const ss = String(up%60).padStart(2,'0');
   document.getElementById('uptime').textContent = hh+':'+mm+':'+ss;
 
   // ── Log ──
   if (d.log && d.log.length) {
-    const CLS = {ok:'log-ok',warn:'log-warn',info:'log-info',silver:'log-silver'};
+    const CLS = {ok:'log-ok',warn:'log-warn',info:'log-info'};
     document.getElementById('log-wrap').innerHTML =
       d.log.slice().reverse().map(l =>
         `<div class="log-line"><span class="log-ts">${l.t}</span>`+
         `<span class="${CLS[l.tipo]||'log-def'}">${l.msg}</span></div>`
       ).join('');
   }
-
-  // ── Fitas ──
-  atualizarFitas(d);
 }
 
 async function poll() {
@@ -528,14 +670,14 @@ async function poll() {
     const r = await fetch('/api/estado');
     if (r.ok) {
       const d = await r.json();
-      document.getElementById('ip-addr').textContent   = location.host;
-      document.getElementById('conn-status').textContent = '● conectado';
-      document.getElementById('conn-status').style.color = '#22c55e';
+      document.getElementById('ip-addr').textContent = location.host;
+      document.getElementById('conn-status').textContent = '● online';
+      document.getElementById('conn-status').style.color = 'var(--green)';
       atualizarUI(d);
     }
   } catch(e) {
-    document.getElementById('conn-status').textContent = '● sem conexão';
-    document.getElementById('conn-status').style.color = '#ef4444';
+    document.getElementById('conn-status').textContent = '● offline';
+    document.getElementById('conn-status').style.color = 'var(--red)';
   }
 }
 
@@ -562,11 +704,11 @@ poll();
 </html>
 """
 
+
 def iniciar_servidor():
     t = threading.Thread(
         target=lambda: app.run(host='0.0.0.0', port=5000,
                                threaded=True, use_reloader=False),
         daemon=True)
-    t.daemon = True
     t.start()
-    print("[+] Dashboard: http://<10.42.0.1>:5000")
+    print("[+] Dashboard: http://<IP>:5000")
