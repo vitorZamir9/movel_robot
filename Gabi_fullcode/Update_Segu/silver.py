@@ -12,9 +12,8 @@ class Silver:
         self.ev3 = ev3
         self.ser = ser
         self.servosP = servosP
-        # Giroscópio — falta hardware (guinadaAA, Anguly), deixado como None
-        self.guinadaAA = None
-        self.Anguly = None
+        self.yaw_rasp = 0.0      # Guarda o valor real que vem da placa
+        self.yaw_offset = 0.0    # Guarda o valor de "tara" (para zerar o ângulo)
         # Contadores de vítimas (persistem entre chamadas)
         self.vitimas = 0
         self.vitimaBLACK = 0
@@ -142,19 +141,51 @@ class Silver:
     # ou None se não tiver dado completo
     # =========================================================
     def _ler_serial(self):
+        """
+        Lê a serial. Se achar [MPU], atualiza o giroscópio sozinho em segundo plano.
+        Se achar dados da visão (Detected), retorna o dicionário.
+        """
         data = self.ser.read_all()
         if not data:
             return None
+            
         try:
             data_str = data.decode('utf-8').strip()
+            
+            # Variáveis para a visão
             detected = None
             confianca = None
             lado = None
             area = None
+            
             for line in data_str.split('\n'):
                 line = line.strip()
                 if not line:
                     continue
+                
+                # ==========================================
+                # 1. LEITURA DO MPU (Atualização Automática)
+                # ==========================================
+                if "[MPU]" in line:
+                    try:
+                        texto_roll = line.split("Roll: ")[1].split("°")[0]
+                        roll = float(texto_roll)
+                        
+                        texto_pitch = line.split("Pitch: ")[1].split("°")[0]
+                        pitch = float(texto_pitch)
+                        
+                        texto_yaw = line.split("Yaw: ")[1].split("°")[0]
+                        yaw = float(texto_yaw)
+                        
+                        # ATUALIZA O GIROSCÓPIO DA CLASSE AQUI!
+                        self.guinadaAA.atualizar_dados(roll, pitch, yaw)
+                    except (IndexError, ValueError):
+                        pass
+                    continue # Pula para a próxima linha do texto
+                
+                # ==========================================
+                # 2. LEITURA DA VISÃO (YOLO)
+                # ==========================================
                 if 'Detected:' in line:
                     detected = line.split(':')[1].strip()
                 elif 'Confian' in line:
@@ -173,12 +204,46 @@ class Silver:
                             area = int(parts[1].strip().replace('px', '').strip())
                         except ValueError:
                             area = None
+
+            # Retorna apenas se encontrou um objeto válido na visão
             if detected and confianca is not None and lado and area is not None:
-                return {"detected": detected, "confianca": confianca, "lado": lado, "area": area}
+                return {
+                    "detected": detected, 
+                    "confianca": confianca, 
+                    "lado": lado, 
+                    "area": area
+                }
+
         except Exception as e:
-            print("Erro serial:", e)
+            print("Erro serial na Silver:", e)
             self.ser.flushInput()
+            
         return None
+    
+    def girar_graus(self,angulo):#serve somente para o resgate
+        # 1. Puxa a informação mais recente da placa
+        self._ler_serial()
+        
+        # 2. "Zera" o giroscópio (salva a posição atual como ponto de partida)
+        self.yaw_offset = self.yaw_rasp
+        
+        # 3. Liga os motores para girar
+        self.motorB.dc(100)
+        self.motorC.dc(100)
+        
+        while True:
+            # 4. Atualiza os dados da Raspberry Pi constantemente
+            self._ler_serial()
+            
+            # 5. Calcula o quanto o robô girou desde que você "zerou"
+            giro_atual = self.yaw_rasp - self.yaw_offset
+            
+            # 6. Verifica se bateu os 90 graus
+            if giro_atual >= abs(angulo):
+                self.motorB.stop()
+                self.motorC.stop()
+                print("Curva de graus finalizada!")
+                break
 
     # =========================================================
     # _ALINHAR_CAMERA — Gira até a vítima ficar no meio
@@ -404,9 +469,9 @@ class Silver:
                 break
 
             wait(500)
-            self.ser.write(b'Resgate_ON\r\n')
+            self.ser.write(b'bolas\r\n')
             self.ser.clear()
-
+            wait(1000)
             # ---- Loop: detectar a vítima do tipo certo ----
             vitima = None
             lapooo = None
@@ -449,6 +514,8 @@ class Silver:
                     wait(100)
                     self.motorB.dc(100)
                     self.motorC.dc(100)
+                    self.motorB.dc(100)
+                    self.motorC.dc(100) #direita
                     while True:
                         wait(50)
                         print(self.motorB.angle(), self.motorC.angle(), semvitima)
@@ -556,7 +623,8 @@ class Silver:
                 break
 
             self.tanki.stop()
-            wait(100)
+            wait(500)
+            self.ser.write(b'triangulo\r\n')
             self.ser.clear()
             wait(500)
 
@@ -770,81 +838,7 @@ class Silver:
                 wait(300)
 
                 # ---- Gabaritar ao triângulo com giroscópio ----
-                # FALTA HARDWARE: guinadaAA não disponível ainda
-                if self.guinadaAA is not None:
-                    guinada = self.guinadaAA.read(0)[0]
-                    wait(300)
-                    self.Anguly.read(4)
-                    self.guinadaAA.read(4)
-                    wait(100)
-                    self.Anguly.read(0)
-                    self.guinadaAA.read(0)
-                    wait(1000)
-                    self.ev3.speaker.beep()
-                    guinada = self.guinadaAA.read(0)[0]
-                    print(guinada)
-                    parado = 0
-                    self.motorB.reset_angle(0)
-                    self.motorC.reset_angle(0)
-                    wait(100)
-                    self.motorB.dc(100)
-                    self.motorC.dc(100)
-                    while True:
-                        guinada = self.guinadaAA.read(0)[0]
-                        wait(100)
-                        print(self.motorB.angle(), self.motorC.angle(), parado, "guinada:", guinada)
-                        if self.tanki.state()[3] < 20:
-                            parado += 1
-                        if self.tanki.state()[3] > 60:
-                            parado = 0
-                        if abs(guinada) >= 70 or parado >= 20:
-                            self.tanki.stop()
-                            break
-                    self.tanki.stop()
-
-                    parado = 0
-                    self.motorB.reset_angle(0)
-                    self.motorC.reset_angle(0)
-                    wait(100)
-                    self.motorB.dc(-100)
-                    self.motorC.dc(100)
-                    print("pra tras")
-                    while True:
-                        wait(50)
-                        print(self.motorB.angle(), self.motorC.angle(), parado)
-                        if self.tanki.state()[3] < 20:
-                            parado += 1
-                        if self.tanki.state()[3] > 60:
-                            parado = 0
-                        if self.motorB.angle() <= -1000 or parado >= 20:
-                            self.tanki.stop()
-                            break
-                    self.motorB.stop()
-                    self.motorC.stop()
-                    self.tanki.stop()
-                    self.tanki.turn(150)
-                    self.tanki.stop()
-
-                    parado = 0
-                    self.motorB.reset_angle(0)
-                    self.motorC.reset_angle(0)
-                    wait(100)
-                    self.motorB.dc(-100)
-                    self.motorC.dc(100)
-                    self.ev3.speaker.beep()
-                    while True:
-                        wait(50)
-                        print(self.motorB.angle(), self.motorC.angle(), parado)
-                        if self.tanki.state()[3] < 20:
-                            parado += 1
-                        if self.tanki.state()[3] > 60:
-                            parado = 0
-                        if self.motorB.angle() <= -1000 or parado > 20:
-                            self.tanki.stop()
-                            break
-                    self.tanki.stop()
-                else:
-                    print("AVISO: guinadaAA não disponível (falta hardware)")
+                self.girar_graus(180)
 
                 print(vendoTRIANGULOcor, vendoTRIANGULOVERDE, vendoTRIANGULOVERMELHO)
                 wait(1000)
@@ -951,8 +945,8 @@ class Silver:
     # =========================================================
     def exit(self):
         print("sair do resgate")
-        wait(1000)
-        self.motorB.dc(100)
+        self.motorB.dc(-100)
         self.motorC.dc(100)
-        wait(10000)
+        wait(1000)
         self.tanki.stop()
+        wait(10000)

@@ -215,7 +215,7 @@ def sensor():
 
                     # --- RESPOSTA DA CÂMERA SOBRE OS LADOS DA LINHA ---
                     if "linha " in cmd and obstaculo_camera_aguardando_linha:
-                        print(f"CÂMERA: Resultado da linha -> {cmd}")
+                        print("CÂMERA: Resultado da linha -> ", cmd)
                         obstaculo_camera_resultado_linha = cmd  # "linha esquerda/direita/ambos/nenhum"
                         obstaculo_camera_aguardando_linha = False
                         continue
@@ -284,18 +284,18 @@ def sensor():
         esqgray1 = B1 > 50 and B1 < 66 and C1 > 24 and C1 < 31 and cloresq == 6
         mindgray1 = B3 > 50 and B3 < 66 and C3 > 24 and C3 < 31 and clormind == 6 #calibrar o prata não reflectivo
         dirgray1 = B2 > 50 and B2 < 66 and C2> 24 and C2 < 31 and clordir == 6
-        y=1
-        if esqgray and mindgray and dirgray or esqgray1 and mindgray1 and dirgray1:
+        y=0
+        if esqgray1 and mindgray1 and dirgray1 or esqgray1 and mindgray1 and dirgray1:
             wait(10)
-            if esqgray and mindgray and dirgray or esqgray1 and mindgray1 and dirgray1 and y==0:
+            if esqgray1 and mindgray1 and dirgray1 or esqgray1 and mindgray1 and dirgray1 and y==0:
                 tanki.stop()
                 ev3.speaker.beep(900)
  
                 # ==========================================
                 # RESGATE — chama a classe Silver
                 # ==========================================
-                entradaR = silver.enter(esqgray, mindgray, dirgray)
-                print("Entrada no resgate:", entradaR)
+                entrada_resgate_lado = silver.enter(esqgray, mindgray, dirgray)
+                print("Entrada no resgate:", entrada_resgate_lado)
  
                 # Pegar vítimas vivas (Silver Ball) — 2 no total
                 resultado_vivas = silver.clawLife()
@@ -345,7 +345,7 @@ def sensor():
                 resultado = obstaculo_camera_resultado_linha
                 obstaculo_camera_aguardando_linha = False
                 obstaculo_camera_resultado_linha = None
-                print(f"EV3: Executando desvio com base em '{resultado}'")
+                print("EV3: Executando desvio com base em ", resultado)
 
                 # -----------------------------------------------
                 # LÓGICA DE DESVIO BASEADA NOS LADOS DA LINHA
@@ -607,10 +607,10 @@ def teste_Linha():
 def serial():
     global ser
     while True:
-        ser.write(b'\r\linha\r\n')
-        #ser.write(b'\r\resgate_on\r\n')
+        ser.write(b'\r\ bolas\r\n')
+        #ser.write(b'\r\bolas\r\n')
         #ser.write(b'\r\triangulo\r\n')
-        ser.read_all()
+        #ser.read_all()
         print(ser.read_all())
         wait(100)
 # ==========================================
@@ -619,6 +619,6 @@ def serial():
 # Primeiro calibrar o branco e depois o preto
 #calibraBranco()
 #calibraPreto()
-#sensor()
+sensor()
 #teste()
-serial()
+#serial()
