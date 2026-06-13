@@ -193,11 +193,13 @@ def _detectar_silver_visao(frame_bgr):
             x, y, w, h = cv2.boundingRect(cnt)
             if w < (W * SILVER_MIN_WIDTH_RATIO): continue
             if h > 0 and float(w) / h < 1.5: continue
-            return True
-    return False
+            return True, tipo
+    return False, "nenhum"
 
-def detectar_prata(frame_bgr):
-    global _silver_counter, _silver_confianca, _contador_frames_prata
+_contador_frames_prata = 0
+def detectar_prata(frame_bgr, hud=None):
+    global _silver_infer_counter, _silver_confianca, _contador_frames_prata
+    
     if frame_bgr is None or frame_bgr.size == 0:
         return False
     prata_ai = False
@@ -740,5 +742,5 @@ except KeyboardInterrupt:
     print("\n[*] Encerrando...")
 finally:
     parar_imx500()
-    if ser and ser.is_open:
-        ser.close()
+    parar_imx179()
+    if ser and ser.is_open: ser.close()

@@ -1,6 +1,7 @@
 from pybricks.tools import wait, StopWatch
 
 class Green:
+    
     def __init__(self,tanki,motorB,motorC,sensor1,ev3,ser,motores):
         self.tanki = tanki
         self.motorB = motorB
@@ -10,8 +11,7 @@ class Green:
         self.ser = ser
         self.motores = motores
     
-    def MoveGreen(self,H1, S1, V1, H2, S2, V2, H3, S3, V3, alvo,
-                   fora1, meio1, meio2, fora2, previsao_camera, cloresq, clordir, pretoesq, pretodir):
+    def MoveGreen(self,H1, S1, V1, H2, S2, V2, H3, S3, V3, alvo, fora1, meio1, meio2, fora2, previsao_camera, cloresq, clordir, pretoesq, pretodir):
         verdeDireita = H1 >=(90-alvo) and H1 <=(140+alvo) and S1 >=(43-alvo) and S1 <=(75+alvo) and V1 >=(40-alvo) and V1 <=(80+alvo)
         verdeMeio = H3 >=(90-alvo) and H3 <=(140+alvo) and S3 >=(43-alvo) and S3 <=(73+alvo) and V3 >=(40-alvo) and V3 <=(80+alvo)
         verdeEsquerda = H2 >=(90-alvo) and H2 <=(140+alvo) and S2 >=(43-alvo) and S2 <=(75+alvo) and V2 >=(40-alvo) and V2 <=(80+alvo)
@@ -23,72 +23,99 @@ class Green:
         # LÓGICA DA DIREITA
         # ==================================
         if verdeDireita and not pretodir > 0:
-            if meio1 >= 40 or meio2 >= 40:
+            wait(10)
+            self.tanki.straight(5)
+            
+            if verdeEsquerda: 
+                wait(10)
                 self.tanki.stop()
-                self.tanki.turn(70)
-                self.tanki.straight(90)
+                self.ev3.speaker.beep(600) 
+                print(">>> EXECUTANDO BECO")
+                self.tanki.turn(30)
+                self.tanki.straight(190)
                 self.tanki.stop()
-                self.ev3.speaker.beep(400) 
-                print(">>> EXECUTANDO VERDE DIREITA")
-                self.tanki.stop()
-                self.motorB.dc(100)
-                self.motorC.dc(100)
-                while True:
-                    retorno = self.sensor1.read(2)
-                    f1 = retorno[0]
-                    if f1 <= 40:
-                        self.tanki.stop()
-                        break
+                
                 self.motorB.stop()
                 self.motorC.stop()
+                self.tanki.turn(-50)
+                self.tanki.stop()
                 self.ser.write(b"passou_verde\n")
-            return None 
+                return None
+
+            else: #verifica a curva do verde
+                            
+                if meio1 >= 40 or meio2 >= 40:
+                    self.tanki.stop()
+                    self.tanki.turn(70)
+                    self.tanki.straight(90)
+                    self.tanki.stop()
+                    self.ev3.speaker.beep(400) 
+                    print(">>> EXECUTANDO VERDE DIREITA")
+                    self.tanki.stop()
+                    self.motorB.dc(100)
+                    self.motorC.dc(100)
+                    while True:
+                        retorno = self.sensor1.read(2)
+                        f1 = retorno[0]
+                        if f1 <= 40:
+                            self.tanki.stop()
+                            break
+                    self.motorB.stop()
+                    self.motorC.stop()
+                    self.ser.write(b"passou_verde\n")
+                return None 
 
         # ==================================
         # LÓGICA DA ESQUERDA
         # ==================================
         elif verdeEsquerda and not pretoesq > 0:
-            if meio1 >= 40 or meio2 >= 40:
+
+            wait(10)
+            self.tanki.straight(10)
+            if verdeDireita: #verifica beco
+                wait(10)
                 self.tanki.stop()
-                self.tanki.turn(70)
-                self.tanki.straight(-90)
+                self.ev3.speaker.beep(600) 
+                print(">>> EXECUTANDO BECO")
+                self.tanki.turn(30)
+                self.tanki.straight(190)
                 self.tanki.stop()
-                self.ev3.speaker.beep(200) 
-                print(">>> EXECUTANDO VERDE ESQUERDA")
-                self.tanki.stop()
-                self.motorB.dc(-100)
-                self.motorC.dc(-100)
-                while True:
-                    retorno = self.sensor1.read(2)
-                    f2 = retorno[3]
-                    if f2 <= 40:
-                        self.tanki.stop()
-                        break
+                
                 self.motorB.stop()
                 self.motorC.stop()
+                self.tanki.turn(-50)
+                self.tanki.stop()
+                
                 self.ser.write(b"passou_verde\n")
-            return None
+                return None 
+            
+            else: #realiza a curva do verde
+                if meio1 >= 40 or meio2 >= 40:
+                    self.tanki.stop()
+                    self.tanki.turn(70)
+                    self.tanki.straight(-90)
+                    self.tanki.stop()
+                    self.ev3.speaker.beep(200) 
+                    print(">>> EXECUTANDO VERDE ESQUERDA")
+                    self.tanki.stop()
+                    self.motorB.dc(-100)
+                    self.motorC.dc(-100)
+                    while True:
+                        retorno = self.sensor1.read(2)
+                        f2 = retorno[3]
+                        if f2 <= 40:
+                            self.tanki.stop()
+                            break
+                    self.motorB.stop()
+                    self.motorC.stop()
+                    self.ser.write(b"passou_verde\n")
+                return None
+        
+        
 
         # ==================================
-        # LÓGICA DO BECO (Ou 2 Verdes)
+        # LÓGICA DO BECO (Ou 2 Verdes) integrado no verde direita e esquerda
         # ==================================
-        elif previsao_camera == "dois verdes" or (verdeDireita and verdeEsquerda):
-            wait(10)
-            self.tanki.stop()
-            self.ev3.speaker.beep(600) 
-            print(">>> EXECUTANDO BECO")
-            self.tanki.turn(30)
-            self.tanki.straight(190)
-            self.tanki.stop()
-            
-            self.motorB.stop()
-            self.motorC.stop()
-            self.tanki.turn(-50)
-            self.tanki.stop()
-            
-            self.ser.write(b"passou_verde\n")
-            return None 
-        
         # ==================================
         # LÓGICA DE GAP (DEPOIS)
         # ==================================

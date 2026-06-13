@@ -71,16 +71,18 @@
   Além do chassi personalizado impresso em 3D e rodas adaptadas (com pneus moldados em silicone de alta aderência), utilizamos os seguintes componentes eletrônicos para garantir a máxima performance a 10.1V:
 </p>
 
-- 1x Bloco LEGO EV3 (Controlo de Motores e Malha PID)
-- 1x Raspberry Pi 4 (8GB) (Processamento de Visão e IA)
-- 1x Módulo Giroscópio MPU6050 (Via I2C)
-- 1x Câmera PiCamera2 IMX500 (Leitura de Linha e Verdes - Fisicamente invertida)
-- 1x Câmera USB IMX179 (Detecção de Vítimas via YOLO)
-- 2x Motores LEGO EV3 Large (Tração a >200 RPM)
-- 1x Step-Up Conversor XL6009 (Elevando a tensão para 10.1V)
-- Sensores Multiplexados de Refletância
-- [COLOQUE AQUI: Bateria LiPo ou de Íon de Lítio utilizada]
-- [COLOQUE AQUI: Outros sensores, garra, ou servos utilizados]
+- 1x Bloco LEGO EV3 
+- 1x Raspberry Pi 4 8GB
+- 1x Módulo Giroscópio MPU6050 
+- 1x Câmera PiCamera2 IMX500 
+- 2x Motores LEGO EV3 Medium
+- 1x Sensor followline 
+- 1x Multiplexadora i2c
+- 1x Step-Up Conversor XL6009 
+- 3x Sensores Vl53l0x
+- 1x Sensor TCS30725
+- 2x Bateria LiPo 7,4v
+- 4x Mg90s tower pro
 
 ## Software & Lógica
 
@@ -99,7 +101,7 @@
   Ao detetar a fita prata de entrada do resgate, a Raspberry suspende a câmera inferior e ativa a câmera IMX179 acoplada à garra. Treinamos um modelo <b>YOLOv8</b> otimizado para CPU que deteta vítimas vivas (Silver Ball) e mortas (Black Ball) com alta confiança. O sistema calcula a área em píxeis e a posição (esquerda/meio/direita) da vítima no frame, enviando as coordenadas exatas para o EV3 realizar a aproximação final e o resgate.
 </p>
 
-## Sobre a Equipa New Atom
+## Sobre a Equipe New Atom
 
 <p align="justify">
   A equipe <b>New Atom</b> é formada por estudantes apaixonados por robótica, com um histórico forte em competições como OBR, FLL, FTC e eventos técnicos. Dividimos as nossas funções para otimizar o desenvolvimento de um robô de alto nível:
