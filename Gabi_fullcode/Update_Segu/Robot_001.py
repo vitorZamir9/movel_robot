@@ -16,7 +16,7 @@ from green import Green
 from black909 import Black909
 from silver import Silver
 from gapwhite import Gapwhite
-from talkingserial import TalkingSerial as ts
+from talkingserial import TalkingSerial
 
 ####################################################################################################
 ev3= EV3Brick()
@@ -25,14 +25,19 @@ multiplex1 = LUMPDevice(Port.S2)
 motorB = Motor(Port.B,gears=[12,25],positive_direction=Direction.COUNTERCLOCKWISE)
 motorC = Motor(Port.D,gears=[12,25],positive_direction=Direction.COUNTERCLOCKWISE)
 ser = UARTDevice(Port.S6, baudrate=115200, timeout=0.1)
+ts = TalkingSerial(ser)
 serialservo = UARTDevice(Port.S5, baudrate=115200, timeout=0.1)
 servosMove= Servos(serialservo,True)
 
 # VARIAVEIS / IMPORT
+
+#Variáveis PID
 kp_atual = 2.0
 kd_atual = 0.01
-ki_atual = 0.01
+ki_atual = 0.001
 base_atual = 120
+
+
 error = 0
 powerB = 0
 powerC = 0
@@ -74,7 +79,7 @@ obstaculo_camera_aguardando_linha = False  # esperando câmera dizer os lados
 obstaculo_camera_resultado_linha = None  # "linha esquerda/direita/ambos/nenhum"
 tempo_espera_linha = 0.0                 # para o timeout de 3s
 #### initi ####
-def calibraBranco(): #todos os sensores no branco, o mínimo de sommbra possível, robô virado para a luz
+def calibraBranco(): #todos os sensores no branco, o mínimo de sombra possível, robô virado para a luz
     retorno = sensor1.read(3)
     wait(100)
     while retorno[0] == 0:
@@ -123,6 +128,7 @@ def sensor():
     global obstaculo_camera_aguardando_linha
     global obstaculo_camera_resultado_linha
     global tempo_espera_linha
+    
     
     buffer_serial = ""
     
@@ -221,7 +227,7 @@ def sensor():
             kp_atual, ki_atual, base_atual = 2.0, 0.01, 100   # descendo
         else:
             print("plano")
-            kp_atual, ki_atual, base_atual = 2.0, 0.01, 120   # plano
+            kp_atual, ki_atual, base_atual =2.0, 0.1, 120  # plano
         # ==========================================
         # 3. VERIFICAÇÃO SE O ROBÔ ESTÁ PARADO
         # ==========================================
