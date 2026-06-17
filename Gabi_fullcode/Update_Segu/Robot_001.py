@@ -25,6 +25,7 @@ multiplex1 = LUMPDevice(Port.S2)
 motorB = Motor(Port.B,gears=[12,25],positive_direction=Direction.COUNTERCLOCKWISE)
 motorC = Motor(Port.D,gears=[12,25],positive_direction=Direction.COUNTERCLOCKWISE)
 ser = UARTDevice(Port.S6, baudrate=115200, timeout=0.1)
+ts = ts(ser,True)
 serialservo = UARTDevice(Port.S5, baudrate=115200, timeout=0.1)
 servosMove= Servos(serialservo,True)
 
@@ -61,7 +62,7 @@ silver = Silver(
     multiplex1 = multiplex1,
     ev3        = ev3,
     ser        = ser,
-    servosP    = servosMove
+    servosP    = servosMove,
 )
 gap = Gapwhite(tanki, motorB, motorC, sensor1, ev3)
 # ---> VARIÁVEIS DE COMUNICAÇÃO COM A RASPBERRY <---
@@ -123,6 +124,10 @@ def sensor():
     global obstaculo_camera_aguardando_linha
     global obstaculo_camera_resultado_linha
     global tempo_espera_linha
+    global ultra1
+    global ultra2
+    global ultrad3
+    global ultra4
     
     buffer_serial = ""
     
@@ -171,10 +176,10 @@ def sensor():
         retorno1= multiplex1.read(0)
 
         # Leitura dos sensores ultrasônicos
-        ultrafrente= retorno1[2]
-        ultradireita= retorno1[3]
-        ultraesquerda= retorno1[0]
-        ultravitimas= retorno1[4]
+        ultra1 = retorno1[0] # frente
+        ultra2 = retorno1[1] # direita
+        ultrad3 = retorno1[2] # vitima
+        ultra4 = retorno1[3] # esquerda
 
         # Leitura dos botões para função pro robô
         botao_stop=retorno1[6]
@@ -251,7 +256,7 @@ def sensor():
         # ==========================================
         # 5. SILVER TAPE
         # ==========================================
-        clear = 50
+        clear = 70
         rgb=85
         esqgray = R1 > rgb and G1 > rgb and B1 > rgb and C1 > clear 
         mindgray = R3 > rgb and G3 > rgb and B3 > rgb and C3 > clear #prata reflectivo
@@ -261,9 +266,10 @@ def sensor():
         mindgray1 = B3 > 50 and B3 < 66 and C3 > 24 and C3 < 31 and clormind == 6 #calibrar o prata não reflectivo
         dirgray1 = B2 > 50 and B2 < 66 and C2> 24 and C2 < 31 and clordir == 6
         y=0
-        if esqgray1 and mindgray1 and dirgray1 or esqgray1 and mindgray1 and dirgray1:
+        # ^^^^^^se essa variavel ficar 0 ela vai fazer com que o robo ignore o seguidor e va direto pro resgate
+        if esqgray1 and mindgray1 and dirgray1 or esqgray1 and mindgray1 and dirgray1 or y==0:
             wait(10)
-            if esqgray1 and mindgray1 and dirgray1 or esqgray1 and mindgray1 and dirgray1 and y==0:
+            if esqgray1 and mindgray1 and dirgray1 or esqgray1 and mindgray1 and dirgray1 or y==0:
                 tanki.stop()
                 ev3.speaker.beep(900)
  
@@ -576,8 +582,17 @@ def teste_Linha():
         meio1 = retorno[2] # esquerda 
         meio2 = retorno[1] # direita  
         fora2 = retorno[0] # direita  
+        #####################################
+        retorno1= multiplex1.read(0)
 
-        print("fora1: ", fora1,"meio1: ", meio1,"meio2: ", meio2,"fora2: ", fora2)
+        # Leitura dos sensores ultrasônicos
+        ultra1 = retorno1[0] # frente
+        ultra2 = retorno1[1] # direita
+        ultrad3 = retorno1[2] # vitima
+        ultra4 = retorno1[3] # esquerda
+
+        #print("fora1: ", fora1,"meio1: ", meio1,"meio2: ", meio2,"fora2: ", fora2)
+        print("ultra1: ", ultra1,"ultra2: ", ultra2,"ultrad3: ", ultrad3,"ultra4: ", ultra4)
         wait(10)
 
 def serial():
@@ -589,6 +604,26 @@ def serial():
         #ser.read_all()
         print(ser.read_all())
         wait(100)
+
+def servis():
+    servosMove.desativa(1) # angulo
+    servosMove.desativa(2) # esquerda
+    servosMove.desativa(3) # direita
+    servosMove.desativa(4) # despejo
+    wait(00)
+    #servosMove.move(3, 60)# aberto
+    #servosMove.move(2, 0)# aberto
+    #wait(1000)
+    #servosMove.move(3, 0)
+    #servosMove.move(2, 60)
+    #wait(1000)
+    servosMove.move(4, 0) # mortas
+    wait(1000)
+    servosMove.move(4, 60) 
+    wait(1000)
+    servosMove.move(4, 30) 
+    
+
 # ==========================================
 # MESA DE CALIBRAR
 # ==========================================
@@ -596,5 +631,6 @@ def serial():
 #calibraBranco()
 #calibraPreto()
 sensor()
-#teste()
+#teste_Linha()
 #serial()
+#servis()

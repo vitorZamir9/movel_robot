@@ -16,7 +16,7 @@ class Servos:
             angulo = 180
         self.lista[servo] = angulo
         if self.atualizaInstantaneo:
-            self.atualiza()
+            self.atualiza() 
 
     def atualiza(self):
         self.ser.write(bytes(self.lista))

@@ -89,21 +89,17 @@ class TalkingSerial:
         self._buf   = ""          # buffer de texto incompleto entre chamadas
 
         # ── Giroscópio — 3 eixos ─────────────────────────────────────────────
-        # Nomes alinhados com gyro_rasp_x/y/z do código principal
         self.gyro_x = 0.0    # Roll   — inclinação lateral
         self.gyro_y = 0.0    # Pitch  — inclinação frente/trás (rampa)
         self.gyro_z = 0.0    # Yaw    — rotação horizontal (girar_graus)
 
-        # Aliases para quem preferir os nomes descritivos
-        # (são propriedades, atualizadas automaticamente)
-
         # ── Estado de obstáculo ───────────────────────────────────────────────
-        self.obstaculo_pendente    = False   # câmera avisou, ainda não confirmamos
-        self.aguardando_linha      = False   # EV3 confirmou, esperando os lados
-        self.resultado_linha       = None    # "linha esquerda/direita/ambos/nenhum"
+        self.obstaculo_pendente    = False
+        self.aguardando_linha      = False
+        self.resultado_linha       = None
+        self._ultimo_resultado_linha = None   # FIX: guarda mesmo fora de aguardando
 
-        # ── Previsão de verde (câmera olha à frente) ──────────────────────────
-        # Valores possíveis: "esquerda" | "direita" | "beco" | "depois" | None
+        # ── Previsão de verde ─────────────────────────────────────────────────
         self.previsao_camera = None
 
         # ── Frames de visão (bola / triângulo) ───────────────────────────────
@@ -114,7 +110,6 @@ class TalkingSerial:
         self._linhas_raw = []
 
         # ── Eventos gerados no último drenar_principal() ──────────────────────
-        # Resetados a cada chamada de drenar_principal()
         self._ev_obstaculo_pendente = False
         self._ev_resultado_linha    = None
         self._ev_previsao_camera    = None
@@ -143,21 +138,13 @@ class TalkingSerial:
     # =========================================================================
 
     def enviar(self, cmd):
-        """
-        Manda qualquer string para a Raspberry (adiciona \\r\\n).
-
-        Exemplos:
-            ts.enviar("bolas")
-            ts.enviar("triangulo")
-            ts.enviar("confirma obstaculo")
-        """
+        """Manda qualquer string para a Raspberry (adiciona \\r\\n)."""
         self._ser.write((cmd.strip() + "\r\n").encode())
 
     def set_modo(self, modo):
         """
         Muda o modo de visão da Raspberry.
         modo: "bolas" | "triangulo" | "obstaculo"
-        Valida o nome antes de enviar.
         """
         if modo not in self.MODOS:
             print("[TalkingSerial] Modo desconhecido:", modo)
@@ -180,14 +167,13 @@ class TalkingSerial:
     # =========================================================================
 
     def _parsear_linha(self, linha):
-        """Processa uma linha stripped e atualiza o estado interno."""
         if not linha or linha == "frente":
             return
 
         if self._debug:
             print("[RX]", linha)
 
-        # ── Formato simples: MPU_Z:{yaw} ─────────────────────────────────────
+        # ── Giroscópio: formato simples ───────────────────────────────────────
         if linha.startswith("MPU_Z:"):
             try:
                 self.gyro_z = float(linha[6:])
@@ -195,7 +181,7 @@ class TalkingSerial:
                 pass
             return
 
-        # ── Formato completo: [MPU] Roll: X° Pitch: Y° Yaw: Z° ───────────────
+        # ── Giroscópio: formato completo ──────────────────────────────────────
         if "[MPU]" in linha:
             try:
                 self.gyro_x = float(linha.split("Roll: ")[1].split("°")[0])
@@ -213,39 +199,42 @@ class TalkingSerial:
             return
 
         # ── Resultado dos lados da linha ──────────────────────────────────────
-        # Só aceita se o EV3 estava aguardando (evita falso positivo)
-        if linha.startswith("linha ") and self.aguardando_linha:
-            self.resultado_linha    = linha   # "linha esquerda/direita/ambos/nenhum"
-            self._ev_resultado_linha = linha
-            self.aguardando_linha   = False
-            print("[TalkingSerial] Resultado linha:", linha)
+        # FIX: guarda sempre em _ultimo_resultado_linha, independente de
+        # aguardando_linha — evita perder a mensagem se a Rasp responder
+        # antes do EV3 chamar confirmar_obstaculo().
+        if linha.startswith("linha "):
+            self._ultimo_resultado_linha = linha
+            if self.aguardando_linha:
+                self.resultado_linha     = linha
+                self._ev_resultado_linha = linha
+                self.aguardando_linha    = False
+                print("[TalkingSerial] Resultado linha:", linha)
             return
 
         # ── Previsão de verde (câmera olha à frente) ──────────────────────────
         if "esquerda antes" in linha:
-            self.previsao_camera    = "esquerda"
+            self.previsao_camera     = "esquerda"
             self._ev_previsao_camera = "esquerda"
-            print("[TalkingSerial] Previsão câmera: esquerda")
             return
         if "direita antes" in linha:
-            self.previsao_camera    = "direita"
+            self.previsao_camera     = "direita"
             self._ev_previsao_camera = "direita"
-            print("[TalkingSerial] Previsão câmera: direita")
             return
         if "dois verdes" in linha:
-            self.previsao_camera    = "beco"
+            self.previsao_camera     = "beco"
             self._ev_previsao_camera = "beco"
-            print("[TalkingSerial] Previsão câmera: beco")
             return
         if "verde depois" in linha:
-            self.previsao_camera    = "depois"
+            self.previsao_camera     = "depois"
             self._ev_previsao_camera = "depois"
-            print("[TalkingSerial] Previsão câmera: depois")
             return
 
-        # ── Linhas cruas para frames multi-linha (bola / triângulo) ──────────
-        self._linhas_raw.append(linha)
-        self._tentar_montar_frame()
+        # ── Linhas de frame de visão (bola / triângulo) ───────────────────────
+        # FIX: só entra no buffer se for parte de um frame — telemetria numérica
+        # e outros logs não poluem mais o _linhas_raw.
+        if (linha.startswith("Detected:") or linha.startswith("Detectado:") or linha.startswith("Area:") or linha.startswith("Lado:") or linha.startswith("Centro:")):
+            self._linhas_raw.append(linha)
+            self._tentar_montar_frame()
 
     def _tentar_montar_frame(self):
         """
@@ -259,7 +248,7 @@ class TalkingSerial:
         det_ln = area_ln = lado_ln = None
 
         for i, ln in enumerate(raw):
-            if ln.startswith("Detected:") and idx_d < 0:
+            if (ln.startswith("Detected:") or ln.startswith("Detectado:")) and idx_d < 0:
                 idx_d = i;  det_ln  = ln
             elif ln.startswith("Area:") and "px" in ln and idx_a < 0:
                 idx_a = i;  area_ln = ln
@@ -268,10 +257,11 @@ class TalkingSerial:
 
         if det_ln and area_ln and lado_ln:
             try:
-                cls_name  = det_ln.split("Detected:")[1].strip()
+                sep = "Detectado:" if "Detectado:" in det_ln else "Detected:"
+                cls_name  = det_ln.split(sep)[1].strip()
                 area_val  = int(area_ln.split("Area:")[1].replace("px", "").strip())
                 lado_val  = lado_ln.split("Lado:")[1].strip()
-                confianca = 100.0   # formato antigo da Rasp não envia confiança
+                confianca = 100.0
             except (IndexError, ValueError):
                 cls_name  = ""
                 area_val  = 0
@@ -286,6 +276,8 @@ class TalkingSerial:
             }
             for i in sorted([idx_d, idx_a, idx_l], reverse=True):
                 raw.pop(i)
+            # FIX: retorna imediatamente — impede que Lado: do frame de bola
+            # seja reusado pelo parser de triângulo na mesma chamada.
             return
 
         # ── Frame de TRIÂNGULO: Area(cor) / Centro / Lado ─────────────────────
@@ -311,16 +303,18 @@ class TalkingSerial:
                 lado   = "meio"
 
             self._frame_triangulo = {
-                "cor":    cor,      # "Vermelho" | "Verde"
-                "centro": centro,   # pixel X do centro na imagem
-                "lado":   lado,     # "esquerda" | "meio" | "direita"
+                "cor":    cor,
+                "centro": centro,
+                "lado":   lado,
             }
             for i in sorted([idx_c, idx_cen, idx_tl], reverse=True):
                 raw.pop(i)
 
-        # Proteção contra acúmulo infinito de linhas não montadas
-        if len(raw) > 20:
-            self._linhas_raw = raw[-10:]
+        # FIX: limite reduzido para 9; limpa tudo (não guarda metade).
+        # Com o filtro do startswith acima, chegar a 9 já indica frame
+        # incompleto / corrompido — melhor descartar e recomeçar.
+        if len(raw) > 9:
+            self._linhas_raw = []
 
     # =========================================================================
     #  API PRINCIPAL
@@ -348,36 +342,20 @@ class TalkingSerial:
         """
         Versão para o loop principal do EV3.
 
-        Substitui o bloco 1.2 inteiro do main.py. Além de drenar a serial,
-        devolve um dict com os EVENTOS ocorridos NESTE ciclo — ou seja,
-        o que chegou de novo desde a última chamada.
+        Além de drenar a serial, devolve um dict com os EVENTOS ocorridos
+        NESTE ciclo — ou seja, o que chegou de novo desde a última chamada.
 
         Retorno:
             {
-                "obstaculo_pendente": bool,   → câmera acabou de detectar obstáculo
-                "resultado_linha":    str|None, → "linha esquerda/direita/ambos/nenhum"
-                "previsao_camera":    str|None, → "esquerda"|"direita"|"beco"|"depois"
+                "obstaculo_pendente": bool,
+                "resultado_linha":    str|None,
+                "previsao_camera":    str|None,
             }
-
-        Uso no main:
-            ev = ts.drenar_principal()
-            gyro_y = ts.gyro_y            # pitch — rampa
-
-            if ev["obstaculo_pendente"]:
-                ts.confirmar_obstaculo()
-                ...
-            if ev["resultado_linha"]:
-                resultado = ev["resultado_linha"]
-                ...
-            if ev["previsao_camera"]:
-                previsao_camera = ev["previsao_camera"]
         """
-        # Reseta eventos do ciclo anterior
         self._ev_obstaculo_pendente = False
         self._ev_resultado_linha    = None
         self._ev_previsao_camera    = None
 
-        # Processa o que chegou
         self.drenar()
 
         return {
@@ -392,21 +370,11 @@ class TalkingSerial:
         Consome o frame — próxima chamada retorna None até chegar um novo.
 
         Para BOLAS:
-            {
-                "tipo":      "bola",
-                "detected":  "Silver Ball" | "Black Ball" | ...,
-                "confianca": float (0–100),
-                "lado":      "esquerda" | "meio" | "direita",
-                "area":      int (pixels²),
-            }
+            { "tipo": "bola", "detected": str, "confianca": float,
+              "lado": str, "area": int }
 
         Para TRIÂNGULOS:
-            {
-                "tipo":   "triangulo",
-                "cor":    "Vermelho" | "Verde",
-                "centro": int,
-                "lado":   "esquerda" | "meio" | "direita",
-            }
+            { "tipo": "triangulo", "cor": str, "centro": int, "lado": str }
 
         Retorna None se não houver frame novo.
         """
@@ -429,8 +397,7 @@ class TalkingSerial:
     def limpar(self):
         """
         Descarta todo o buffer acumulado e reseta frames pendentes.
-        Usar ao entrar em um novo modo ou logo após enviar um comando,
-        para não processar dados velhos.
+        Usar ao entrar em um novo modo ou logo após enviar um comando.
         Não apaga o estado do giroscópio nem as flags de obstáculo.
         """
         try:
@@ -482,11 +449,8 @@ class TalkingSerial:
 
     def aguardar_resultado_linha(self, timeout_ms=3000):
         """
-        Bloqueia até receber o resultado dos lados da linha (após confirmar
-        um obstáculo) ou até o timeout expirar.
-
-        Retorna: "linha esquerda" | "linha direita" | "linha ambos" |
-                 "linha nenhum" | None (timeout)
+        Bloqueia até receber o resultado dos lados da linha ou timeout.
+        Retorna: "linha esquerda"|"linha direita"|"linha ambos"|"linha nenhum"|None
         """
         elapsed = 0
         while elapsed < timeout_ms:
@@ -503,7 +467,6 @@ class TalkingSerial:
         """
         Bloqueia até receber um frame de bola que contenha tipo_alvo.
         Retorna o frame ou None (timeout).
-
         tipo_alvo: substring do cls_name, ex: "Silver" ou "Black"
         """
         elapsed = 0
@@ -521,11 +484,10 @@ class TalkingSerial:
         Gira o robô usando gyro_z (Yaw) da Raspberry como referência.
         Para quando girou abs(angulo) graus a partir da posição atual.
 
-        angulo : graus a girar (positivo = sentido que a Rasp acumula yaw)
-        motorB : Motor B (recebe dc(100))
-        motorC : Motor C (recebe dc(100))
+        angulo : graus a girar (positivo ou negativo)
+        motorB : Motor B
+        motorC : Motor C
         """
-        # Drena para ter o gyro_z mais recente antes de tarar
         self.drenar()
         yaw_inicio = self.gyro_z
 
@@ -535,7 +497,8 @@ class TalkingSerial:
         while True:
             self.drenar()
             giro_atual = self.gyro_z - yaw_inicio
-            if giro_atual >= abs(angulo):
+            # FIX: abs() em ambos os lados — suporta ângulo negativo sem travar
+            if abs(giro_atual) >= abs(angulo):
                 motorB.stop()
                 motorC.stop()
                 print("[TalkingSerial] girar_graus OK:", giro_atual)

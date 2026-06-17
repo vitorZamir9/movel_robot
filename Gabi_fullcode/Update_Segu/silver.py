@@ -13,14 +13,14 @@ class Silver:
         self.ev3       = ev3
         self.ser       = ser
         self.servosP   = servosP
-
         # ── Módulo serial centralizado ────────────────────────────────────────
-        self.talk = TalkingSerial(ser)
+        self.talk = TalkingSerial(ser, True)
 
         # Contadores de vítimas (persistem entre chamadas)
         self.vitimas      = 0
         self.vitimaBLACK  = 0
         self.vitimaSILVER = 0
+
 
     # =========================================================
     # ENTER — Entrada no resgate, identifica lado da parede
@@ -383,6 +383,7 @@ class Silver:
             while True:
                 frame = self.talk.ler_frame()
                 if frame:
+                    print("zamir")
                     detected  = frame["detected"]
                     confianca = frame["confianca"]
                     lado      = frame["lado"]
@@ -390,7 +391,7 @@ class Silver:
 
                     print("DETECTADO:", detected, confianca, lado, area)
 
-                    if confianca > 80.0 and tipo in detected:
+                    if confianca > 60.0 and tipo in detected:
                         lapooo      = lado
                         vendoVITIMA = detected.split(',')[0] if ',' in detected else detected
                         pxvitima    = area
