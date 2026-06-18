@@ -128,6 +128,14 @@ def sensor():
     global ultra2
     global ultrad3
     global ultra4
+    global R1, R2, R3
+    global G1, G2, G3
+    global B1, B2, B3
+    global esqgray1, mindgray1, dirgray1
+    global esqgray, mindgray, dirgray
+    global rgb, clear
+    global cloresq, clormind, clordir
+    global fora1, meio1, meio2, fora2
     
     buffer_serial = ""
     
@@ -176,18 +184,18 @@ def sensor():
         retorno1= multiplex1.read(0)
 
         # Leitura dos sensores ultrasônicos
-        ultra1 = retorno1[0] # frente
-        ultra2 = retorno1[1] # direita
+        ultra1  = retorno1[0] # frente
+        ultra2  = retorno1[1] # direita
         ultrad3 = retorno1[2] # vitima
-        ultra4 = retorno1[3] # esquerda
+        ultra4  = retorno1[3] # esquerda
 
         # Leitura dos botões para função pro robô
-        botao_stop=retorno1[6]
-        botao_parar= retorno1[5]
+        botao_stop  = retorno1[6]
+        botao_parar = retorno1[5]
 
         # Leitura dos botôes que servem pro parachoque
-        ChoqueESQ= retorno1[4]
-        ChoqueDIR= retorno1[7]
+        ChoqueESQ = retorno1[4]
+        ChoqueDIR = retorno1[7]
         # ==========================================
         # 1.2 LEITURA SERIAL — GIROSCÓPIO E CÂMERA
         # ==========================================
@@ -276,8 +284,11 @@ def sensor():
                 # ==========================================
                 # RESGATE — chama a classe Silver
                 # ==========================================
-                entrada_resgate_lado = silver.enter(esqgray, mindgray, dirgray)
+                entrada_resgate_lado = silver.enter(esqgray, mindgray, dirgray, esqgray1, mindgray1, dirgray1)
                 print("Entrada no resgate:", entrada_resgate_lado)
+                if entrada_resgate_lado is None:
+                    print("Erro na entrada do resgate. Retomando seguir linha.")
+                    continue  # volta pro loop de seguir linha
  
                 # Pegar vítimas vivas (Silver Ball) — 2 no total
                 resultado_vivas = silver.clawLife()

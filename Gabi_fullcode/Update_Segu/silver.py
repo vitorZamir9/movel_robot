@@ -5,14 +5,14 @@ from talkingserial import TalkingSerial
 
 class Silver:
     def __init__(self, tanki, motorB, motorC, sensor1, multiplex1, ev3, ser, servosP):
-        self.tanki     = tanki
-        self.motorB    = motorB
-        self.motorC    = motorC
-        self.sensor1   = sensor1
+        self.tanki      = tanki
+        self.motorB     = motorB
+        self.motorC     = motorC
+        self.sensor1    = sensor1
         self.multiplex1 = multiplex1
-        self.ev3       = ev3
-        self.ser       = ser
-        self.servosP   = servosP
+        self.ev3        = ev3
+        self.ser        = ser
+        self.servosMove = servosP
         # ── Módulo serial centralizado ────────────────────────────────────────
         self.talk = TalkingSerial(ser, True)
 
@@ -20,12 +20,16 @@ class Silver:
         self.vitimas      = 0
         self.vitimaBLACK  = 0
         self.vitimaSILVER = 0
+        self.ultra1 = self.multiplex1.read(0)[0] # frente
+        self.ultra2 = self.multiplex1.read(0)[1] # direita
+        self.ultrad3 = self.multiplex1.read(0)[2] # vitima
+        self.ultra4 = self.multiplex1.read(0)[3] # esquerda
 
 
     # =========================================================
     # ENTER — Entrada no resgate, identifica lado da parede
     # =========================================================
-    def enter(self, esqgray, mindgray, dirgray):
+    def enter(self, esqgray, mindgray, dirgray, esqgray1, mindgray1, dirgray1):
         self.tanki.turn(70)
         self.ev3.speaker.beep(900, 600)
         self.ev3.speaker.beep()
@@ -34,9 +38,9 @@ class Silver:
         self.talk.enviar("bolas")   # avisa a Rasp para modo bolas
         wait(500)
 
-        if esqgray and mindgray and dirgray:
+        if esqgray or mindgray or dirgray or esqgray1 or mindgray1 or dirgray1:
             wait(10)
-            if esqgray and mindgray and dirgray:
+            if esqgray or mindgray or dirgray or esqgray1 or mindgray1 or dirgray1:
                 self.tanki.stop()
                 print("resgate on")
                 self.ev3.speaker.beep()
@@ -46,10 +50,10 @@ class Silver:
                 self.motorC.run(-300)
                 while True:
                     retorno = self.sensor1.read(2)
-                    fora1 = retorno[0]
-                    meio1 = retorno[1]
-                    meio2 = retorno[2]
-                    fora2 = retorno[3]
+                    fora1 = retorno[3] # esquerda 
+                    meio1 = retorno[2] # esquerda 
+                    meio2 = retorno[1] # direita  
+                    fora2 = retorno[0] # direita  
                     if fora1 > 90 and meio1 > 90 and meio2 > 90 and fora2 > 90:
                         self.tanki.turn(-50)
                         self.tanki.stop()
@@ -61,7 +65,10 @@ class Silver:
                 self.motorC.run(0)
                 while True:
                     retorno = self.sensor1.read(2)
-                    meio1 = retorno[1]
+                    fora1 = retorno[3] # esquerda 
+                    meio1 = retorno[2] # esquerda 
+                    meio2 = retorno[1] # direita  
+                    fora2 = retorno[0] # direita  
                     if meio1 < 70:
                         self.tanki.stop()
                         break
@@ -77,7 +84,10 @@ class Silver:
                 self.motorC.run(300)
                 while True:
                     retorno = self.sensor1.read(2)
-                    meio2 = retorno[2]
+                    fora1 = retorno[3] # esquerda 
+                    meio1 = retorno[2] # esquerda 
+                    meio2 = retorno[1] # direita  
+                    fora2 = retorno[0] # direita  
                     if meio2 > 30:
                         self.tanki.stop()
                         break
@@ -103,27 +113,27 @@ class Silver:
                 # Identificar posição de entrada (parede esquerda / direita / meio)
                 entradaR = ""
                 while True:
-                    retorno1     = self.multiplex1.read(0)
-                    ultraesquerda = retorno1[0]
-                    ultrafrente  = retorno1[2]
-                    ultradireita = retorno1[3]
-                    print(ultradireita, ultraesquerda, ultrafrente)
+                    self.ultra1 = self.multiplex1.read(0)[0] # frente
+                    self.ultra2 = self.multiplex1.read(0)[1] # direita
+                    self.ultrad3 = self.multiplex1.read(0)[2] # vitima
+                    self.ultra4 = self.multiplex1.read(0)[3] # esquerda
+                    print(self.ultra4, self.ultra2)
 
-                    if ultraesquerda <= 150 and ultradireita >= 150:
+                    if self.ultra4 <= 150 and self.ultra2 >= 150:
                         self.tanki.stop()
                         print("parede esquerda")
                         entradaR = "parede esquerda"
                         self.tanki.straight(10)
                         self.tanki.stop()
                         break
-                    elif ultraesquerda >= 150 and ultradireita <= 150:
+                    elif self.ultra4 >= 150 and self.ultra2 <= 150:
                         self.tanki.stop()
                         print("parede direita")
                         entradaR = "parede direita"
                         self.tanki.straight(-10)
                         self.tanki.stop()
                         break
-                    elif ultradireita > 100 and ultraesquerda > 100:
+                    elif self.ultra4 > 150 and self.ultra2 > 150:
                         self.tanki.stop()
                         print("parede meeeio")
                         entradaR = "parede meeeio"
@@ -160,11 +170,11 @@ class Silver:
                     self.ev3.speaker.beep(800)
                     return True
                 if lado == "esquerda":
-                    self.motorB.dc(-75)
-                    self.motorC.dc(-75)
+                    self.motorB.dc(-90)
+                    self.motorC.dc(-90)
                 elif lado == "direita":
-                    self.motorB.dc(75)
-                    self.motorC.dc(75)
+                    self.motorB.dc(90)
+                    self.motorC.dc(90)
                 wait(50)
                 self.motorB.stop()
                 self.motorC.stop()
@@ -176,15 +186,15 @@ class Silver:
                     parado = 0
                 if parado > 10:
                     print("não está conseguindo ver vítima")
-                    self.motorB.dc(-40)
-                    self.motorC.dc(40)
+                    self.motorB.dc(-50)
+                    self.motorC.dc(50)
                 wait(300)
                 if lapooo == "esquerda":
                     self.motorB.reset_angle(0)
                     self.motorC.reset_angle(0)
                     wait(100)
-                    self.motorB.dc(-85)
-                    self.motorC.dc(-85)
+                    self.motorB.dc(-90)
+                    self.motorC.dc(-90)
                     while True:
                         wait(50)
                         if self.tanki.state()[3] < 20:
@@ -199,8 +209,8 @@ class Silver:
                     self.motorB.reset_angle(0)
                     self.motorC.reset_angle(0)
                     wait(100)
-                    self.motorB.dc(85)
-                    self.motorC.dc(85)
+                    self.motorB.dc(90)
+                    self.motorC.dc(90)
                     while True:
                         wait(50)
                         if self.tanki.state()[3] < 20:
@@ -219,14 +229,14 @@ class Silver:
         self.tanki.turn(-50)
         self.tanki.stop()
 
-        self.servosP.desativa(1)
-        self.servosP.desativa(3)
-        self.servosP.desativa(4)
-        self.servosP.desativa(5)
+        self.servosMove.desativa(1)
+        self.servosMove.desativa(3)
+        self.servosMove.desativa(4)
+        self.servosMove.desativa(5)
 
-        self.servosP.move(1, 250)
-        self.servosP.move(3, 90)
-        self.servosP.move(4, 0)
+        self.servosMove.move(1, 250)
+        self.servosMove.move(3, 90)
+        self.servosMove.move(4, 0)
         wait(1000)
 
         # Andar para pegar a vítima
@@ -248,15 +258,15 @@ class Silver:
                 break
         self.tanki.stop()
 
-        self.servosP.desativa(1)
-        self.servosP.desativa(3)
-        self.servosP.desativa(4)
-        self.servosP.desativa(5)
-        self.servosP.move(3, 0)
-        self.servosP.move(4, 90)
+        self.servosMove.desativa(1)
+        self.servosMove.desativa(3)
+        self.servosMove.desativa(4)
+        self.servosMove.desativa(5)
+        self.servosMove.move(3, 0)
+        self.servosMove.move(4, 90)
         wait(100)
-        self.servosP.move(5, 40)
-        self.servosP.move(1, 5)
+        self.servosMove.move(5, 40)
+        self.servosMove.move(1, 5)
         wait(500)
         self.tanki.turn(-80)
         self.tanki.stop()
@@ -278,68 +288,68 @@ class Silver:
     # _separar_black — Deposita vítima morta (Black Ball)
     # =========================================================
     def _separar_black(self):
-        self.servosP.desativa(1)
-        self.servosP.desativa(3)
-        self.servosP.desativa(4)
-        self.servosP.desativa(5)
+        self.servosMove.desativa(1)
+        self.servosMove.desativa(3)
+        self.servosMove.desativa(4)
+        self.servosMove.desativa(5)
         wait(500)
-        self.servosP.move(5, 40)
-        self.servosP.move(3, 0)
-        self.servosP.move(4, 90)
+        self.servosMove.move(5, 40)
+        self.servosMove.move(3, 0)
+        self.servosMove.move(4, 90)
         wait(1000)
-        self.servosP.move(1, 5)
+        self.servosMove.move(1, 5)
         wait(1000)
-        self.servosP.move(3, 90)
-        self.servosP.move(4, 65)
+        self.servosMove.move(3, 90)
+        self.servosMove.move(4, 65)
         wait(1000)
-        self.servosP.desativa(1)
-        self.servosP.desativa(3)
-        self.servosP.desativa(4)
-        self.servosP.desativa(5)
+        self.servosMove.desativa(1)
+        self.servosMove.desativa(3)
+        self.servosMove.desativa(4)
+        self.servosMove.desativa(5)
         wait(100)
-        self.servosP.move(1, 10)
+        self.servosMove.move(1, 10)
         wait(100)
-        self.servosP.move(1, 0)
+        self.servosMove.move(1, 0)
         wait(1000)
-        self.servosP.move(1, 5)
-        self.servosP.move(3, 90)
-        self.servosP.move(4, 0)
+        self.servosMove.move(1, 5)
+        self.servosMove.move(3, 90)
+        self.servosMove.move(4, 0)
         wait(100)
-        self.servosP.move(1, 0)
+        self.servosMove.move(1, 0)
         wait(500)
 
     # =========================================================
     # _separar_silver — Deposita vítima viva (Silver Ball)
     # =========================================================
     def _separar_silver(self):
-        self.servosP.desativa(1)
-        self.servosP.desativa(3)
-        self.servosP.desativa(4)
-        self.servosP.desativa(5)
+        self.servosMove.desativa(1)
+        self.servosMove.desativa(3)
+        self.servosMove.desativa(4)
+        self.servosMove.desativa(5)
         wait(500)
-        self.servosP.move(5, 40)
-        self.servosP.move(3, 0)
-        self.servosP.move(4, 90)
+        self.servosMove.move(5, 40)
+        self.servosMove.move(3, 0)
+        self.servosMove.move(4, 90)
         wait(1000)
-        self.servosP.move(1, 5)
+        self.servosMove.move(1, 5)
         wait(1000)
-        self.servosP.move(4, 0)
-        self.servosP.move(3, 10)
+        self.servosMove.move(4, 0)
+        self.servosMove.move(3, 10)
         wait(1000)
-        self.servosP.desativa(1)
-        self.servosP.desativa(3)
-        self.servosP.desativa(4)
-        self.servosP.desativa(5)
+        self.servosMove.desativa(1)
+        self.servosMove.desativa(3)
+        self.servosMove.desativa(4)
+        self.servosMove.desativa(5)
         wait(100)
-        self.servosP.move(1, 10)
+        self.servosMove.move(1, 10)
         wait(100)
-        self.servosP.move(1, 0)
+        self.servosMove.move(1, 0)
         wait(1000)
-        self.servosP.move(1, 10)
-        self.servosP.move(3, 90)
-        self.servosP.move(4, 0)
+        self.servosMove.move(1, 10)
+        self.servosMove.move(3, 90)
+        self.servosMove.move(4, 0)
         wait(100)
-        self.servosP.move(1, 0)
+        self.servosMove.move(1, 0)
         wait(500)
 
     # =========================================================
@@ -741,24 +751,24 @@ class Silver:
                 self.tanki.stop()
                 break
 
-        self.servosP.desativa(1)
-        self.servosP.desativa(3)
-        self.servosP.desativa(4)
-        self.servosP.desativa(5)
+        self.servosMove.desativa(1)
+        self.servosMove.desativa(3)
+        self.servosMove.desativa(4)
+        self.servosMove.desativa(5)
         wait(500)
-        self.servosP.move(5, abertura_servo)
+        self.servosMove.move(5, abertura_servo)
         wait(1000)
 
         for c in range(1, 4):
             parado = 0
             self.motorB.reset_angle(0)
             self.motorC.reset_angle(0)
-            self.servosP.desativa(1)
-            self.servosP.desativa(3)
-            self.servosP.desativa(4)
-            self.servosP.desativa(5)
+            self.servosMove.desativa(1)
+            self.servosMove.desativa(3)
+            self.servosMove.desativa(4)
+            self.servosMove.desativa(5)
             wait(500)
-            self.servosP.move(5, fechamento_servo)
+            self.servosMove.move(5, fechamento_servo)
             wait(500)
             self.motorB.dc(100)
             self.motorC.dc(-100)
@@ -784,12 +794,12 @@ class Silver:
             self.motorB.dc(-100)
             self.motorC.dc(100)
             wait(200)
-            self.servosP.desativa(1)
-            self.servosP.desativa(3)
-            self.servosP.desativa(4)
-            self.servosP.desativa(5)
+            self.servosMove.desativa(1)
+            self.servosMove.desativa(3)
+            self.servosMove.desativa(4)
+            self.servosMove.desativa(5)
             wait(100)
-            self.servosP.move(5, abertura_servo)
+            self.servosMove.move(5, abertura_servo)
             print("pra tras")
             while True:
                 self.talk.drenar()   # drena serial durante recuo
@@ -805,7 +815,7 @@ class Silver:
             self.motorC.stop()
             self.tanki.stop()
 
-        self.servosP.move(5, fechamento_servo)
+        self.servosMove.move(5, fechamento_servo)
         self.tanki.turn(150)
         self.tanki.stop()
 

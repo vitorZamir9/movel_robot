@@ -5,6 +5,7 @@ import os
 import numpy as np
 import math
 import threading
+import queue
 import dashboard_server as dash
 
 # ── env anti-travamento ──────────────────────────────────────────
@@ -140,7 +141,7 @@ def iniciar_imx500():
     try:
         picam2 = Picamera2()
         cfg = picam2.create_video_configuration(
-            main={"format": "RGB888", "size": (W, H)})  # ← FIX: BGR888 → RGB888
+            main={"format": "RGB888", "size": (W, H)})
         picam2.configure(cfg)
         picam2.start()
         nome   = time.strftime("%Y%m%d_%H%M%S")
@@ -316,7 +317,7 @@ def monitorar_fitas_resgate(frame_bgr):
     return msg, hud, prata_ok, preta_ok
 
 # ══════════════════════════════════════════════════════════════════
-#  DETECÇÃO DE BOLAS — YOLO .pt na CPU (OTIMIZADO)
+#  DETECÇÃO DE BOLAS — YOLO .pt na CPU
 # ══════════════════════════════════════════════════════════════════
 
 def _parse_cpu_detections(frame_bgr, frame_w, frame_h):
@@ -412,6 +413,37 @@ def filtrar_melhor_bola(dets, frame_w, frame_h):
     return melhor
 
 # ══════════════════════════════════════════════════════════════════
+#  THREAD DE INFERÊNCIA YOLO
+#  O loop principal envia frames por fila e consome resultados
+#  sem nunca bloquear — serial responde em < 10ms independente
+#  do tempo de inferência (~200ms na CPU).
+# ══════════════════════════════════════════════════════════════════
+_fila_frames    = queue.Queue(maxsize=1)   # só o frame mais recente
+_fila_resultado = queue.Queue(maxsize=1)   # só o resultado mais recente
+
+def _worker_yolo():
+    while True:
+        try:
+            frame = _fila_frames.get(timeout=1.0)
+        except queue.Empty:
+            continue
+        try:
+            dets   = _parse_cpu_detections(frame, frame.shape[1], frame.shape[0])
+            melhor = filtrar_melhor_bola(dets, frame.shape[1], frame.shape[0])
+            # descarta resultado anterior não consumido
+            try:
+                _fila_resultado.get_nowait()
+            except queue.Empty:
+                pass
+            _fila_resultado.put((dets, melhor))
+        except Exception as e:
+            print(f"[YOLO WORKER] {e}")
+
+_thread_yolo = threading.Thread(target=_worker_yolo, daemon=True)
+_thread_yolo.start()
+print("[+] Thread YOLO iniciada ✓")
+
+# ══════════════════════════════════════════════════════════════════
 #  CALIBRAÇÃO MPU6050
 # ══════════════════════════════════════════════════════════════════
 offset_roll        = 0.0
@@ -481,11 +513,11 @@ print("[!] DEBUG_FILTROS ativo - verifique os logs para detecções")
 iniciar_imx500()
 dash.atualizar_estado(
     modo=modo_atual,
-    log={"msg": "Boot OK. IMX500 ativa (RGB888). Inference: CPU (.pt)", "tipo": "info"}
+    log={"msg": "Boot OK. IMX500 ativa (RGB888). Inference: CPU (.pt) — thread async", "tipo": "info"}
 )
 
 # ══════════════════════════════════════════════════════════════════
-#  LOOP PRINCIPAL
+#  LOOP PRINCIPAL  (leve — sem YOLO bloqueante)
 # ══════════════════════════════════════════════════════════════════
 try:
     while True:
@@ -513,6 +545,7 @@ try:
                     gyro_yaw=round(guinada_yaw, 1))
 
         # ── Recebe comandos do EV3 via serial ──────────────────
+        # Lê tudo de uma vez — não bloqueia porque não há YOLO no loop
         if ser and ser.in_waiting:
             cmd = ser.read(ser.in_waiting).decode('ascii', 'ignore').strip().lower()
             print(f"[EV3] → '{cmd}'")
@@ -556,10 +589,26 @@ try:
             continue
 
         # ══════════════════════════════════════════════════════
-        # MODO BOLAS
+        # MODO BOLAS — YOLO assíncrono via thread
         # ══════════════════════════════════════════════════════
         if modo_atual == "bolas":
-            dets = _parse_cpu_detections(frame, w_f, h_f)
+            # Envia frame para a thread (descarta o antigo se ainda não foi consumido)
+            try:
+                _fila_frames.get_nowait()
+            except queue.Empty:
+                pass
+            try:
+                _fila_frames.put_nowait(frame.copy())
+            except queue.Full:
+                pass
+
+            # Consome resultado se já ficou pronto — não bloqueia se ainda processando
+            dets   = []
+            melhor = None
+            try:
+                dets, melhor = _fila_resultado.get_nowait()
+            except queue.Empty:
+                pass
 
             if BALL_DEBUG and dets:
                 for d in dets:
@@ -568,7 +617,6 @@ try:
                                 (d["x1"], max(d["y1"]-3, 8)),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.28, (200,200,0), 1)
 
-            melhor = filtrar_melhor_bola(dets, w_f, h_f)
             if melhor is not None:
                 larg  = melhor["x2"] - melhor["x1"]
                 alt   = melhor["y2"] - melhor["y1"]
@@ -588,28 +636,21 @@ try:
                             cv2.FONT_HERSHEY_SIMPLEX, 0.38, cor_b, 1)
                 agora = time.time()
                 if (side != last_detection["side"] or (agora - last_detection["time"]) > 0.3):
-                    # ANTES
                     msg_serial = f"Detected: {cls}\nArea: {area}px\nLado: {side}\n"
-                    # DEPOIS
-                    #conf_pct = round(melhor['conf'] * 100, 1)
-                    #msg_serial = f"Detected: {cls}\nConfiança: {conf_pct}\nLado: {side}\nArea: {area}\n"
                     last_detection = {"time": agora, "side": side, "cmd": None}
 
         # ══════════════════════════════════════════════════════
-        # MODO TRIÂNGULO (lógica original restaurada)
+        # MODO TRIÂNGULO
         # ══════════════════════════════════════════════════════
         elif modo_atual == "triangulo":
-            # ── Detecta vermelho no espaço RGB (frame já é RGB real agora)
-            # canal 0=R, 1=G, 2=B
+            # Detecta vermelho no espaço RGB (frame já é RGB real)
             r = frame[:, :, 0].astype(np.int16)
             g = frame[:, :, 1].astype(np.int16)
             b = frame[:, :, 2].astype(np.int16)
 
-            # Vermelho: R alto, bem maior que G e B
             mask_red = np.zeros(frame.shape[:2], dtype=np.uint8)
             mask_red[(r > 100) & (r > g + 30) & (r > b + 30)] = 255
 
-            # Verde: HSV com canal correto agora
             hsv_resgate = cv2.cvtColor(frame, cv2.COLOR_RGB2HSV)
             mask_green_resg = cv2.inRange(hsv_resgate, GREEN_MIN, GREEN_MAX)
 
@@ -628,28 +669,23 @@ try:
             mask_areas = cv2.bitwise_or(mask_red, mask_green_resg)
             contours, _ = cv2.findContours(mask_areas, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-            # Debug: mostra todos os contornos encontrados (a cada 30 frames)
             if int(loop_start * 30) % 30 == 0:
                 print(f"[TRI] {len(contours)} contornos encontrados")
 
             for cnt in contours:
                 area_cnt = cv2.contourArea(cnt)
-                if area_cnt < 300:  # área mínima bem baixa para não perder nada
+                if area_cnt < 300:
                     continue
                 x, y, w, h = cv2.boundingRect(cnt)
                 if h == 0:
                     continue
                 proporcao = float(w) / h
 
-                # Debug de cada contorno candidato
                 if area_cnt > 300:
                     print(f"[TRI] cnt area={area_cnt:.0f} w={w} h={h} prop={proporcao:.2f} pos=({x},{y})")
 
-                # Largura mínima: pelo menos 8% da tela
                 if w < int(w_f * 0.08):
                     continue
-
-                # SEM filtro de proporção — aceita tudo que passou de área e largura
 
                 centro_x = x + (w // 2)
                 centro_y = y + (h // 2)
@@ -672,14 +708,11 @@ try:
                 if (side != last_detection["side"] or
                         (agora - last_detection["time"]) > 0.3):
                     if msg_serial is None:
-                        # ANTES
                         msg_serial = f"Area: {cor_nome}\nCentro: {centro_x}\nLado: {side}\n"
-                        # DEPOIS
-                        #msg_serial = f"Retangulo: {cor_nome}\nLado: {side}\n"
                     last_detection = {"time": agora, "side": side, "cmd": None}
 
         # ══════════════════════════════════════════════════════
-        # MODO OBSTÁCULO  (modo dedicado)
+        # MODO OBSTÁCULO
         # ══════════════════════════════════════════════════════
         elif modo_atual == "obstaculo":
             agora = time.time()
