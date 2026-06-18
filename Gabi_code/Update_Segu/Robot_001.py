@@ -64,7 +64,7 @@ silver = Silver(
 )
 gap = Gapwhite(tanki, motorB, motorC, sensor1, ev3)
 # ---> VARIÁVEIS DE COMUNICAÇÃO COM A RASPBERRY <---
-gyro_rasp_z = 0.0 
+gyro_rasp_z = 0.0
 gyro_rasp_y = 0.0
 previsao_camera = None # Memória da câmara para o verde
 # --->Variáveis de controle do obstáculo pela câmera<---
@@ -101,8 +101,8 @@ def botao():
 #################################################################
 
 def sensor():
-    global old_error  
-    global sensor1  
+    global old_error
+    global sensor1
     global kp_atual
     global kd_atual
     global ki_atual
@@ -111,7 +111,7 @@ def sensor():
     global integral
     global motorB
     global motorC
-    global gyro_rasp_z 
+    global gyro_rasp_z
     global gyro_rasp_y
     global previsao_camera
     global pretodir
@@ -122,9 +122,9 @@ def sensor():
     global obstaculo_camera_aguardando_linha
     global obstaculo_camera_resultado_linha
     global tempo_espera_linha
-    
+
     buffer_serial = ""
-    
+
     while True:
         # ==========================================
         # 0.0 Ligar tela-desafio surpresa/Enviar msg rasp
@@ -139,14 +139,14 @@ def sensor():
         retorno = sensor1.read(2)
 
         # Leitura dos sensores para seguir linha
-        fora1 = retorno[3] # esquerda 
-        meio1 = retorno[2] # esquerda 
-        meio2 = retorno[1] # direita  
-        fora2 = retorno[0] # direita  
+        fora1 = retorno[3] # esquerda
+        meio1 = retorno[2] # esquerda
+        meio2 = retorno[1] # direita
+        fora2 = retorno[0] # direita
 
         # Leitura da posição do sensor sobre a linha preta
         posicao = (retorno[29]*2)
-        
+
         # Leitura unitária dos sensores de cor
         cloresq = retorno[17]
         clormind = retorno[18]
@@ -162,7 +162,7 @@ def sensor():
         H1, H3, H2 = (retorno[20]*2), (retorno[23]*2), (retorno[26]*2)
         S1, S3, S2 = (retorno[21]*2), (retorno[24]*2), (retorno[27]*2)
         V1, V3, V2 = (retorno[22]*2), (retorno[25]*2), (retorno[28]*2)
-        
+
         alvo = 18 # Alvo para a calibração do HSV do verde
         # ==========================================
         # 1.1 LEITURA DO SENSOR MULTIPLEX
@@ -215,7 +215,7 @@ def sensor():
 
                     # --- RESPOSTA DA CÂMERA SOBRE OS LADOS DA LINHA ---
                     if "linha " in cmd and obstaculo_camera_aguardando_linha:
-                        print(f"CÂMERA: Resultado da linha -> {cmd}")
+                        print("CÂMERA: Resultado da linha -> ", cmd)
                         obstaculo_camera_resultado_linha = cmd  # "linha esquerda/direita/ambos/nenhum"
                         obstaculo_camera_aguardando_linha = False
                         continue
@@ -277,47 +277,47 @@ def sensor():
         # ==========================================
         clear = 35
         rgb=85
-        esqgray = R1 > rgb and G1 > rgb and B1 > rgb and C1 > clear 
+        esqgray = R1 > rgb and G1 > rgb and B1 > rgb and C1 > clear
         mindgray = R3 > rgb and G3 > rgb and B3 > rgb and C3 > clear #prata reflectivo
-        dirgray = R2 > rgb and G2 > rgb and B2 > rgb and C2 > clear 
-        
+        dirgray = R2 > rgb and G2 > rgb and B2 > rgb and C2 > clear
+
         esqgray1 = B1 > 50 and B1 < 66 and C1 > 24 and C1 < 31 and cloresq == 6
         mindgray1 = B3 > 50 and B3 < 66 and C3 > 24 and C3 < 31 and clormind == 6 #calibrar o prata não reflectivo
         dirgray1 = B2 > 50 and B2 < 66 and C2> 24 and C2 < 31 and clordir == 6
-        y=1
-        if esqgray and mindgray and dirgray or esqgray1 and mindgray1 and dirgray1:
+        y=0
+        if esqgray1 and mindgray1 and dirgray1 or esqgray1 and mindgray1 and dirgray1:
             wait(10)
-            if esqgray and mindgray and dirgray or esqgray1 and mindgray1 and dirgray1 and y==0:
+            if esqgray1 and mindgray1 and dirgray1 or esqgray1 and mindgray1 and dirgray1 and y==0:
                 tanki.stop()
                 ev3.speaker.beep(900)
- 
+
                 # ==========================================
                 # RESGATE — chama a classe Silver
                 # ==========================================
-                entradaR = silver.enter(esqgray, mindgray, dirgray)
-                print("Entrada no resgate:", entradaR)
- 
+                entrada_resgate_lado = silver.enter(esqgray, mindgray, dirgray)
+                print("Entrada no resgate:", entrada_resgate_lado)
+
                 # Pegar vítimas vivas (Silver Ball) — 2 no total
                 resultado_vivas = silver.clawLife()
                 print("Resultado clawLife:", resultado_vivas)
- 
+
                 # Pegar vítima morta (Black Ball) — 1 no total
                 resultado_mortas = silver.clawDead()
                 print("Resultado clawDead:", resultado_mortas)
- 
+
                 # Verificação dos dados de vítimas
                 print("=== VERIFICAÇÃO FINAL DE VÍTIMAS ===")
                 print("Total:", silver.vitimas,
                       "| Black:", silver.vitimaBLACK,
                       "| Silver:", silver.vitimaSILVER)
- 
+
                 # Entregar nos triângulos (se pegou todas)
                 if resultado_mortas["sairdoRESGATE"] == 0:
                     silver.triangulo()
- 
+
                 # Sair do resgate
                 silver.exit()
- 
+
                 # Retomar seguir linha
                 tanki.settings(straight_speed=999999, straight_acceleration=999999,
                                 turn_rate=999999, turn_acceleration=99999)
@@ -345,7 +345,7 @@ def sensor():
                 resultado = obstaculo_camera_resultado_linha
                 obstaculo_camera_aguardando_linha = False
                 obstaculo_camera_resultado_linha = None
-                print(f"EV3: Executando desvio com base em '{resultado}'")
+                print("EV3: Executando desvio com base em ", resultado)
 
                 # -----------------------------------------------
                 # LÓGICA DE DESVIO BASEADA NOS LADOS DA LINHA
@@ -521,6 +521,7 @@ def sensor():
         # ==========================================
         # 7. SEEING BLACK AT THE EDGE SENSORS
         # ==========================================
+
         if fora1 <= 10:
             pretoesq = 140
             pretodir = 0
@@ -537,30 +538,34 @@ def sensor():
         # A leitura serial foi movida para o módulo 1.2
         # ==========================================
         previsao_camera = grein.MoveGreen(
-        H1, S1, V1, H2, S2, V2, H3, S3, V3, alvo, 
+        H1, S1, V1, H2, S2, V2, H3, S3, V3, alvo,
         fora1, meio1, meio2, fora2, previsao_camera, cloresq, clordir,
         pretoesq, pretodir)
         # ==========================================
         # 9. ALL SENSORS DETECTED WHITE
         # ==========================================
+
         if fora1 > 90 and meio1 > 90 and meio2 > 90 and fora2 > 90:
-            motorB.dc(-100)
-            motorC.dc(100) #trás
+
+            print("tudo branco")
+
+            #motorB.dc(-100)
+            #motorC.dc(100) #trás
             retorno = sensor1.read(2)
             while True:
                 retorno = sensor1.read(2)
-                fora1 = retorno[3] # esquerda 
-                meio1 = retorno[2] # esquerda 
-                meio2 = retorno[1] # direita  
-                fora2 = retorno[0] # direita 
+                fora1 = retorno[3] # esquerda
+                meio1 = retorno[2] # esquerda
+                meio2 = retorno[1] # direita
+                fora2 = retorno[0] # direita
                 if fora1 < 50 or meio1 < 50 or meio2 < 50 or fora2 < 50:
                     motorB.stop()
                     motorC.stop()
                     break
             if fora1 < 50 or fora2 < 50:
                 pretoesq, pretodir = blackMove.blackORwhite(fora1, meio1, meio2, fora2, pretoesq, pretodir)
-            else:
-                gap.Litleshirt(fora1, meio1, meio2, fora2, pretoesq, pretodir)
+            # else:
+            #     gap.Litleshirt(fora1, meio1, meio2, fora2, pretoesq, pretodir)
         # ==========================================
         # 10. CONTROLE PID (SEGUIR LINHA)
         # ==========================================
@@ -589,17 +594,17 @@ def sensor():
                     break
                 if botao_stop == 0:
                     motorB.stop()
-                    motorC.stop() 
+                    motorC.stop()
 
 def teste_Linha():
     while True:
         retorno = sensor1.read(2)
 
         # Leitura dos sensores para seguir linha
-        fora1 = retorno[3] # esquerda 
-        meio1 = retorno[2] # esquerda 
-        meio2 = retorno[1] # direita  
-        fora2 = retorno[0] # direita  
+        fora1 = retorno[3] # esquerda
+        meio1 = retorno[2] # esquerda
+        meio2 = retorno[1] # direita
+        fora2 = retorno[0] # direita
 
         print("fora1: ", fora1,"meio1: ", meio1,"meio2: ", meio2,"fora2: ", fora2)
         wait(10)
@@ -607,10 +612,10 @@ def teste_Linha():
 def serial():
     global ser
     while True:
-        ser.write(b'\r\linha\r\n')
-        #ser.write(b'\r\resgate_on\r\n')
+        ser.write(b'\r\ bolas\r\n')
+        #ser.write(b'\r\bolas\r\n')
         #ser.write(b'\r\triangulo\r\n')
-        ser.read_all()
+        #ser.read_all()
         print(ser.read_all())
         wait(100)
 # ==========================================
@@ -619,6 +624,6 @@ def serial():
 # Primeiro calibrar o branco e depois o preto
 #calibraBranco()
 #calibraPreto()
-#sensor()
+sensor()
 #teste()
-serial()
+#serial()
