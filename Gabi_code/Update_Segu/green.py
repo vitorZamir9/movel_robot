@@ -63,7 +63,7 @@ class Green:
                     self.motorB.stop()
                     self.motorC.stop()
                     self.ser.write(b"passou_verde\n")
-                return None 
+            return None 
 
         # ==================================
         # LÓGICA DA ESQUERDA
@@ -109,7 +109,7 @@ class Green:
                     self.motorB.stop()
                     self.motorC.stop()
                     self.ser.write(b"passou_verde\n")
-                return None
+            return None
         
         
 

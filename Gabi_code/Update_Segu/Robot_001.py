@@ -37,8 +37,8 @@ powerB = 0
 powerC = 0
 corr = 0
 old_error = 0
-pretoesq = 0
 pretodir = 0
+pretoesq = 0
 integral = 0
 derivative = 0
 PESO_MEIO = 1.0
@@ -245,7 +245,7 @@ def sensor():
             kp_atual, ki_atual, base_atual = 2.0, 0.01, 100   # descendo
         else:
             print("plano")
-            kp_atual, ki_atual, base_atual = 2.5, 0.01, 120   # plano
+            kp_atual, ki_atual, base_atual = 2.0, 0.01, 120   # plano
         # ==========================================
         # 3. VERIFICAÇÃO SE O ROBÔ ESTÁ PARADO
         # ==========================================
@@ -294,7 +294,7 @@ def sensor():
                 # ==========================================
                 # RESGATE — chama a classe Silver
                 # ==========================================
-                entrada_resgate_lado = silver.enter(esqgray, mindgray, dirgray)
+                entrada_resgate_lado = silver.enter(esqgray, mindgray, dirgray, esqgray1, mindgray1, dirgray1)
                 print("Entrada no resgate:", entrada_resgate_lado)
 
                 # Pegar vítimas vivas (Silver Ball) — 2 no total
@@ -529,9 +529,11 @@ def sensor():
             pretodir = 140
             pretoesq = 0
         else:
-             if pretoesq > 0:
+             
+            if pretoesq > 0:
+
                 pretoesq -= 1
-             if pretodir > 0:
+            if pretodir > 0:
                 pretodir -= 1
         # ==========================================
         # 8. GREEN
@@ -549,22 +551,22 @@ def sensor():
 
             print("tudo branco")
 
-            #motorB.dc(-100)
-            #motorC.dc(100) #trás
+            #motorB.dc(-70)
+            #motorC.dc(70) #trás
             retorno = sensor1.read(2)
-            while True:
-                retorno = sensor1.read(2)
-                fora1 = retorno[3] # esquerda
-                meio1 = retorno[2] # esquerda
-                meio2 = retorno[1] # direita
-                fora2 = retorno[0] # direita
-                if fora1 < 50 or meio1 < 50 or meio2 < 50 or fora2 < 50:
-                    motorB.stop()
-                    motorC.stop()
-                    break
+            # while True:
+            #     retorno = sensor1.read(2)
+            #     fora1 = retorno[3] # esquerda
+            #     meio1 = retorno[2] # esquerda
+            #     meio2 = retorno[1] # direita
+            #     fora2 = retorno[0] # direita
+            #     if fora1 < 50 or meio1 < 50 or meio2 < 50 or fora2 < 50:
+            #         motorB.stop()
+            #         motorC.stop()
+            #         break
             if fora1 < 50 or fora2 < 50:
                 pretoesq, pretodir = blackMove.blackORwhite(fora1, meio1, meio2, fora2, pretoesq, pretodir)
-            # else:
+            #else:
             #     gap.Litleshirt(fora1, meio1, meio2, fora2, pretoesq, pretodir)
         # ==========================================
         # 10. CONTROLE PID (SEGUIR LINHA)
