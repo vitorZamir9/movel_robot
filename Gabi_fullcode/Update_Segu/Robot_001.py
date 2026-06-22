@@ -227,9 +227,11 @@ def sensor():
         # gyro_rasp_y já está atualizado pelo módulo 1.2
         # ==========================================
         if gyro_rasp_y > 10:
+            ev3.speaker.beep()
             print("subindo")
             kp_atual, ki_atual, base_atual = 3.0, 0.02, 180   # subindo
         elif gyro_rasp_y < -10:
+            ev3.speaker.beep()
             print("descendo")
             kp_atual, ki_atual, base_atual = 2.0, 0.01, 100   # descendo
         else:
@@ -527,7 +529,6 @@ def sensor():
                 pretodir -= 1
         # ==========================================
         # 8. GREEN
-        # A leitura serial foi movida para o módulo 1.2
         # ==========================================
         previsao_camera = grein.MoveGreen(
         H1, S1, V1, H2, S2, V2, H3, S3, V3, alvo, 
@@ -537,23 +538,9 @@ def sensor():
         # 9. ALL SENSORS DETECTED WHITE
         # ==========================================
         if fora1 > 90 and meio1 > 90 and meio2 > 90 and fora2 > 90:
-            motorB.dc(-100)
-            motorC.dc(100) #trás
-            retorno = sensor1.read(2)
-            while True:
-                retorno = sensor1.read(2)
-                fora1 = retorno[3] # esquerda 
-                meio1 = retorno[2] # esquerda 
-                meio2 = retorno[1] # direita  
-                fora2 = retorno[0] # direita 
-                if fora1 < 50 or meio1 < 50 or meio2 < 50 or fora2 < 50:
-                    motorB.stop()
-                    motorC.stop()
-                    break
-            if fora1 < 50 or fora2 < 50:
-                pretoesq, pretodir = blackMove.blackORwhite(fora1, meio1, meio2, fora2, pretoesq, pretodir)
-            else:
-                gap.Litleshirt(fora1, meio1, meio2, fora2, pretoesq, pretodir)
+            ev3.speaker.beep(800)
+            print("vendo alguma curva preta ou  gap")
+            pretoesq, pretodir = blackMove.blackORwhite(fora1, meio1, meio2, fora2, pretoesq, pretodir)
         # ==========================================
         # 10. CONTROLE PID (SEGUIR LINHA)
         # ==========================================
@@ -587,23 +574,50 @@ def sensor():
 def teste_Linha():
     while True:
         retorno = sensor1.read(2)
+        
+        # Leitura RGBC dos sensores
+        R1, R3, R2 = (retorno[4]), (retorno[8]), (retorno[12])
+        G1, G3, G2 = (retorno[5]), (retorno[9]), (retorno[13])
+        B1, B3, B2 = (retorno[6]), (retorno[10]), (retorno[14])
+        C1, C3, C2 = (retorno[7]), (retorno[11]), (retorno[15])
 
-        # Leitura dos sensores para seguir linha
-        fora1 = retorno[3] # esquerda 
-        meio1 = retorno[2] # esquerda 
-        meio2 = retorno[1] # direita  
-        fora2 = retorno[0] # direita  
-        #####################################
-        retorno1= multiplex1.read(0)
+        # Leitura HSV para o verde
+        H1, H3, H2 = (retorno[20]*2), (retorno[23]*2), (retorno[26]*2)
+        S1, S3, S2 = (retorno[21]*2), (retorno[24]*2), (retorno[27]*2)
+        V1, V3, V2 = (retorno[22]*2), (retorno[25]*2), (retorno[28]*2)
 
-        # Leitura dos sensores ultrasônicos
-        ultra1 = retorno1[0] # frente
-        ultra2 = retorno1[1] # direita
-        ultrad3 = retorno1[2] # vitima
-        ultra4 = retorno1[3] # esquerda
+        # Leitura unitária dos sensores de cor
+        cloresq = retorno[17]
+        clormind = retorno[18]
+        clordir = retorno[19]
+       
+        clear = 70
+        rgb=85
+        esqgray = R1 > rgb and G1 > rgb and B1 > rgb and C1 > clear 
+        mindgray = R3 > rgb and G3 > rgb and B3 > rgb and C3 > clear #prata reflectivo
+        dirgray = R2 > rgb and G2 > rgb and B2 > rgb and C2 > clear 
+        
+        esqgray1 = B1 > 50 and B1 < 66 and C1 > 24 and C1 < 31 and cloresq == 6
+        mindgray1 = B3 > 50 and B3 < 66 and C3 > 24 and C3 < 31 and clormind == 6 #calibrar o prata não reflectivo
+        dirgray1 = B2 > 50 and B2 < 66 and C2> 24 and C2 < 31 and clordir == 6
 
-        #print("fora1: ", fora1,"meio1: ", meio1,"meio2: ", meio2,"fora2: ", fora2)
-        print("ultra1: ", ultra1,"ultra2: ", ultra2,"ultrad3: ", ultrad3,"ultra4: ", ultra4)
+        print("sensor esquerdo Reflectivo", "R1: ", R1,"G1: ", G1,"B1: ", B1,"C1: ", C1)
+        print("sensor medio Reflectivo",    "R3: ", R3,"G3: ", G3,"B3: ", B3,"C3: ", C3)
+        print("sensor direito Reflectivo",  "R2: ", R2,"G2: ", G2,"B2: ", B2,"C2: ", C2)
+
+        print("sensor esquerdo não Reflectivo","B1: ", B1,"G1: ", G1,"B1: ", B1,"C1: ", C1, "cloresq: ", cloresq)
+        print("sensor medio não Reflectivo",   "B3: ", B3,"G3: ", G3,"B3: ", B3,"C3: ", C3, "clormind: ", clormind)
+        print("sensor direito não Reflectivo", "B2: ", B2,"G2: ", G2,"B2: ", B2,"C2: ", C2, "clordir: ", clordir)
+        if esqgray1 and mindgray1 and dirgray1  :
+            wait(10)
+            if esqgray1 and mindgray1 and dirgray1:
+                print("prata não reflectivo detectado!")
+                ev3.speaker.beep(900)
+        if esqgray and mindgray and dirgray:
+            wait(10)
+            if esqgray and mindgray and dirgray:
+                print("prata reflectivo detectado!")
+                ev3.speaker.beep(1200)
         wait(10)
 
 def serial():

@@ -22,6 +22,7 @@ class Green:
         # ==================================
         # LÓGICA DA DIREITA
         # ==================================
+        self.ev3.speaker.beep(800)
         if verdeDireita and not pretodir > 0:
             if meio1 >= 40 or meio2 >= 40:
                 self.tanki.stop()
@@ -41,7 +42,7 @@ class Green:
                         break
                 self.motorB.stop()
                 self.motorC.stop()
-                self.ser.write(b"passou_verde\n")
+                #self.ser.write(b"passou_verde\n")
             return None 
 
         # ==================================
@@ -66,13 +67,13 @@ class Green:
                         break
                 self.motorB.stop()
                 self.motorC.stop()
-                self.ser.write(b"passou_verde\n")
+                #self.ser.write(b"passou_verde\n")
             return None
 
         # ==================================
-        # LÓGICA DO BECO (Ou 2 Verdes)
+        # LÓGICA DO BECO 
         # ==================================
-        elif previsao_camera == "dois verdes" or (verdeDireita and verdeEsquerda):
+        elif (verdeDireita and verdeEsquerda):
             wait(10)
             self.tanki.stop()
             self.ev3.speaker.beep(600) 
@@ -86,13 +87,13 @@ class Green:
             self.tanki.turn(-50)
             self.tanki.stop()
             
-            self.ser.write(b"passou_verde\n")
+            #self.ser.write(b"passou_verde\n")
             return None 
         
         # ==================================
         # LÓGICA DE GAP (DEPOIS)
         # ==================================
-        elif previsao_camera == "depois" and (meio1 <= 30 or meio2 <= 30) and (cloresq == 1 or clordir == 1):
+        elif (meio1 <= 30 or meio2 <= 30) and (cloresq == 1 or clordir == 1):
             self.tanki.stop()
             self.ev3.speaker.beep(800, 200) 
             print(">>> SEGUINDO POR TEMPO (GAP/DEPOIS)")
