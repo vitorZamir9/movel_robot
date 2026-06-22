@@ -414,12 +414,9 @@ def filtrar_melhor_bola(dets, frame_w, frame_h):
 
 # ══════════════════════════════════════════════════════════════════
 #  THREAD DE INFERÊNCIA YOLO
-#  O loop principal envia frames por fila e consome resultados
-#  sem nunca bloquear — serial responde em < 10ms independente
-#  do tempo de inferência (~200ms na CPU).
 # ══════════════════════════════════════════════════════════════════
-_fila_frames    = queue.Queue(maxsize=1)   # só o frame mais recente
-_fila_resultado = queue.Queue(maxsize=1)   # só o resultado mais recente
+_fila_frames    = queue.Queue(maxsize=1)
+_fila_resultado = queue.Queue(maxsize=1)
 
 def _worker_yolo():
     while True:
@@ -430,7 +427,6 @@ def _worker_yolo():
         try:
             dets   = _parse_cpu_detections(frame, frame.shape[1], frame.shape[0])
             melhor = filtrar_melhor_bola(dets, frame.shape[1], frame.shape[0])
-            # descarta resultado anterior não consumido
             try:
                 _fila_resultado.get_nowait()
             except queue.Empty:
@@ -465,6 +461,145 @@ if mpu_ativo:
     print(f"[+] Offset Roll: {offset_roll:.2f}°")
 
 # ══════════════════════════════════════════════════════════════════
+#  MODO LINHA_GAP — CONFIGURAÇÕES DO ROI CIRCULAR
+# ══════════════════════════════════════════════════════════════════
+# Raio do círculo de processamento: ~42% do menor lado da imagem.
+# Aumente LINHA_GAP_RAIO para ampliar a área visível,
+# ou diminua para filtrar melhor ruídos nas bordas.
+LINHA_GAP_RAIO     = int(min(W, H) * 0.42)   # ≈ 100 px para 320×240
+LINHA_GAP_CX       = W // 2                   # centro X (coluna central)
+LINHA_GAP_CY       = H // 2                   # centro Y (linha central)
+LINHA_GAP_AREA_MIN = 800                       # área mínima do contorno preto
+LINHA_GAP_DESVIO   = W * 0.12                 # desvio em px para esq/dir
+
+# Histórico de frames para estabilizar a detecção de GAP
+_linha_gap_historico: list = []
+
+def processar_linha_gap(frame_rgb):
+    """
+    Detecta o contorno da linha preta dentro de um ROI circular.
+
+    Parâmetros
+    ----------
+    frame_rgb : np.ndarray
+        Frame em formato RGB (como entregue pelo Picamera2 no loop principal).
+
+    Retorna
+    -------
+    cmd : str
+        'linha centro' | 'linha esquerda' | 'linha direita' | 'gap'
+    hud : np.ndarray
+        Frame anotado (RGB) com círculo ROI, contorno e status.
+    gap_estavel : bool
+        True quando a linha sumiu por pelo menos 5 dos últimos 8 frames.
+    """
+    global _linha_gap_historico
+
+    hud   = frame_rgb.copy()
+    h_f, w_f = frame_rgb.shape[:2]
+
+    # ── 1. Máscara circular de processamento ─────────────────────
+    mask_circulo = np.zeros((h_f, w_f), dtype=np.uint8)
+    cv2.circle(mask_circulo, (LINHA_GAP_CX, LINHA_GAP_CY),
+               LINHA_GAP_RAIO, 255, -1)
+
+    # ── 2. Threshold de preto via canal V (HSV) ───────────────────
+    # O frame chega em RGB; usamos COLOR_RGB2HSV para converter corretamente.
+    blur = cv2.GaussianBlur(frame_rgb, (5, 5), 0)
+    hsv  = cv2.cvtColor(blur, cv2.COLOR_RGB2HSV)
+
+    # Parte inferior da imagem aceita pixels um pouco mais claros (reflexo chão)
+    split = int(h_f * 0.40)
+    mask_bot = cv2.inRange(hsv, np.array([0, 0,  0]), np.array([180, 255, 70]))
+    mask_top = cv2.inRange(hsv, np.array([0, 0,  0]), np.array([180, 255, 55]))
+    mask_preta = mask_bot.copy()
+    mask_preta[0:split, :] = mask_top[0:split, :]
+
+    # ── 3. Morfologia para remover ruído ──────────────────────────
+    k = np.ones((3, 3), np.uint8)
+    mask_preta = cv2.erode (mask_preta, k, iterations=3)
+    mask_preta = cv2.dilate(mask_preta, k, iterations=5)
+    mask_preta = cv2.erode (mask_preta, k, iterations=2)
+
+    # ── 4. Aplica ROI circular — só processa dentro do círculo ────
+    mask_preta = cv2.bitwise_and(mask_preta, mask_circulo)
+
+    # ── 5. Encontra contornos ─────────────────────────────────────
+    cnts, _ = cv2.findContours(mask_preta, cv2.RETR_EXTERNAL,
+                                cv2.CHAIN_APPROX_SIMPLE)
+
+    gap_detectado = True   # assume gap até provar o contrário
+    cmd           = "gap"
+
+    if cnts:
+        maior = max(cnts, key=cv2.contourArea)
+        area  = cv2.contourArea(maior)
+
+        if area >= LINHA_GAP_AREA_MIN:
+            gap_detectado = False
+
+            # Desenha contorno em amarelo (RGB: 255,220,0)
+            cv2.drawContours(hud, [maior], -1, (255, 220, 0), 2)
+
+            # Centróide do contorno → posição lateral da linha
+            M = cv2.moments(maior)
+            if M["m00"] > 0:
+                alvo_x = int(M["m10"] / M["m00"])
+                alvo_y = int(M["m01"] / M["m00"])
+
+                # Ponto centróide
+                cv2.circle(hud, (alvo_x, alvo_y), 6, (255, 255, 0), -1)
+
+                # Linha do centro do círculo até o centróide (vermelho RGB)
+                cv2.line(hud, (LINHA_GAP_CX, LINHA_GAP_CY),
+                         (alvo_x, alvo_y), (255, 60, 60), 2)
+
+                # Decisão de direção com base no desvio lateral
+                desvio = alvo_x - LINHA_GAP_CX
+                if   desvio < -LINHA_GAP_DESVIO: cmd = "linha esquerda"
+                elif desvio >  LINHA_GAP_DESVIO: cmd = "linha direita"
+                else:                             cmd = "linha centro"
+
+    # ── 6. Histórico: estabiliza detecção de GAP ─────────────────
+    # Adiciona 0 (sem linha) ou 1 (com linha) e mantém janela de 8 frames.
+    _linha_gap_historico.append(0 if gap_detectado else 1)
+    if len(_linha_gap_historico) > 8:
+        _linha_gap_historico.pop(0)
+    # GAP estável = maioria dos últimos frames sem linha detectada
+    gap_estavel = (len(_linha_gap_historico) >= 5 and
+                   sum(_linha_gap_historico) < 3)
+
+    # ── 7. HUD — escurece área fora do círculo ────────────────────
+    outside    = cv2.bitwise_not(mask_circulo)
+    hud_float  = hud.astype(np.float32)
+    hud_float[outside > 0] = (hud_float[outside > 0] * 0.28)
+    hud        = np.clip(hud_float, 0, 255).astype(np.uint8)
+
+    # ── 8. Desenha círculo ROI ────────────────────────────────────
+    # Vermelho quando em GAP, verde quando linha encontrada (cores RGB)
+    cor_circulo = (255, 60,  60)  if gap_estavel else (60, 255, 100)
+    cv2.circle(hud, (LINHA_GAP_CX, LINHA_GAP_CY),
+               LINHA_GAP_RAIO, cor_circulo, 2)
+    # Cruz no centro do círculo
+    tam_cruz = 8
+    cv2.line(hud,
+             (LINHA_GAP_CX - tam_cruz, LINHA_GAP_CY),
+             (LINHA_GAP_CX + tam_cruz, LINHA_GAP_CY),
+             cor_circulo, 1)
+    cv2.line(hud,
+             (LINHA_GAP_CX, LINHA_GAP_CY - tam_cruz),
+             (LINHA_GAP_CX, LINHA_GAP_CY + tam_cruz),
+             cor_circulo, 1)
+
+    # ── 9. Texto de status ────────────────────────────────────────
+    status_txt = "GAP!" if gap_estavel else cmd.upper()
+    cv2.putText(hud, status_txt, (10, h_f - 10),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.55, cor_circulo, 2)
+
+    cmd_final = "gap" if gap_estavel else cmd
+    return cmd_final, hud, gap_estavel
+
+# ══════════════════════════════════════════════════════════════════
 #  VARIÁVEIS DE CONTROLE GLOBAL
 # ══════════════════════════════════════════════════════════════════
 modo_atual             = "bolas"
@@ -478,11 +613,12 @@ COOLDOWN_OBSTACULO     = 3.0
 # ══════════════════════════════════════════════════════════════════
 
 def ao_mudar_modo(novo_modo):
-    global modo_atual, estado_obstaculo, _obst_acum
+    global modo_atual, estado_obstaculo, _obst_acum, _linha_gap_historico
     print(f"[WEB] Modo → {novo_modo}")
     modo_atual = novo_modo
     estado_obstaculo = "idle"
     _obst_acum = None
+    _linha_gap_historico = []   # limpa histórico ao trocar de modo
     dash.atualizar_estado(modo=modo_atual, obstaculo="idle",
                           log={"msg": f"Modo → {novo_modo}", "tipo": "ok"})
 
@@ -513,11 +649,11 @@ print("[!] DEBUG_FILTROS ativo - verifique os logs para detecções")
 iniciar_imx500()
 dash.atualizar_estado(
     modo=modo_atual,
-    log={"msg": "Boot OK. IMX500 ativa (RGB888). Inference: CPU (.pt) — thread async", "tipo": "info"}
+    log={"msg": "Boot OK. IMX500 ativa (RGB888). Modos: bolas | triangulo | obstaculo | linha_gap | nadapross", "tipo": "info"}
 )
 
 # ══════════════════════════════════════════════════════════════════
-#  LOOP PRINCIPAL  (leve — sem YOLO bloqueante)
+#  LOOP PRINCIPAL
 # ══════════════════════════════════════════════════════════════════
 try:
     while True:
@@ -545,7 +681,6 @@ try:
                     gyro_yaw=round(guinada_yaw, 1))
 
         # ── Recebe comandos do EV3 via serial ──────────────────
-        # Lê tudo de uma vez — não bloqueia porque não há YOLO no loop
         if ser and ser.in_waiting:
             cmd = ser.read(ser.in_waiting).decode('ascii', 'ignore').strip().lower()
             print(f"[EV3] → '{cmd}'")
@@ -557,6 +692,14 @@ try:
                 if modo_atual != "triangulo":
                     ao_mudar_modo("triangulo")
                     dash.atualizar_estado(log={"msg": "EV3: modo triângulo.", "tipo": "info"})
+            elif "linha_gap" in cmd:
+                if modo_atual != "linha_gap":
+                    ao_mudar_modo("linha_gap")
+                    dash.atualizar_estado(log={"msg": "EV3: modo linha_gap.", "tipo": "info"})
+            elif "nadapross" in cmd:
+                if modo_atual != "nadapross":
+                    ao_mudar_modo("nadapross")
+                    dash.atualizar_estado(log={"msg": "EV3: modo nadapross.", "tipo": "info"})
             elif "obstaculo" in cmd and "confirma" not in cmd and "nega" not in cmd:
                 if modo_atual != "obstaculo":
                     ao_mudar_modo("obstaculo")
@@ -592,7 +735,6 @@ try:
         # MODO BOLAS — YOLO assíncrono via thread
         # ══════════════════════════════════════════════════════
         if modo_atual == "bolas":
-            # Envia frame para a thread (descarta o antigo se ainda não foi consumido)
             try:
                 _fila_frames.get_nowait()
             except queue.Empty:
@@ -602,7 +744,6 @@ try:
             except queue.Full:
                 pass
 
-            # Consome resultado se já ficou pronto — não bloqueia se ainda processando
             dets   = []
             melhor = None
             try:
@@ -643,7 +784,6 @@ try:
         # MODO TRIÂNGULO
         # ══════════════════════════════════════════════════════
         elif modo_atual == "triangulo":
-            # Detecta vermelho no espaço RGB (frame já é RGB real)
             r = frame[:, :, 0].astype(np.int16)
             g = frame[:, :, 1].astype(np.int16)
             b = frame[:, :, 2].astype(np.int16)
@@ -654,7 +794,6 @@ try:
             hsv_resgate = cv2.cvtColor(frame, cv2.COLOR_RGB2HSV)
             mask_green_resg = cv2.inRange(hsv_resgate, GREEN_MIN, GREEN_MAX)
 
-            # Debug RGB a cada ~1s
             if int(loop_start * 10) % 10 == 0:
                 px_r, px_g, px_b = r[h_f//2, w_f//2], g[h_f//2, w_f//2], b[h_f//2, w_f//2]
                 roi_r = r[int(h_f*0.2):int(h_f*0.8), int(w_f*0.1):int(w_f*0.9)]
@@ -758,6 +897,35 @@ try:
                 dash.atualizar_estado(
                     obstaculo=estado_obstaculo,
                     log={"msg": f"Verificação: {res_lado}", "tipo": "ok"})
+
+        # ══════════════════════════════════════════════════════
+        # MODO LINHA_GAP — contorno da linha preta + detecção de gap
+        # ══════════════════════════════════════════════════════
+        elif modo_atual == "linha_gap":
+            cmd_linha, hud, gap = processar_linha_gap(frame)
+            agora = time.time()
+
+            # Só envia serial se o comando mudou ou já passou 0.3 s
+            if (cmd_linha != last_detection["cmd"] or
+                    (agora - last_detection["time"]) > 0.3):
+                msg_serial = f"{cmd_linha}\n"
+                last_detection = {"time": agora, "side": None, "cmd": cmd_linha}
+                print(f"[LINHA_GAP] cmd={cmd_linha} gap={gap}")
+
+            dash.atualizar_estado(
+                log={"msg": f"Linha: {cmd_linha}", "tipo": "warn" if gap else "ok"})
+
+        # ══════════════════════════════════════════════════════
+        # MODO NADAPROSS — câmera ligada, zero processamento
+        # Útil para verificar visualmente a câmera sem enviar
+        # nenhum comando ao EV3 e sem gastar CPU em visão.
+        # ══════════════════════════════════════════════════════
+        elif modo_atual == "nadapross":
+            # Frame passa direto para o HUD sem qualquer análise.
+            # Apenas exibe o label no canto para confirmar o modo.
+            cv2.putText(hud, "NADAPROSS", (8, H - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (180, 180, 180), 2)
+            # msg_serial permanece None → nada é enviado ao EV3
 
         # ── Envia HUD para o dashboard ─────────────────────────
         if gravador_500:

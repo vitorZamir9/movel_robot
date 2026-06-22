@@ -9,17 +9,15 @@ _estado = {
     "modo": "bolas",
     "cmd_camera": "—",
     "obstaculo": "idle",
-    "obst_pct": 0.0,          # percentual 0–100 do score de obstáculo
+    "obst_pct": 0.0,
     "previsao_verde": "—",
     "bumper": "livre",
     "gyro_roll": 0.0,
     "gyro_pitch": 0.0,
     "gyro_yaw": 0.0,
     "fps_imx500": 0.0,
-    # ── NPU ────────────────────────────────────────────────────
     "npu_ativo": False,
     "npu_modelo": "—",
-    # ───────────────────────────────────────────────────────────
     "log": [],
     "uptime_start": time.time(),
     "ev3_conectado": True,
@@ -137,6 +135,8 @@ HTML = r"""<!DOCTYPE html>
     --silver:    #cbd5e1;
     --purple:    #a855f7;
     --orange:    #fb923c;
+    --teal:      #2dd4bf;
+    --gray:      #6b7280;
     --mono:      'Share Tech Mono', monospace;
     --sans:      'Rajdhani', sans-serif;
   }
@@ -154,92 +154,126 @@ HTML = r"""<!DOCTYPE html>
   body::after {
     content: '';
     position: fixed; inset: 0;
-    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.06) 2px, rgba(0,0,0,.06) 4px);
-    pointer-events: none;
-    z-index: 9999;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px,
+                rgba(0,0,0,.06) 2px, rgba(0,0,0,.06) 4px);
+    pointer-events: none; z-index: 9999;
   }
 
   /* ── topbar ── */
   .topbar {
-    background: var(--bg2);
-    border-bottom: 1px solid var(--border);
-    height: 48px;
-    padding: 0 18px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    background: var(--bg2); border-bottom: 1px solid var(--border);
+    height: 44px; padding: 0 14px;
+    display: flex; align-items: center; justify-content: space-between;
     position: sticky; top: 0; z-index: 100;
   }
-  .topbar-l { display: flex; align-items: center; gap: 14px; }
-  .logo { font-family: var(--mono); font-size: 14px; color: var(--cyan); letter-spacing: 2px; }
-  .logo-sub { font-size: 11px; color: var(--txt3); font-family: var(--mono); }
-  .topbar-r { display: flex; align-items: center; gap: 22px; font-family: var(--mono); font-size: 11px; color: var(--txt2); }
+  .topbar-l { display: flex; align-items: center; gap: 12px; }
+  .logo     { font-family: var(--mono); font-size: 13px; color: var(--cyan); letter-spacing: 2px; }
+  .logo-sub { font-size: 10px; color: var(--txt3); font-family: var(--mono); }
+  .topbar-r { display: flex; align-items: center; gap: 16px;
+              font-family: var(--mono); font-size: 10px; color: var(--txt2); }
   .chip { color: var(--cyan); }
 
-  .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
-  .live-dot { animation: pulse 2s infinite; }
+  .live-dot { width: 7px; height: 7px; border-radius: 50%;
+              background: var(--green); animation: pulse 2s infinite; flex-shrink:0; }
 
-  .npu-badge { font-family: var(--mono); font-size: 10px; padding: 3px 9px; border-radius: 4px; font-weight: 700; letter-spacing: 1px; }
+  .npu-badge { font-family: var(--mono); font-size: 9px; padding: 2px 8px;
+               border-radius: 4px; font-weight: 700; letter-spacing: 1px; }
   .npu-on  { background: #0d3320; color: #4ade80; border: 1px solid #16a34a50; }
   .npu-off { background: #2a1a06; color: #fbbf24; border: 1px solid #d9770630; }
 
-  /* ── layout ── */
-  .main { padding: 12px; display: grid; gap: 10px; }
+  /* ══════════════════════════════════════════
+     LAYOUT PRINCIPAL — duas colunas no desktop
+     ══════════════════════════════════════════ */
+  .main {
+    padding: 10px;
+    display: grid;
+    gap: 8px;
+    /* coluna esquerda: câmera fixa 320px; direita: ocupa o resto */
+    grid-template-columns: 320px 1fr;
+    grid-template-areas:
+      "modebar  modebar"
+      "cam      right"
+      "obstarea right"
+      "logarea  right";
+    align-items: start;
+  }
+  @media (max-width: 700px) {
+    .main {
+      grid-template-columns: 1fr;
+      grid-template-areas:
+        "modebar"
+        "cam"
+        "obstarea"
+        "right"
+        "logarea";
+    }
+  }
 
   /* ── mode bar ── */
   .mode-bar {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 11px 16px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 10px;
+    grid-area: modebar;
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 9px 14px;
+    display: flex; align-items: center;
+    justify-content: space-between; flex-wrap: wrap; gap: 8px;
   }
-  .mlabel { font-family: var(--mono); font-size: 9px; color: var(--txt3); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 7px; }
-  .mbtns { display: flex; gap: 7px; flex-wrap: wrap; }
+  .mlabel { font-family: var(--mono); font-size: 9px; color: var(--txt3);
+            letter-spacing: 2px; text-transform: uppercase; margin-bottom: 6px; }
+  .mbtns  { display: flex; gap: 5px; flex-wrap: wrap; }
   .mbtn {
-    padding: 6px 18px; border-radius: 6px; border: 1px solid var(--border2);
+    padding: 5px 13px; border-radius: 5px; border: 1px solid var(--border2);
     background: transparent; color: var(--txt2);
-    font-family: var(--sans); font-size: 13px; font-weight: 600;
+    font-family: var(--sans); font-size: 12px; font-weight: 600;
     cursor: pointer; transition: all .15s; letter-spacing: .5px;
   }
   .mbtn:hover { color: var(--txt); background: var(--bg3); }
+  /* cores por modo */
   .mb  { background: #2a1a0610; border-color: var(--amber);  color: #fbbf24; }
   .mt  { background: #1a102a10; border-color: var(--purple); color: #c084fc; }
   .mo  { background: #1a0a0a10; border-color: var(--orange); color: #fb923c; }
+  .ml  { background: #0a1a1a10; border-color: var(--teal);   color: #2dd4bf; }
+  .mn  { background: #12121210; border-color: var(--gray);   color: #9ca3af; }
 
-  .pill { font-family: var(--mono); font-size: 11px; font-weight: 700; padding: 4px 14px; border-radius: 20px; letter-spacing: 1px; }
+  .pill { font-family: var(--mono); font-size: 10px; font-weight: 700;
+          padding: 3px 12px; border-radius: 20px; letter-spacing: 1px; }
   .pb { background: #2a1a0618; color: #fbbf24; border: 1px solid #f59e0b40; }
   .pt { background: #1a102a18; color: #c084fc; border: 1px solid #a855f740; }
   .po { background: #1a0a0a18; color: #fb923c; border: 1px solid #fb923c40; }
+  .pl { background: #0a1a1a18; color: #2dd4bf; border: 1px solid #2dd4bf40; }
+  .pn { background: #12121218; color: #9ca3af; border: 1px solid #6b728040; }
 
-  .status-r { display: flex; align-items: center; gap: 10px; }
+  .status-r { display: flex; align-items: center; gap: 8px; }
   .ebtn {
-    padding: 7px 14px; border-radius: 7px; border: 1px solid #ef444440;
+    padding: 6px 12px; border-radius: 6px; border: 1px solid #ef444440;
     background: #ef444412; color: #f87171;
-    font-family: var(--sans); font-size: 12px; font-weight: 700;
+    font-family: var(--sans); font-size: 11px; font-weight: 700;
     cursor: pointer; letter-spacing: .5px; transition: all .15s;
   }
   .ebtn:hover { background: #ef444428; }
 
-  /* ── câmera ── */
-  .cam-wrap {
+  /* ══ CÂMERA — coluna esquerda, tamanho fixo ══ */
+  .cam-col   { grid-area: cam; display: flex; flex-direction: column; gap: 8px; }
+  .cam-wrap  {
     background: var(--bg2); border: 1px solid var(--border);
-    border-radius: 10px; overflow: hidden;
+    border-radius: 8px; overflow: hidden;
     transition: border-color .3s, box-shadow .3s;
   }
-  .cam-wrap.obst-alert { border-color: var(--orange); box-shadow: 0 0 20px #fb923c25; }
+  .cam-wrap.obst-alert { border-color: var(--orange); box-shadow: 0 0 14px #fb923c25; }
+  .cam-wrap.gap-alert  { border-color: var(--red);    box-shadow: 0 0 14px #ef444425; }
   .cam-hdr {
-    padding: 8px 14px; display: flex; align-items: center;
+    padding: 6px 12px; display: flex; align-items: center;
     justify-content: space-between; border-bottom: 1px solid var(--border);
   }
-  .cam-t { font-family: var(--mono); font-size: 10px; color: var(--txt2); letter-spacing: 1px; }
-  .cam-screen { position: relative; background: #020408; overflow: hidden; }
-  .cam-screen img { width: 100%; display: block; min-height: 180px; object-fit: cover; }
+  .cam-t { font-family: var(--mono); font-size: 9px; color: var(--txt2); letter-spacing: 1px; }
+
+  /* altura da imagem CONTROLADA aqui */
+  .cam-screen { position: relative; background: #020408; overflow: hidden; height: 180px; }
+  .cam-screen img {
+    width: 100%; height: 100%;
+    object-fit: contain;          /* mantém proporção sem cortar */
+    display: block;
+  }
 
   @keyframes scan { 0%{top:-2px} 100%{top:100%} }
   .cam-scanline {
@@ -248,151 +282,158 @@ HTML = r"""<!DOCTYPE html>
     background: linear-gradient(90deg, transparent, #22d3ee30, transparent);
   }
   .cam-scanline.orange { background: linear-gradient(90deg, transparent, #fb923c30, transparent); }
+  .cam-scanline.teal   { background: linear-gradient(90deg, transparent, #2dd4bf30, transparent); }
+  .cam-scanline.gray   { background: linear-gradient(90deg, transparent, #6b728030, transparent); }
 
   .cam-hud {
-    position: absolute; bottom: 6px; left: 8px; right: 8px;
+    position: absolute; bottom: 5px; left: 7px; right: 7px;
     display: flex; justify-content: space-between; pointer-events: none;
   }
-  .hud-txt { font-family: var(--mono); font-size: 10px; color: #22d3ee70; text-shadow: 0 0 6px #22d3ee40; }
+  .hud-txt { font-family: var(--mono); font-size: 9px;
+             color: #22d3ee70; text-shadow: 0 0 6px #22d3ee40; }
   .hud-txt.amber  { color: #f59e0b70; text-shadow: 0 0 6px #f59e0b40; }
   .hud-txt.orange { color: #fb923c80; text-shadow: 0 0 6px #fb923c40; }
+  .hud-txt.teal   { color: #2dd4bf80; text-shadow: 0 0 6px #2dd4bf40; }
+  .hud-txt.gray   { color: #9ca3af60; }
 
-  /* ── seção obstáculo ── */
+  /* mini status sob a câmera */
+  .cam-mini-status {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 12px;
+    display: flex; gap: 10px; flex-wrap: wrap;
+  }
+  .cms-item { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 60px; }
+  .cms-lbl  { font-family: var(--mono); font-size: 8px; color: var(--txt3); letter-spacing: 1px; }
+  .cms-val  { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--cyan); }
+
+  /* ══ SEÇÃO OBSTÁCULO ══ */
+  .obst-area { grid-area: obstarea; }
   .obst-section {
     display: none;
-    background: var(--bg2);
-    border: 1px solid #fb923c40;
-    border-radius: 10px;
-    padding: 14px 16px;
-    gap: 12px;
+    background: var(--bg2); border: 1px solid #fb923c40;
+    border-radius: 8px; padding: 11px 13px; gap: 9px;
   }
-  .obst-section.visible { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  @media(max-width:500px) { .obst-section.visible { grid-template-columns: 1fr; } }
-
+  .obst-section.visible { display: grid; gap: 9px; }
   .obst-section-title {
-    grid-column: 1 / -1;
     font-family: var(--mono); font-size: 9px; color: var(--orange);
     letter-spacing: 2px; text-transform: uppercase;
-    display: flex; align-items: center; gap: 8px;
+    display: flex; align-items: center; gap: 7px;
   }
   .obst-big-indicator {
-    grid-column: 1 / -1;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px 14px;
-    display: flex; align-items: center; gap: 14px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 7px;
+    padding: 10px 12px; display: flex; align-items: center; gap: 12px;
   }
-  .obst-status-txt {
-    font-family: var(--mono); font-size: 18px; font-weight: 700;
-    flex: 1;
-  }
+  .obst-status-txt { font-family: var(--mono); font-size: 15px; font-weight: 700; flex: 1; }
   .ost-idle   { color: var(--txt3); }
   .ost-detect { color: var(--orange); animation: pulse .7s infinite; }
   .ost-wait   { color: var(--amber);  animation: pulse .5s infinite; }
   .ost-verif  { color: var(--red);    animation: pulse .4s infinite; }
+  .obst-pct-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+  .obst-pct-num  { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--orange); }
+  .obst-pct-lbl  { font-family: var(--mono); font-size: 8px; color: var(--txt3); letter-spacing: 1px; }
+  .obst-bar-wrap { background: var(--bg); border-radius: 5px; height: 6px;
+                   border: 1px solid var(--border); overflow: hidden; }
+  .obst-bar-fill { height: 100%; border-radius: 5px;
+                   background: linear-gradient(90deg, #fb923c, #ef4444); transition: width .5s; }
+  .obst-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+  .obst-info-card { background: var(--bg); border: 1px solid var(--border);
+                    border-radius: 6px; padding: 8px 10px; }
+  .oic-lbl { font-family: var(--mono); font-size: 8px; color: var(--txt3); letter-spacing: 1px; margin-bottom: 4px; }
+  .oic-val { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--txt); }
 
-  .obst-pct-wrap {
-    display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 80px;
+  /* ══ COLUNA DIREITA — cards empilhados ══ */
+  .right-col {
+    grid-area: right;
+    display: flex; flex-direction: column; gap: 8px;
   }
-  .obst-pct-num { font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--orange); }
-  .obst-pct-lbl { font-family: var(--mono); font-size: 9px; color: var(--txt3); letter-spacing: 1px; }
-
-  .obst-bar-big-wrap {
-    grid-column: 1 / -1;
-    background: var(--bg); border-radius: 6px; height: 8px;
-    border: 1px solid var(--border); overflow: hidden;
-  }
-  .obst-bar-big-fill {
-    height: 100%; border-radius: 6px;
-    background: linear-gradient(90deg, #fb923c, #ef4444);
-    transition: width .5s;
-  }
-
-  .obst-info-card {
-    background: var(--bg); border: 1px solid var(--border);
-    border-radius: 7px; padding: 10px 12px;
-  }
-  .oic-lbl { font-family: var(--mono); font-size: 9px; color: var(--txt3); letter-spacing: 1px; margin-bottom: 5px; }
-  .oic-val { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--txt); }
-
-  /* ── grid inferior ── */
-  .bottom-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-  @media(max-width:640px) { .bottom-grid { grid-template-columns: 1fr; } }
 
   .card {
     background: var(--bg2); border: 1px solid var(--border);
-    border-radius: 10px; padding: 13px;
+    border-radius: 8px; padding: 11px;
   }
   .card-t {
     font-family: var(--mono); font-size: 9px; color: var(--txt3);
-    text-transform: uppercase; letter-spacing: 2px; margin-bottom: 11px;
-    display: flex; align-items: center; gap: 7px;
+    text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px;
+    display: flex; align-items: center; gap: 6px;
   }
   .cdot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
 
-  /* ── giroscópio ── */
-  .gyro-row { display: flex; align-items: center; margin-bottom: 8px; gap: 8px; }
-  .gyro-lbl { font-family: var(--mono); font-size: 10px; color: var(--txt2); width: 44px; }
+  /* giroscópio */
+  .gyro-row { display: flex; align-items: center; margin-bottom: 7px; gap: 7px; }
+  .gyro-lbl { font-family: var(--mono); font-size: 9px; color: var(--txt2); width: 42px; }
   .gyro-track { flex: 1; height: 2px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
   .gyro-fill  { height: 100%; border-radius: 2px; transition: width .4s; }
-  .gyro-val   { font-family: var(--mono); font-size: 11px; min-width: 52px; text-align: right; }
-  .fps-row { display: flex; gap: 8px; margin-top: 10px; }
-  .fps-chip { flex: 1; background: var(--bg); border-radius: 7px; padding: 8px; text-align: center; border: 1px solid var(--border); }
-  .fps-n { font-family: var(--mono); font-size: 18px; font-weight: 700; color: var(--cyan); }
-  .fps-s { font-family: var(--mono); font-size: 9px; color: var(--txt3); margin-top: 2px; letter-spacing: 1px; }
+  .gyro-val   { font-family: var(--mono); font-size: 10px; min-width: 48px; text-align: right; }
+  .fps-row { display: flex; gap: 7px; margin-top: 9px; }
+  .fps-chip { flex: 1; background: var(--bg); border-radius: 6px;
+              padding: 7px; text-align: center; border: 1px solid var(--border); }
+  .fps-n { font-family: var(--mono); font-size: 17px; font-weight: 700; color: var(--cyan); }
+  .fps-s { font-family: var(--mono); font-size: 8px; color: var(--txt3); margin-top: 2px; letter-spacing: 1px; }
 
-  /* ── status rows ── */
+  /* status rows */
   .cmd-row {
-    background: var(--bg); border-radius: 6px; padding: 7px 11px; margin-bottom: 6px;
+    background: var(--bg); border-radius: 5px; padding: 6px 10px; margin-bottom: 5px;
     display: flex; justify-content: space-between; align-items: center;
     border: 1px solid var(--border);
   }
-  .cmd-k { font-family: var(--mono); font-size: 10px; color: var(--txt2); letter-spacing: .5px; }
-  .cmd-v { font-family: var(--mono); font-size: 11px; font-weight: 700; }
+  .cmd-k { font-family: var(--mono); font-size: 9px; color: var(--txt2); letter-spacing: .5px; }
+  .cmd-v { font-family: var(--mono); font-size: 10px; font-weight: 700; }
   .cv-ok   { color: var(--green); }
   .cv-idle { color: var(--txt3); }
   .cv-warn { color: var(--amber); animation: pulse .8s infinite; }
   .cv-obst { color: var(--orange); animation: pulse .6s infinite; }
 
-  /* ── controles ── */
+  /* controles */
+  .ctrl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
   .ctrl-btn {
-    width: 100%; padding: 8px; border-radius: 7px;
+    padding: 7px 8px; border-radius: 6px;
     border: 1px solid var(--border); background: transparent; color: var(--txt2);
-    font-family: var(--sans); font-size: 12px; font-weight: 600;
-    cursor: pointer; transition: all .15s; margin-bottom: 6px; text-align: center; letter-spacing: .5px;
+    font-family: var(--sans); font-size: 11px; font-weight: 600;
+    cursor: pointer; transition: all .15s; text-align: center; letter-spacing: .5px;
   }
   .ctrl-btn:hover { border-color: var(--border2); color: var(--txt); background: var(--bg3); }
+  .ctrl-btn-full { grid-column: 1 / -1; }
   .ctrl-btn-warn { border-color: #f59e0b30; color: var(--amber); }
   .ctrl-btn-warn:hover { background: #f59e0b10; }
-  .ctrl-btn-red  { border-color: #ef444430; color: #f87171; }
+  .ctrl-btn-red  { border-color: #ef444430; color: #f87171; grid-column: 1 / -1; }
   .ctrl-btn-red:hover  { background: #ef444410; }
-  .ctrl-btn-obst { border-color: #fb923c30; color: #fb923c; }
-  .ctrl-btn-obst:hover { background: #fb923c10; }
+  .ctrl-btn-teal { border-color: #2dd4bf30; color: #2dd4bf; }
+  .ctrl-btn-teal:hover { background: #2dd4bf10; }
+  .ctrl-btn-gray { border-color: #6b728030; color: #9ca3af; }
+  .ctrl-btn-gray:hover { background: #6b728010; }
 
-  /* ── log ── */
-  .log-full { grid-column: 1 / -1; }
-  .log-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
-  .log-wrap {
-    background: var(--bg); border: 1px solid var(--border); border-radius: 7px;
-    padding: 7px; max-height: 105px; overflow-y: auto;
+  /* linha_gap status */
+  .gap-badge {
+    display: none; font-family: var(--mono); font-size: 10px;
+    font-weight: 700; padding: 3px 10px; border-radius: 4px;
+    background: #ef444418; color: var(--red); border: 1px solid #ef444430;
+    animation: pulse .5s infinite; letter-spacing: 1px;
   }
-  .log-wrap::-webkit-scrollbar { width: 4px; }
-  .log-wrap::-webkit-scrollbar-track { background: transparent; }
+  .gap-badge.visible { display: inline-block; }
+
+  /* log */
+  .log-area { grid-area: logarea; }
+  .log-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .log-wrap {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px; max-height: 100px; overflow-y: auto;
+  }
+  .log-wrap::-webkit-scrollbar { width: 3px; }
   .log-wrap::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
   .log-line {
-    font-family: var(--mono); font-size: 10px;
-    display: flex; gap: 8px; padding: 2px 0;
+    font-family: var(--mono); font-size: 9px;
+    display: flex; gap: 7px; padding: 2px 0;
     border-bottom: 1px solid var(--bg3);
   }
   .log-line:last-child { border: none; }
-  .log-ts   { color: var(--txt3); min-width: 52px; }
+  .log-ts   { color: var(--txt3); min-width: 48px; }
   .log-ok   { color: var(--green); }
   .log-warn { color: var(--amber); }
   .log-info { color: var(--cyan); }
   .log-def  { color: var(--txt2); }
 
-  .conn-line { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10px; color: var(--green); margin-top: 9px; }
+  .conn-line { display: flex; align-items: center; gap: 5px;
+               font-family: var(--mono); font-size: 9px; color: var(--green); margin-top: 8px; }
 </style>
 </head>
 <body>
@@ -404,7 +445,7 @@ HTML = r"""<!DOCTYPE html>
     <span class="logo-sub">Raspberry Pi 4</span>
   </div>
   <div class="topbar-r">
-    <span id="npu-badge" class="npu-badge npu-off">NPU OFF</span>
+    <span id="npu-badge" class="npu-badge npu-off">CPU</span>
     <span>IP: <span class="chip" id="ip-addr">—</span></span>
     <span>UP: <span class="chip" id="uptime">—</span></span>
     <span id="conn-status" style="color:var(--green)">● online</span>
@@ -413,71 +454,115 @@ HTML = r"""<!DOCTYPE html>
 
 <div class="main">
 
-  <!-- ── MODO BAR ── -->
+  <!-- ── MODE BAR ── -->
   <div class="mode-bar">
     <div>
       <div class="mlabel">Modo de operação</div>
       <div class="mbtns">
-        <button class="mbtn" id="btn-bolas"     onclick="enviarModo('bolas')">Bolas</button>
-        <button class="mbtn" id="btn-triangulo" onclick="enviarModo('triangulo')">Triângulo</button>
-        <button class="mbtn" id="btn-obstaculo" onclick="enviarModo('obstaculo')">Obstáculo</button>
+        <button class="mbtn" id="btn-bolas"      onclick="enviarModo('bolas')">Bolas</button>
+        <button class="mbtn" id="btn-triangulo"  onclick="enviarModo('triangulo')">Triângulo</button>
+        <button class="mbtn" id="btn-obstaculo"  onclick="enviarModo('obstaculo')">Obstáculo</button>
+        <button class="mbtn" id="btn-linha_gap"  onclick="enviarModo('linha_gap')">Linha GAP</button>
+        <button class="mbtn" id="btn-nadapross"  onclick="enviarModo('nadapross')">NADAPROSS</button>
       </div>
     </div>
     <div class="status-r">
       <div class="live-dot"></div>
       <span class="pill" id="mode-pill">—</span>
-      <button class="ebtn" onclick="enviarEmergencia()">⚠ EMERGÊNCIA</button>
+      <span class="gap-badge" id="gap-badge">GAP!</span>
+      <button class="ebtn" onclick="enviarEmergencia()">⚠ EMERG</button>
     </div>
   </div>
 
-  <!-- ── CÂMERA IMX500 ── -->
-  <div class="cam-wrap" id="cam-imx500">
-    <div class="cam-hdr">
-      <span class="cam-t" id="cam500-titulo">IMX500 — AGUARDANDO</span>
-      <span style="font-family:var(--mono);font-size:9px;color:var(--txt2)" id="cam500-fps-badge">0.0 fps</span>
+  <!-- ══ COLUNA ESQUERDA — câmera compacta ══ -->
+  <div class="cam-col">
+
+    <div class="cam-wrap" id="cam-imx500">
+      <div class="cam-hdr">
+        <span class="cam-t" id="cam500-titulo">IMX500 — AGUARDANDO</span>
+        <span style="font-family:var(--mono);font-size:9px;color:var(--txt2)"
+              id="cam500-fps-badge">0.0 fps</span>
+      </div>
+      <div class="cam-screen">
+        <img src="/stream/imx500" alt="IMX500">
+        <div class="cam-scanline" id="cam-scan"></div>
+        <div class="cam-hud">
+          <span class="hud-txt" id="hud-modo">MODE: —</span>
+          <span class="hud-txt orange" id="hud-obst">—</span>
+          <span class="hud-txt" id="hud-fps">— fps</span>
+        </div>
+      </div>
     </div>
-    <div class="cam-screen">
-      <img src="/stream/imx500" alt="IMX500" onerror="this.style.minHeight='180px'">
-      <div class="cam-scanline" id="cam-scan"></div>
-      <div class="cam-hud">
-        <span class="hud-txt" id="hud-modo">MODE: —</span>
-        <span class="hud-txt orange" id="hud-obst">OBST: idle</span>
-        <span class="hud-txt" id="hud-fps">— fps</span>
+
+    <!-- mini métricas sob a câmera -->
+    <div class="cam-mini-status">
+      <div class="cms-item">
+        <span class="cms-lbl">FPS</span>
+        <span class="cms-val" id="mini-fps">—</span>
+      </div>
+      <div class="cms-item">
+        <span class="cms-lbl">ROLL</span>
+        <span class="cms-val" style="color:var(--blue)" id="mini-roll">0.0°</span>
+      </div>
+      <div class="cms-item">
+        <span class="cms-lbl">PITCH</span>
+        <span class="cms-val" style="color:var(--green)" id="mini-pitch">0.0°</span>
+      </div>
+      <div class="cms-item">
+        <span class="cms-lbl">YAW</span>
+        <span class="cms-val" style="color:var(--purple)" id="mini-yaw">0.0°</span>
+      </div>
+    </div>
+
+  </div><!-- /cam-col -->
+
+  <!-- ══ ÁREA OBSTÁCULO (abaixo da câmera, aparece só nesse modo) ══ -->
+  <div class="obst-area">
+    <div class="obst-section" id="obst-section">
+      <div class="obst-section-title">
+        <div style="width:5px;height:5px;border-radius:50%;background:var(--orange)"></div>
+        Detecção de Obstáculo
+      </div>
+      <div class="obst-big-indicator">
+        <span class="obst-status-txt ost-idle" id="obst-status-txt">IDLE</span>
+        <div class="obst-pct-wrap">
+          <span class="obst-pct-num" id="obst-pct-num">0</span>
+          <span class="obst-pct-lbl">SCORE %</span>
+        </div>
+      </div>
+      <div class="obst-bar-wrap">
+        <div class="obst-bar-fill" id="obst-bar" style="width:0%"></div>
+      </div>
+      <div class="obst-cards">
+        <div class="obst-info-card">
+          <div class="oic-lbl">ESTADO</div>
+          <div class="oic-val" id="oic-estado">idle</div>
+        </div>
+        <div class="obst-info-card">
+          <div class="oic-lbl">ÚLTIMO RESULTADO</div>
+          <div class="oic-val" id="oic-ultimo">—</div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- ══ SEÇÃO OBSTÁCULO — visível apenas no modo obstáculo ══ -->
-  <div class="obst-section" id="obst-section">
-    <div class="obst-section-title">
-      <div style="width:6px;height:6px;border-radius:50%;background:var(--orange)"></div>
-      Detecção de Obstáculo
-    </div>
-
-    <div class="obst-big-indicator">
-      <span class="obst-status-txt ost-idle" id="obst-status-txt">IDLE</span>
-      <div class="obst-pct-wrap">
-        <span class="obst-pct-num" id="obst-pct-num">0</span>
-        <span class="obst-pct-lbl">SCORE %</span>
+  <!-- ══ LOG (abaixo da área de obstáculo, ocupa largura da câmera) ══ -->
+  <div class="log-area">
+    <div class="card">
+      <div class="log-hdr">
+        <div class="card-t" style="margin:0">
+          <div class="cdot" style="background:var(--txt3)"></div>Log de eventos
+        </div>
+        <button class="ctrl-btn"
+          style="width:auto;padding:2px 10px;margin:0;font-size:9px"
+          onclick="document.getElementById('log-wrap').innerHTML=''">limpar</button>
       </div>
-    </div>
-
-    <div class="obst-bar-big-wrap">
-      <div class="obst-bar-big-fill" id="obst-bar-big" style="width:0%"></div>
-    </div>
-
-    <div class="obst-info-card">
-      <div class="oic-lbl">ESTADO</div>
-      <div class="oic-val" id="oic-estado">idle</div>
-    </div>
-    <div class="obst-info-card">
-      <div class="oic-lbl">ÚLTIMO RESULTADO</div>
-      <div class="oic-val" id="oic-ultimo">—</div>
+      <div class="log-wrap" id="log-wrap"></div>
     </div>
   </div>
 
-  <!-- ── GRID INFERIOR ── -->
-  <div class="bottom-grid">
+  <!-- ══ COLUNA DIREITA — cards ══ -->
+  <div class="right-col">
 
     <!-- Giroscópio -->
     <div class="card">
@@ -485,7 +570,7 @@ HTML = r"""<!DOCTYPE html>
       <div class="gyro-row">
         <span class="gyro-lbl">Roll X</span>
         <div class="gyro-track"><div class="gyro-fill" id="gfx" style="background:var(--blue);width:50%"></div></div>
-        <span class="gyro-val" id="gvx" style="color:var(--cyan)">0.0°</span>
+        <span class="gyro-val" id="gvx" style="color:var(--blue)">0.0°</span>
       </div>
       <div class="gyro-row">
         <span class="gyro-lbl">Pitch Y</span>
@@ -500,11 +585,11 @@ HTML = r"""<!DOCTYPE html>
       <div class="fps-row">
         <div class="fps-chip">
           <div class="fps-n" id="fps0">—</div>
-          <div class="fps-s">IMX500 fps</div>
+          <div class="fps-s">IMX500 FPS</div>
         </div>
         <div class="fps-chip">
           <div class="fps-n" id="fps0b" style="color:var(--amber)">—</div>
-          <div class="fps-s">INFER fps</div>
+          <div class="fps-s">INFER FPS</div>
         </div>
       </div>
     </div>
@@ -513,10 +598,15 @@ HTML = r"""<!DOCTYPE html>
     <div class="card">
       <div class="card-t"><div class="cdot" style="background:#f87171"></div>Estado do sistema</div>
       <div class="cmd-row"><span class="cmd-k">Bumper</span><span class="cmd-v cv-idle" id="s-bumper">livre</span></div>
-      <div class="cmd-row"><span class="cmd-k">Modelo NPU</span><span class="cmd-v cv-ok" id="s-modelo" style="font-size:9px;overflow:hidden;text-overflow:ellipsis;max-width:120px">—</span></div>
-      <div class="cmd-row"><span class="cmd-k">Modo ativo</span><span class="cmd-v cv-ok" id="s-modo-ativo">—</span></div>
+      <div class="cmd-row"><span class="cmd-k">Modelo NPU</span>
+        <span class="cmd-v cv-ok" id="s-modelo"
+          style="font-size:8px;overflow:hidden;text-overflow:ellipsis;max-width:110px">—</span></div>
+      <div class="cmd-row"><span class="cmd-k">Modo ativo</span>
+        <span class="cmd-v cv-ok" id="s-modo-ativo">—</span></div>
+      <div class="cmd-row"><span class="cmd-k">Cmd linha</span>
+        <span class="cmd-v" id="s-cmd-linha" style="color:var(--teal)">—</span></div>
       <div class="conn-line">
-        <div style="width:5px;height:5px;border-radius:50%;background:var(--green)"></div>
+        <div style="width:4px;height:4px;border-radius:50%;background:var(--green)"></div>
         <span id="s-ev3">EV3 serial</span>
       </div>
     </div>
@@ -524,178 +614,209 @@ HTML = r"""<!DOCTYPE html>
     <!-- Controles rápidos -->
     <div class="card">
       <div class="card-t"><div class="cdot" style="background:var(--green)"></div>Controles rápidos</div>
-      <button class="ctrl-btn"       onclick="enviarModo('bolas')">→ Modo: Bolas</button>
-      <button class="ctrl-btn"       onclick="enviarModo('triangulo')">→ Modo: Triângulo</button>
-      <button class="ctrl-btn ctrl-btn-obst" onclick="enviarModo('obstaculo')">→ Modo: Obstáculo</button>
-      <button class="ctrl-btn ctrl-btn-warn" onclick="enviarResetGyro()">Reset giroscópio</button>
-      <button class="ctrl-btn ctrl-btn-red"  onclick="enviarEmergencia()">⚠ Parada de emergência</button>
-    </div>
-
-    <!-- Log -->
-    <div class="card log-full">
-      <div class="log-hdr">
-        <div class="card-t" style="margin:0">
-          <div class="cdot" style="background:var(--txt3)"></div>Log de eventos
-        </div>
-        <button class="ctrl-btn"
-          style="width:auto;padding:2px 12px;margin:0;font-size:10px"
-          onclick="document.getElementById('log-wrap').innerHTML=''">limpar</button>
+      <div class="ctrl-grid">
+        <button class="ctrl-btn"            onclick="enviarModo('bolas')">Bolas</button>
+        <button class="ctrl-btn"            onclick="enviarModo('triangulo')">Triângulo</button>
+        <button class="ctrl-btn ctrl-btn-teal ctrl-btn-full"
+                                            onclick="enviarModo('linha_gap')">→ Linha GAP</button>
+        <button class="ctrl-btn ctrl-btn-gray ctrl-btn-full"
+                                            onclick="enviarModo('nadapross')">→ NADAPROSS</button>
+        <button class="ctrl-btn ctrl-btn-warn ctrl-btn-full"
+                                            onclick="enviarResetGyro()">Reset Giroscópio</button>
+        <button class="ctrl-btn ctrl-btn-red" onclick="enviarEmergencia()">⚠ Emergência</button>
       </div>
-      <div class="log-wrap" id="log-wrap"></div>
     </div>
 
-  </div>
-</div>
+  </div><!-- /right-col -->
+
+</div><!-- /main -->
 
 <script>
-const PILL     = { bolas:['pb','BOLAS'], triangulo:['pt','TRIÂNGULO'], obstaculo:['po','OBSTÁCULO'] };
-const MBTN_CLS = { bolas:'mb', triangulo:'mt', obstaculo:'mo' };
+// ── Mapeamentos de modo ───────────────────────────────────────────
+const PILL_MAP = {
+  bolas:     ['pb','BOLAS'],
+  triangulo: ['pt','TRIÂNGULO'],
+  obstaculo: ['po','OBSTÁCULO'],
+  linha_gap: ['pl','LINHA GAP'],
+  nadapross: ['pn','NADAPROSS'],
+};
+const MBTN_CLS = {
+  bolas:'mb', triangulo:'mt', obstaculo:'mo', linha_gap:'ml', nadapross:'mn'
+};
 const CAM_TITULO = {
   bolas:     'IMX500 — BOLAS',
   triangulo: 'IMX500 — TRIÂNGULO',
   obstaculo: 'IMX500 — OBSTÁCULO',
+  linha_gap: 'IMX500 — LINHA GAP',
+  nadapross: 'IMX500 — NADAPROSS',
+};
+const SCAN_CLS = {
+  bolas:'cam-scanline', triangulo:'cam-scanline',
+  obstaculo:'cam-scanline orange', linha_gap:'cam-scanline teal',
+  nadapross:'cam-scanline gray',
 };
 const OBST_LABELS = {
-  idle:                   ['ost-idle',   'IDLE'],
-  aguardando_confirmacao: ['ost-wait',   'AGUARDANDO EV3'],
-  verificando:            ['ost-verif',  'VERIFICANDO LADOS'],
+  idle:                   ['ost-idle',  'IDLE'],
+  aguardando_confirmacao: ['ost-wait',  'AGUARDANDO EV3'],
+  verificando:            ['ost-verif', 'VERIFICANDO LADOS'],
 };
 
-let modoAtual   = '';
-let ultimoObst  = '—';
+const ALL_MODOS = ['bolas','triangulo','obstaculo','linha_gap','nadapross'];
+let modoAtual = '';
+let ultimoCmd = '—';
 
 function atualizarUI(d) {
-  // ── Modo ──
-  if (d.modo !== modoAtual) {
-    modoAtual = d.modo;
-    ['bolas','triangulo','obstaculo'].forEach(m => {
-      document.getElementById('btn-'+m).className =
-        'mbtn' + (m === modoAtual ? ' '+MBTN_CLS[m] : '');
+  const modo = d.modo || 'bolas';
+
+  // ── Modo: botões, pill, câmera ──────────────────────────────
+  if (modo !== modoAtual) {
+    modoAtual = modo;
+
+    ALL_MODOS.forEach(m => {
+      const btn = document.getElementById('btn-' + m);
+      if (btn) btn.className = 'mbtn' + (m === modoAtual ? ' ' + (MBTN_CLS[m] || '') : '');
     });
-    const p = document.getElementById('mode-pill');
-    const [cls, txt] = PILL[modoAtual] || ['pb', modoAtual];
-    p.className = 'pill ' + cls;
-    p.textContent = txt;
-    document.getElementById('cam500-titulo').textContent = CAM_TITULO[modoAtual] || 'IMX500';
+
+    const pill = document.getElementById('mode-pill');
+    const [pcls, ptxt] = PILL_MAP[modoAtual] || ['pb', modoAtual.toUpperCase()];
+    pill.className = 'pill ' + pcls;
+    pill.textContent = ptxt;
+
+    const tit = CAM_TITULO[modoAtual] || 'IMX500';
+    document.getElementById('cam500-titulo').textContent = tit;
     document.getElementById('hud-modo').textContent = 'MODE: ' + modoAtual.toUpperCase();
     document.getElementById('s-modo-ativo').textContent = modoAtual;
 
-    // mostrar/ocultar seção obstáculo
-    const sec = document.getElementById('obst-section');
-    sec.className = modoAtual === 'obstaculo' ? 'obst-section visible' : 'obst-section';
-
-    // cor scanline e borda câmera
+    // borda / scanline da câmera
     const cam  = document.getElementById('cam-imx500');
     const scan = document.getElementById('cam-scan');
     if (modoAtual === 'obstaculo') {
-      cam.className  = 'cam-wrap obst-alert';
-      scan.className = 'cam-scanline orange';
+      cam.className = 'cam-wrap obst-alert';
+    } else if (modoAtual === 'linha_gap') {
+      cam.className = 'cam-wrap gap-alert';
     } else {
-      cam.className  = 'cam-wrap';
-      scan.className = 'cam-scanline';
+      cam.className = 'cam-wrap';
     }
+    scan.className = SCAN_CLS[modoAtual] || 'cam-scanline';
+
+    // Seção obstáculo: visível só no modo obstáculo
+    document.getElementById('obst-section').className =
+      modoAtual === 'obstaculo' ? 'obst-section visible' : 'obst-section';
   }
 
-  // ── NPU badge ──
-  const npuBadge = document.getElementById('npu-badge');
-  npuBadge.textContent = d.npu_ativo ? 'NPU ON' : 'CPU fallback';
-  npuBadge.className   = 'npu-badge ' + (d.npu_ativo ? 'npu-on' : 'npu-off');
+  // ── NPU badge ───────────────────────────────────────────────
+  const nb = document.getElementById('npu-badge');
+  nb.textContent = d.npu_ativo ? 'NPU ON' : 'CPU';
+  nb.className   = 'npu-badge ' + (d.npu_ativo ? 'npu-on' : 'npu-off');
   document.getElementById('s-modelo').textContent = d.npu_modelo || '—';
 
-  // ── Giroscópio ──
-  const fmt = v => (v>=0?'+':'')+parseFloat(v).toFixed(1)+'°';
-  const gyr = v => Math.min(100, (Math.abs(v)/180)*100 + 50);
-  document.getElementById('gvx').textContent = fmt(d.gyro_roll);
-  document.getElementById('gvy').textContent = fmt(d.gyro_pitch);
-  document.getElementById('gvz').textContent = fmt(d.gyro_yaw);
-  document.getElementById('gfx').style.width = gyr(d.gyro_roll)+'%';
-  document.getElementById('gfy').style.width = gyr(d.gyro_pitch)+'%';
-  document.getElementById('gfz').style.width = gyr(d.gyro_yaw)+'%';
+  // ── Giroscópio ──────────────────────────────────────────────
+  const fmt = v => (v >= 0 ? '+' : '') + parseFloat(v).toFixed(1) + '°';
+  const bar = v => Math.min(100, (Math.abs(v) / 180) * 100 + 50);
+  const rv = parseFloat(d.gyro_roll  || 0);
+  const pv = parseFloat(d.gyro_pitch || 0);
+  const yv = parseFloat(d.gyro_yaw   || 0);
+  document.getElementById('gvx').textContent = fmt(rv);
+  document.getElementById('gvy').textContent = fmt(pv);
+  document.getElementById('gvz').textContent = fmt(yv);
+  document.getElementById('gfx').style.width = bar(rv) + '%';
+  document.getElementById('gfy').style.width = bar(pv) + '%';
+  document.getElementById('gfz').style.width = bar(yv) + '%';
+  // mini métricas
+  document.getElementById('mini-roll').textContent  = fmt(rv);
+  document.getElementById('mini-pitch').textContent = fmt(pv);
+  document.getElementById('mini-yaw').textContent   = fmt(yv);
 
-  // ── FPS ──
-  const fps = parseFloat(d.fps_imx500).toFixed(1);
-  document.getElementById('fps0').textContent         = fps;
-  document.getElementById('fps0b').textContent        = fps;
-  document.getElementById('hud-fps').textContent      = fps + ' fps';
+  // ── FPS ─────────────────────────────────────────────────────
+  const fps = parseFloat(d.fps_imx500 || 0).toFixed(1);
+  document.getElementById('fps0').textContent            = fps;
+  document.getElementById('fps0b').textContent           = fps;
+  document.getElementById('hud-fps').textContent         = fps + ' fps';
   document.getElementById('cam500-fps-badge').textContent = fps + ' fps';
+  document.getElementById('mini-fps').textContent        = fps;
 
-  // ── Seção obstáculo ──
-  const pct      = parseFloat(d.obst_pct || 0);
-  const estado   = d.obstaculo || 'idle';
-  const hudObst  = document.getElementById('hud-obst');
-  const oicEst   = document.getElementById('oic-estado');
-  const oicUlt   = document.getElementById('oic-ultimo');
-  const bigTxt   = document.getElementById('obst-status-txt');
-  const bigBar   = document.getElementById('obst-bar-big');
-  const pctNum   = document.getElementById('obst-pct-num');
+  // ── Obstáculo ───────────────────────────────────────────────
+  const pct    = parseFloat(d.obst_pct || 0);
+  const estado = d.obstaculo || 'idle';
+  document.getElementById('hud-obst').textContent   = modoAtual === 'obstaculo'
+    ? 'OBST: ' + estado : '';
+  document.getElementById('oic-estado').textContent = estado;
+  document.getElementById('obst-pct-num').textContent = Math.round(pct);
+  document.getElementById('obst-bar').style.width   = Math.min(100, pct) + '%';
+  const [ocls, olbl] = OBST_LABELS[estado] || ['ost-idle', estado.toUpperCase()];
+  const bigTxt = document.getElementById('obst-status-txt');
+  bigTxt.className   = 'obst-status-txt ' + ocls;
+  bigTxt.textContent = olbl;
 
-  hudObst.textContent = 'OBST: ' + estado;
-  oicEst.textContent  = estado;
-  pctNum.textContent  = Math.round(pct);
-  bigBar.style.width  = Math.min(100, pct) + '%';
+  // ── Linha GAP — badge piscando ───────────────────────────────
+  // O backend envia o último cmd no log; lemos o cmd_camera se existir,
+  // senão inferimos do log mais recente.
+  let gapAtivo = false;
+  if (modoAtual === 'linha_gap' && d.log && d.log.length) {
+    const lastLinha = [...d.log].reverse().find(l => l.msg.startsWith('Linha:'));
+    if (lastLinha) {
+      const cmd = lastLinha.msg.replace('Linha: ', '').trim();
+      document.getElementById('s-cmd-linha').textContent = cmd;
+      gapAtivo = cmd === 'gap';
+    }
+  } else {
+    document.getElementById('s-cmd-linha').textContent = modoAtual === 'linha_gap' ? '...' : '—';
+  }
+  document.getElementById('gap-badge').className = 'gap-badge' + (gapAtivo ? ' visible' : '');
 
-  const [cls, label] = OBST_LABELS[estado] || ['ost-idle', estado.toUpperCase()];
-  bigTxt.className  = 'obst-status-txt ' + cls;
-  bigTxt.textContent = label;
-
-  // guarda último resultado de verificação
+  // ── Log ─────────────────────────────────────────────────────
   if (d.log && d.log.length) {
-    const last = [...d.log].reverse().find(l => l.msg.startsWith('Verificação:'));
-    if (last) oicUlt.textContent = last.msg.replace('Verificação: ', '');
+    const CLS = { ok:'log-ok', warn:'log-warn', info:'log-info' };
+    // guarda scroll antes de atualizar
+    const lw = document.getElementById('log-wrap');
+    const atBottom = lw.scrollHeight - lw.clientHeight <= lw.scrollTop + 4;
+    lw.innerHTML = d.log.slice().reverse().map(l =>
+      `<div class="log-line"><span class="log-ts">${l.t}</span>`+
+      `<span class="${CLS[l.tipo]||'log-def'}">${l.msg}</span></div>`
+    ).join('');
+    if (atBottom) lw.scrollTop = 0;  // mantém no topo (log invertido)
+
+    // último resultado obstáculo
+    const lastVerif = [...d.log].reverse().find(l => l.msg.startsWith('Verificação:'));
+    if (lastVerif) document.getElementById('oic-ultimo').textContent =
+      lastVerif.msg.replace('Verificação: ', '');
   }
 
-  // ── Estado geral ──
+  // ── Estado geral ─────────────────────────────────────────────
   document.getElementById('s-bumper').textContent = d.bumper || 'livre';
 
-  // ── Uptime ──
+  // ── Uptime ──────────────────────────────────────────────────
   const up = d.uptime || 0;
-  const hh = String(Math.floor(up/3600)).padStart(2,'0');
-  const mm = String(Math.floor((up%3600)/60)).padStart(2,'0');
-  const ss = String(up%60).padStart(2,'0');
-  document.getElementById('uptime').textContent = hh+':'+mm+':'+ss;
-
-  // ── Log ──
-  if (d.log && d.log.length) {
-    const CLS = {ok:'log-ok',warn:'log-warn',info:'log-info'};
-    document.getElementById('log-wrap').innerHTML =
-      d.log.slice().reverse().map(l =>
-        `<div class="log-line"><span class="log-ts">${l.t}</span>`+
-        `<span class="${CLS[l.tipo]||'log-def'}">${l.msg}</span></div>`
-      ).join('');
-  }
+  const hh = String(Math.floor(up / 3600)).padStart(2, '0');
+  const mm = String(Math.floor((up % 3600) / 60)).padStart(2, '0');
+  const ss = String(up % 60).padStart(2, '0');
+  document.getElementById('uptime').textContent = hh + ':' + mm + ':' + ss;
 }
 
 async function poll() {
   try {
     const r = await fetch('/api/estado');
     if (r.ok) {
-      const d = await r.json();
-      document.getElementById('ip-addr').textContent = location.host;
+      document.getElementById('ip-addr').textContent     = location.host;
       document.getElementById('conn-status').textContent = '● online';
       document.getElementById('conn-status').style.color = 'var(--green)';
-      atualizarUI(d);
+      atualizarUI(await r.json());
     }
-  } catch(e) {
+  } catch (e) {
     document.getElementById('conn-status').textContent = '● offline';
     document.getElementById('conn-status').style.color = 'var(--red)';
   }
 }
 
-async function enviarModo(modo) {
-  await fetch('/api/comando',{method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({cmd:'modo',modo})});
-}
-async function enviarEmergencia() {
-  await fetch('/api/comando',{method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({cmd:'emergencia'})});
-}
-async function enviarResetGyro() {
-  await fetch('/api/comando',{method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({cmd:'reset_gyro'})});
-}
+const post = body => fetch('/api/comando', {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify(body)
+});
+
+function enviarModo(modo)     { post({cmd:'modo', modo}); }
+function enviarEmergencia()   { post({cmd:'emergencia'}); }
+function enviarResetGyro()    { post({cmd:'reset_gyro'}); }
 
 setInterval(poll, 400);
 poll();
