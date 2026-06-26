@@ -181,6 +181,20 @@ class TalkingSerial:
                 pass
             return
 
+        if linha.startswith("MPU_Y:"):
+            try:
+                self.gyro_y = float(linha[6:])   # era [7:], corrigido para [6:]
+            except ValueError:
+                pass
+            return
+
+        if linha.startswith("MPU_X:"):
+            try:
+                self.gyro_x = float(linha[6:])   # era inexistente ou errado
+            except ValueError:
+                pass
+            return
+                
         # ── Giroscópio: formato completo ──────────────────────────────────────
         if "[MPU]" in linha:
             try:
@@ -483,23 +497,29 @@ class TalkingSerial:
         """
         Gira o robô usando gyro_z (Yaw) da Raspberry como referência.
         Para quando girou abs(angulo) graus a partir da posição atual.
-
-        angulo : graus a girar (positivo ou negativo)
+ 
+        angulo : graus a girar — POSITIVO gira para um lado, NEGATIVO para o outro
         motorB : Motor B
         motorC : Motor C
+ 
+        CORREÇÃO: o sinal de angulo agora define o sentido de giro.
+        Antes ambos os motores iam sempre em dc(100) independente do sinal,
+        o que causava giro infinito (verde) ou overshooting (vermelho).
         """
         self.drenar()
         yaw_inicio = self.gyro_z
-
-        motorB.dc(100)
-        motorC.dc(100)
-
+ 
+        # Sentido: positivo → motorB e C para frente / negativo → para trás
+        sentido = 1 if angulo >= 0 else -1
+        motorB.dc(100 * sentido)
+        motorC.dc(100 * sentido)
+ 
         while True:
             self.drenar()
             giro_atual = self.gyro_z - yaw_inicio
-            # FIX: abs() em ambos os lados — suporta ângulo negativo sem travar
             if abs(giro_atual) >= abs(angulo):
                 motorB.stop()
                 motorC.stop()
                 print("[TalkingSerial] girar_graus OK:", giro_atual)
                 break
+            # Sem wait() — drenar() já faz leitura não-bloqueante

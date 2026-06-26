@@ -10,8 +10,8 @@ class Gapwhite:
 
     def Litleshirt(self, fora1, meio1, meio2, fora2, pretoesq, pretodir):
         # GAP
-        #self.ev3.speaker.beep(1000)
-        #print("gaap")
+        self.ev3.speaker.beep(1000)
+        print("gaap")
         self.motorB.reset_angle(0)
         self.motorC.reset_angle(0)
         wait(100)

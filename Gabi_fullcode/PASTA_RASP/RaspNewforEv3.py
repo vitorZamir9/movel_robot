@@ -108,7 +108,7 @@ SILVER_MIN_WIDTH_RATIO  = 0.25
 RESGATE_BLACK_MIN_AREA  = 2000
 
 # ── Bolas (CPU) ──────────────────────────────────────────────────
-BALL_CONF_MIN     = 0.35
+BALL_CONF_MIN     = 0.55
 BALL_AREA_MIN     = 400
 BALL_AREA_MAX     = 20000
 BALL_PROP_MIN     = 0.35
@@ -326,7 +326,7 @@ def _parse_cpu_detections(frame_bgr, frame_w, frame_h):
     if yolo_ball_cpu is None:
         return dets
     try:
-        results = yolo_ball_cpu.predict(frame_bgr, imgsz=320,
+        results = yolo_ball_cpu.predict(frame_bgr, imgsz=160,
                                         device='cpu', half=False,
                                         verbose=False, conf=BALL_CONF_MIN)[0]
         if not results.boxes:
@@ -466,11 +466,11 @@ if mpu_ativo:
 # Raio do círculo de processamento: ~42% do menor lado da imagem.
 # Aumente LINHA_GAP_RAIO para ampliar a área visível,
 # ou diminua para filtrar melhor ruídos nas bordas.
-LINHA_GAP_RAIO     = int(min(W, H) * 0.42)   # ≈ 100 px para 320×240
-LINHA_GAP_CX       = W // 2                   # centro X (coluna central)
-LINHA_GAP_CY       = H // 2                   # centro Y (linha central)
-LINHA_GAP_AREA_MIN = 800                       # área mínima do contorno preto
-LINHA_GAP_DESVIO   = W * 0.12                 # desvio em px para esq/dir
+LINHA_GAP_RAIO     = int(min(W, H) * 0.36)      # ≈ 100 px para 320×240
+LINHA_GAP_CX       = W // 2                     # centro X (coluna central)
+LINHA_GAP_CY       = int(H * 0.70)              # centro Y (linha central)
+LINHA_GAP_AREA_MIN = 800                        # área mínima do contorno preto
+LINHA_GAP_DESVIO   = W * 0.12                   # desvio em px para esq/dir
 
 # Histórico de frames para estabilizar a detecção de GAP
 _linha_gap_historico: list = []
@@ -674,6 +674,8 @@ try:
             if abs(gz) > 1.0: guinada_yaw += gz * dt_mpu
             if (now_mpu - tempo_ultimo_print) > 0.5:
                 if ser: ser.write(f"MPU_Z:{guinada_yaw:.1f}\n".encode())
+                if ser: ser.write(f"MPU_Y:{arfagem_pitch:.1f}\n".encode())
+                if ser: ser.write(f"MPU_X:{rotacao_roll:.1f}\n".encode())
                 tempo_ultimo_print = now_mpu
                 dash.atualizar_estado(
                     gyro_roll=round(rotacao_roll, 1),

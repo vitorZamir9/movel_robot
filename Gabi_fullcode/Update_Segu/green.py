@@ -1,5 +1,7 @@
 from pybricks.tools import wait, StopWatch
-
+from segue import Segue
+PESO_MEIO = 1.0
+PESO_FORA = 2.275
 class Green:
     def __init__(self,tanki,motorB,motorC,sensor1,ev3,ser,motores):
         self.tanki = tanki
@@ -9,6 +11,7 @@ class Green:
         self.ev3 = ev3 
         self.ser = ser
         self.motores = motores
+        #self.motores = Segue(motorB, motorC, PESO_FORA, PESO_MEIO)
     
     def MoveGreen(self,H1, S1, V1, H2, S2, V2, H3, S3, V3, alvo,
                    fora1, meio1, meio2, fora2, previsao_camera, cloresq, clordir, pretoesq, pretodir):
@@ -23,10 +26,11 @@ class Green:
         # LÓGICA DA DIREITA
         # ==================================
         self.ev3.speaker.beep(800)
+        print("verde")
         if verdeDireita and not pretodir > 0:
             if meio1 >= 40 or meio2 >= 40:
                 self.tanki.stop()
-                self.tanki.turn(70)
+                self.tanki.turn(40)
                 self.tanki.straight(90)
                 self.tanki.stop()
                 self.ev3.speaker.beep(400) 
@@ -51,7 +55,7 @@ class Green:
         elif verdeEsquerda and not pretoesq > 0:
             if meio1 >= 40 or meio2 >= 40:
                 self.tanki.stop()
-                self.tanki.turn(70)
+                self.tanki.turn(40)
                 self.tanki.straight(-90)
                 self.tanki.stop()
                 self.ev3.speaker.beep(200) 
@@ -104,7 +108,7 @@ class Green:
                 f1, m1, m2, f2 = retorno[0], retorno[1], retorno[2], retorno[3]
                 
                 # AQUI É ONDE USAMOS O SEU PID:
-                self.meu_pid.PID(f1, m1, m2, f2, 2.0, 0, 0.15, 100)
+                self.motores.PID(f1, m1, m2, f2, 2.0, 0, 0.15, 100)
                 wait(10)
                 
             print(">>> TEMPO ESGOTADO: Voltando ao loop principal")

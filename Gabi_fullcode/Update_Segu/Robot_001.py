@@ -145,7 +145,7 @@ def sensor():
         # ==========================================
         ev3.screen.clear()
         ev3.screen.print("-7")
-        ser.write(b'obstaculo\r\n') 
+        ser.write(b'nadapross\r\n') 
         #ser.write(b'OFF\r\n')
         # ==========================================
         # 1.0 LEITURA DO SENSOR DE COR
@@ -177,7 +177,7 @@ def sensor():
         S1, S3, S2 = (retorno[21]*2), (retorno[24]*2), (retorno[27]*2)
         V1, V3, V2 = (retorno[22]*2), (retorno[25]*2), (retorno[28]*2)
         
-        alvo = 18 # Alvo para a calibração do HSV do verde
+        alvo = 8 # Alvo para a calibração do HSV do verde
         # ==========================================
         # 1.1 LEITURA DO SENSOR MULTIPLEX
         # ==========================================
@@ -188,7 +188,21 @@ def sensor():
         ultra2  = retorno1[1] # direita
         ultrad3 = retorno1[2] # vitima
         ultra4  = retorno1[3] # esquerda
-
+        if ultra1 or ultra2 or ultra4 or ultrad3 == -1:
+            #print("não esta identificando os ultra")
+            if ultra1 == -1:
+                print("ultra1")
+                break
+            if ultra2 == -1:
+                print("ultra2")
+                break
+            if ultrad3 == -1:
+                print("ultra3")
+                break
+            if ultra4 == -1:
+                print("ultra4")
+                break
+            
         # Leitura dos botões para função pro robô
         botao_stop  = retorno1[6]
         botao_parar = retorno1[5]
@@ -202,8 +216,8 @@ def sensor():
         ev = ts.drenar_principal()
 
         # gyro vem direto dos atributos
-        gyro_rasp_y = ts.gyro_y  # pitch (rampa)
-        gyro_rasp_z = ts.gyro_z  # yaw
+        gyro_rasp_y = ts.pitch  # pitch (rampa)
+        gyro_rasp_z = ts.yaw  # yaw
 
         # eventos do ciclo
         if ev["obstaculo_pendente"]:
@@ -219,13 +233,15 @@ def sensor():
         servosMove.desativa(2) # Pinça esquerda
         servosMove.desativa(3) # Pinça direita
         servosMove.desativa(4) # Caçamba
-        wait(500)
-        #servosMove.move(5,40)
-        #servosMove.move(1,5)
+        servosMove.move(4, 60) # posição fechada servo caçamba
+        servosMove.move(1, 0)  # posição fechada servo angulo garra
+        servosMove.move(3, 60) # aberto pinça direita
+        servosMove.move(2, 0)  # aberto pinça esquerda
         # ==========================================
         # 2. VERIFICAÇÃO DE INCLINAÇÃO
         # gyro_rasp_y já está atualizado pelo módulo 1.2
         # ==========================================
+        print("RAW pitch:", ts.gyro_y, "| raw yaw:", ts.gyro_z)
         if gyro_rasp_y > 10:
             ev3.speaker.beep()
             print("subindo")
@@ -272,21 +288,24 @@ def sensor():
         mindgray = R3 > rgb and G3 > rgb and B3 > rgb and C3 > clear #prata reflectivo
         dirgray = R2 > rgb and G2 > rgb and B2 > rgb and C2 > clear 
         
-        esqgray1 = B1 > 50 and B1 < 66 and C1 > 24 and C1 < 31 and cloresq == 6
-        mindgray1 = B3 > 50 and B3 < 66 and C3 > 24 and C3 < 31 and clormind == 6 #calibrar o prata não reflectivo
-        dirgray1 = B2 > 50 and B2 < 66 and C2> 24 and C2 < 31 and clordir == 6
-        y=0
+        blue = 55
+        esqgray1 = B1 > blue and B1 < 62 and C1 > 24 and C1 < 30 and cloresq == 6
+        mindgray1 = B3 > blue and B3 < 62 and C3 > 24 and C3 < 30 and clormind == 6 #calibrar o prata não reflectivo
+        dirgray1 = B2 > blue and B2 < 62 and C2> 24 and C2 < 30 and clordir == 6
+        y=1
         # ^^^^^^se essa variavel ficar 0 ela vai fazer com que o robo ignore o seguidor e va direto pro resgate
-        if esqgray1 and mindgray1 and dirgray1 or esqgray1 and mindgray1 and dirgray1 or y==0:
+        if esqgray1 or mindgray1 or dirgray1 or y==0:
+            print("prata")
             wait(10)
-            if esqgray1 and mindgray1 and dirgray1 or esqgray1 and mindgray1 and dirgray1 or y==0:
+
+            if esqgray1 and mindgray1 and dirgray1 or y==0:
                 tanki.stop()
                 ev3.speaker.beep(900)
  
                 # ==========================================
                 # RESGATE — chama a classe Silver
                 # ==========================================
-                entrada_resgate_lado = silver.enter(esqgray, mindgray, dirgray, esqgray1, mindgray1, dirgray1)
+                entrada_resgate_lado = silver.enter(esqgray1, mindgray1, dirgray1)
                 print("Entrada no resgate:", entrada_resgate_lado)
                 if entrada_resgate_lado is None:
                     print("Erro na entrada do resgate. Retomando seguir linha.")
@@ -575,6 +594,7 @@ def teste_Linha():
     while True:
         retorno = sensor1.read(2)
         
+        posicao = (retorno[29]*2)
         # Leitura RGBC dos sensores
         R1, R3, R2 = (retorno[4]), (retorno[8]), (retorno[12])
         G1, G3, G2 = (retorno[5]), (retorno[9]), (retorno[13])
@@ -591,33 +611,29 @@ def teste_Linha():
         clormind = retorno[18]
         clordir = retorno[19]
        
-        clear = 70
-        rgb=85
-        esqgray = R1 > rgb and G1 > rgb and B1 > rgb and C1 > clear 
-        mindgray = R3 > rgb and G3 > rgb and B3 > rgb and C3 > clear #prata reflectivo
-        dirgray = R2 > rgb and G2 > rgb and B2 > rgb and C2 > clear 
+        clear = 40
+        rgb=80
+        esqgray = R1 > rgb and G1 > rgb and B1 > rgb and C1 > clear and C1 < (clear + 5)
+        mindgray = R3 > rgb and G3 > rgb and B3 > rgb and C3 > clear and C3 < (clear + 5) #prata reflectivo
+        dirgray = R2 > rgb and G2 > rgb and B2 > rgb and C2 > clear and C2 < (clear + 5)
         
-        esqgray1 = B1 > 50 and B1 < 66 and C1 > 24 and C1 < 31 and cloresq == 6
-        mindgray1 = B3 > 50 and B3 < 66 and C3 > 24 and C3 < 31 and clormind == 6 #calibrar o prata não reflectivo
-        dirgray1 = B2 > 50 and B2 < 66 and C2> 24 and C2 < 31 and clordir == 6
+        esqgray1 = B1 > 55 and B1 < 62 and C1 > 24 and C1 < 30 and cloresq == 6
+        mindgray1 = B3 > 55 and B3 < 62 and C3 > 24 and C3 < 30 and clormind == 6 #calibrar o prata não reflectivo
+        dirgray1 = B2 > 55 and B2 < 62 and C2> 24 and C2 < 30 and clordir == 6
 
-        print("sensor esquerdo Reflectivo", "R1: ", R1,"G1: ", G1,"B1: ", B1,"C1: ", C1)
-        print("sensor medio Reflectivo",    "R3: ", R3,"G3: ", G3,"B3: ", B3,"C3: ", C3)
-        print("sensor direito Reflectivo",  "R2: ", R2,"G2: ", G2,"B2: ", B2,"C2: ", C2)
+        print("sensor esquerdo Reflectivo", "R1: ", R1,"G1: ", G1,"B1: ", B1,"C1:  ", C1)
+        print("sensor medio Reflectivo   ",    "R3: ", R3,"G3: ", G3,"B3: ", B3,"C3:  ", C3)
+        print("sensor direito Reflectivo ",  "R2: ", R2,"G2: ", G2,"B2: ", B2,"C2:  ", C2)
+        print("poscao: ", posicao)
 
-        print("sensor esquerdo não Reflectivo","B1: ", B1,"G1: ", G1,"B1: ", B1,"C1: ", C1, "cloresq: ", cloresq)
-        print("sensor medio não Reflectivo",   "B3: ", B3,"G3: ", G3,"B3: ", B3,"C3: ", C3, "clormind: ", clormind)
-        print("sensor direito não Reflectivo", "B2: ", B2,"G2: ", G2,"B2: ", B2,"C2: ", C2, "clordir: ", clordir)
+        #print("sensor esquerdo não Reflectivo","B1: ", B1,"G1: ", G1,"B1: ", B1,"C1: ", C1, "cloresq: ", cloresq)
+        #print("sensor medio não Reflectivo",   "B3: ", B3,"G3: ", G3,"B3: ", B3,"C3: ", C3, "clormind: ", clormind)
+        #print("sensor direito não Reflectivo", "B2: ", B2,"G2: ", G2,"B2: ", B2,"C2: ", C2, "clordir: ", clordir)
         if esqgray1 and mindgray1 and dirgray1  :
             wait(10)
             if esqgray1 and mindgray1 and dirgray1:
                 print("prata não reflectivo detectado!")
-                ev3.speaker.beep(900)
-        if esqgray and mindgray and dirgray:
-            wait(10)
-            if esqgray and mindgray and dirgray:
-                print("prata reflectivo detectado!")
-                ev3.speaker.beep(1200)
+                ev3.speaker.beep(500)
         wait(10)
 
 def serial():
@@ -636,11 +652,11 @@ def servis():
     servosMove.desativa(3) # direita
     servosMove.desativa(4) # despejo
     wait(00)
-    #servosMove.move(3, 60)# aberto
     #servosMove.move(2, 0)# aberto
+    #servosMove.move(3, 60)# aberto
     #wait(1000)
-    #servosMove.move(3, 0)
     #servosMove.move(2, 60)
+    #servosMove.move(3, 0)
     #wait(1000)
     servosMove.move(4, 0) # mortas
     wait(1000)
@@ -648,7 +664,50 @@ def servis():
     wait(1000)
     servosMove.move(4, 30) 
     
+def seguidores():
+    global old_error  
+    global sensor1  
+    global kp_atual
+    global kd_atual
+    global ki_atual
+    global base_atual
+    global derivative
+    global integral
+    global motorB
+    global motorC
+    global gyro_rasp_z 
+    global gyro_rasp_y
+    global previsao_camera
+    global pretodir
+    global pretoesq
+    global multiplex1
+    global parado
+    global obstaculo_camera_pendente
+    global obstaculo_camera_aguardando_linha
+    global obstaculo_camera_resultado_linha
+    global tempo_espera_linha
+    global ultra1
+    global ultra2
+    global ultrad3
+    global ultra4
+    global R1, R2, R3
+    global G1, G2, G3
+    global B1, B2, B3
+    global esqgray1, mindgray1, dirgray1
+    global esqgray, mindgray, dirgray
+    global rgb, clear
+    global cloresq, clormind, clordir
+    global fora1, meio1, meio2, fora2
+    while True :
+        retorno = sensor1.read(2)
 
+        # Leitura dos sensores para seguir linha
+        fora1 = retorno[3] # esquerda 
+        meio1 = retorno[2] # esquerda 
+        meio2 = retorno[1] # direita  
+        fora2 = retorno[0] # direita  
+
+        motores.PID(fora1,meio1,meio2,fora2,kp_atual,kd_atual,ki_atual,base_atual)
 # ==========================================
 # MESA DE CALIBRAR
 # ==========================================
@@ -659,3 +718,4 @@ sensor()
 #teste_Linha()
 #serial()
 #servis()
+#seguidores()
