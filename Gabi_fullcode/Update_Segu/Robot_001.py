@@ -46,6 +46,8 @@ derivative = 0
 PESO_MEIO = 1.0
 PESO_FORA = 2.275
 parado=0
+resgate_uma_vez = 1
+
 #----> drivebase <----
 tanki = DriveBase(motorB, motorC, wheel_diameter= 55.5 , axle_track=104.0) #isso funciona para movimentos do robô, alguns, mas é melhor usar o motorB e C dc
 tanki.settings(straight_speed=999999, straight_acceleration=999999, turn_rate=999999, turn_acceleration=99999)
@@ -53,7 +55,7 @@ tanki.settings(straight_speed=999999, straight_acceleration=999999, turn_rate=99
 #------> funções classes <------
 motores = Segue(motorB, motorC, PESO_FORA, PESO_MEIO)
 grein = Green(tanki, motorB, motorC, sensor1, ev3, ser, motores)
-blackMove = Black909(tanki, motorB, motorC, sensor1, ev3)
+blackMove = Black909(tanki, motorB, motorC, sensor1, ev3, ts)
 silver = Silver(
     tanki      = tanki,
     motorB     = motorB,
@@ -113,6 +115,7 @@ def sensor():
     global integral
     global motorB
     global motorC
+    global resgate_uma_vez
     global gyro_rasp_z 
     global gyro_rasp_y
     global previsao_camera
@@ -290,11 +293,12 @@ def sensor():
         
         blue = 55
         esqgray1 = B1 > blue and B1 < 62 and C1 > 24 and C1 < 30 and cloresq == 6
-        mindgray1 = B3 > blue and B3 < 62 and C3 > 24 and C3 < 30 and clormind == 6 #calibrar o prata não reflectivo
+        mindgray1 = B3 > blue and B3 < 62 and C3 > 24 and C3 < 30 and clormind == 6 #prata não reflectivo
         dirgray1 = B2 > blue and B2 < 62 and C2> 24 and C2 < 30 and clordir == 6
         y=1
+
         # ^^^^^^se essa variavel ficar 0 ela vai fazer com que o robo ignore o seguidor e va direto pro resgate
-        if esqgray1 or mindgray1 or dirgray1 or y==0:
+        if esqgray1 or mindgray1 or dirgray1 or y==0 and resgate_uma_vez == 0:
             print("prata")
             wait(10)
 
@@ -330,8 +334,8 @@ def sensor():
                     silver.triangulo()
  
                 # Sair do resgate
-                silver.exit()
- 
+                silver.exit(esqgray1, mindgray1, dirgray1)
+                resgate_uma_vez = 1
                 # Retomar seguir linha
                 tanki.settings(straight_speed=999999, straight_acceleration=999999,
                                 turn_rate=999999, turn_acceleration=99999)
@@ -506,7 +510,7 @@ def sensor():
                 tanki.stop()
                 wait(100)
 
-        # --- 6B. BUMPER FÍSICO (mantido igual, funciona independente da câmera) ---
+        # --- 6B. BUMPER FÍSICO ---
         if ChoqueESQ == 1 or ChoqueDIR == 1:
             print("Obstáculo detectado pelo bumper!")
             tanki.turn(-50)

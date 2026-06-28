@@ -114,6 +114,11 @@ class TalkingSerial:
         self._ev_resultado_linha    = None
         self._ev_previsao_camera    = None
 
+        # gaap
+        self.gap_cmd    = None
+        self.gap_angulo = None
+        self._ev_gap    = None
+
     # =========================================================================
     #  ALIASES — gyro_x/y/z com nomes descritivos
     # =========================================================================
@@ -250,6 +255,19 @@ class TalkingSerial:
             self._linhas_raw.append(linha)
             self._tentar_montar_frame()
 
+        # ── Gap com ângulo (câmera linha_gap) ─────────────────────────────────
+        if linha.startswith("gap"):
+            self._ev_gap = linha          # "gap" ou "gap angulo -12.5"
+            self.gap_cmd = linha
+            try:
+                if "angulo" in linha:
+                    self.gap_angulo = float(linha.split("angulo")[1].strip())
+                else:
+                    self.gap_angulo = None
+            except (IndexError, ValueError):
+                self.gap_angulo = None
+            return
+
     def _tentar_montar_frame(self):
         """
         Tenta montar um frame de bola ou triângulo a partir das linhas cruas.
@@ -369,6 +387,7 @@ class TalkingSerial:
         self._ev_obstaculo_pendente = False
         self._ev_resultado_linha    = None
         self._ev_previsao_camera    = None
+        self._ev_gap = None
 
         self.drenar()
 
@@ -376,6 +395,7 @@ class TalkingSerial:
             "obstaculo_pendente": self._ev_obstaculo_pendente,
             "resultado_linha":    self._ev_resultado_linha,
             "previsao_camera":    self._ev_previsao_camera,
+            "gap":                self._ev_gap, 
         }
 
     def ler_frame(self):

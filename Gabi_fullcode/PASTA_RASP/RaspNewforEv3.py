@@ -463,73 +463,68 @@ if mpu_ativo:
 # ══════════════════════════════════════════════════════════════════
 #  MODO LINHA_GAP — CONFIGURAÇÕES DO ROI CIRCULAR
 # ══════════════════════════════════════════════════════════════════
-# Raio do círculo de processamento: ~42% do menor lado da imagem.
-# Aumente LINHA_GAP_RAIO para ampliar a área visível,
-# ou diminua para filtrar melhor ruídos nas bordas.
-LINHA_GAP_RAIO     = int(min(W, H) * 0.36)      # ≈ 100 px para 320×240
-LINHA_GAP_CX       = W // 2                     # centro X (coluna central)
-LINHA_GAP_CY       = int(H * 0.70)              # centro Y (linha central)
-LINHA_GAP_AREA_MIN = 800                        # área mínima do contorno preto
-LINHA_GAP_DESVIO   = W * 0.12                   # desvio em px para esq/dir
+LINHA_GAP_RAIO     = int(min(W, H) * 0.36)
+LINHA_GAP_CX       = W // 2
+LINHA_GAP_CY       = int(H * 0.70)
+LINHA_GAP_AREA_MIN = 800
+LINHA_GAP_DESVIO   = W * 0.12
 
-# Histórico de frames para estabilizar a detecção de GAP
 _linha_gap_historico: list = []
 
 def processar_linha_gap(frame_rgb):
     """
-    Detecta o contorno da linha preta dentro de um ROI circular.
-
-    Parâmetros
-    ----------
-    frame_rgb : np.ndarray
-        Frame em formato RGB (como entregue pelo Picamera2 no loop principal).
+    Detecta contorno da linha preta dentro de ROI circular.
+    Quando gap detectado, calcula ângulo da borda superior da linha
+    para reposicionamento (técnica minAreaRect, como no PDF de referência).
 
     Retorna
     -------
     cmd : str
-        'linha centro' | 'linha esquerda' | 'linha direita' | 'gap'
+        'linha centro' | 'linha esquerda' | 'linha direita' |
+        'gap' | 'gap angulo <graus>'
     hud : np.ndarray
-        Frame anotado (RGB) com círculo ROI, contorno e status.
+        Frame anotado (RGB).
     gap_estavel : bool
-        True quando a linha sumiu por pelo menos 5 dos últimos 8 frames.
+        True quando linha sumiu por >= 5 dos últimos 8 frames.
+    angulo_gap : float | None
+        Ângulo em graus da borda superior da linha antes do gap.
+        None se não disponível.
     """
     global _linha_gap_historico
 
     hud   = frame_rgb.copy()
     h_f, w_f = frame_rgb.shape[:2]
 
-    # ── 1. Máscara circular de processamento ─────────────────────
+    # ── 1. Máscara circular ───────────────────────────────────────
     mask_circulo = np.zeros((h_f, w_f), dtype=np.uint8)
     cv2.circle(mask_circulo, (LINHA_GAP_CX, LINHA_GAP_CY),
                LINHA_GAP_RAIO, 255, -1)
 
-    # ── 2. Threshold de preto via canal V (HSV) ───────────────────
-    # O frame chega em RGB; usamos COLOR_RGB2HSV para converter corretamente.
+    # ── 2. Threshold de preto ─────────────────────────────────────
     blur = cv2.GaussianBlur(frame_rgb, (5, 5), 0)
     hsv  = cv2.cvtColor(blur, cv2.COLOR_RGB2HSV)
-
-    # Parte inferior da imagem aceita pixels um pouco mais claros (reflexo chão)
     split = int(h_f * 0.40)
     mask_bot = cv2.inRange(hsv, np.array([0, 0,  0]), np.array([180, 255, 70]))
     mask_top = cv2.inRange(hsv, np.array([0, 0,  0]), np.array([180, 255, 55]))
     mask_preta = mask_bot.copy()
     mask_preta[0:split, :] = mask_top[0:split, :]
 
-    # ── 3. Morfologia para remover ruído ──────────────────────────
+    # ── 3. Morfologia ─────────────────────────────────────────────
     k = np.ones((3, 3), np.uint8)
     mask_preta = cv2.erode (mask_preta, k, iterations=3)
     mask_preta = cv2.dilate(mask_preta, k, iterations=5)
     mask_preta = cv2.erode (mask_preta, k, iterations=2)
 
-    # ── 4. Aplica ROI circular — só processa dentro do círculo ────
+    # ── 4. ROI circular ───────────────────────────────────────────
     mask_preta = cv2.bitwise_and(mask_preta, mask_circulo)
 
-    # ── 5. Encontra contornos ─────────────────────────────────────
+    # ── 5. Contornos ──────────────────────────────────────────────
     cnts, _ = cv2.findContours(mask_preta, cv2.RETR_EXTERNAL,
                                 cv2.CHAIN_APPROX_SIMPLE)
 
-    gap_detectado = True   # assume gap até provar o contrário
+    gap_detectado = True
     cmd           = "gap"
+    angulo_gap    = None          # ângulo calculado via minAreaRect
 
     if cnts:
         maior = max(cnts, key=cv2.contourArea)
@@ -538,66 +533,101 @@ def processar_linha_gap(frame_rgb):
         if area >= LINHA_GAP_AREA_MIN:
             gap_detectado = False
 
-            # Desenha contorno em amarelo (RGB: 255,220,0)
-            cv2.drawContours(hud, [maior], -1, (255, 220, 0), 2)
+            # ── minAreaRect → ângulo da linha ─────────────────────
+            rect        = cv2.minAreaRect(maior)
+            centro_rect = (int(rect[0][0]), int(rect[0][1]))
+            (rw, rh)    = rect[1]
+            angulo_raw  = rect[2]          # OpenCV: -90 a 0
 
-            # Centróide do contorno → posição lateral da linha
+            # Normaliza: ângulo do lado LONGO do retângulo vs horizontal
+            if rw < rh:
+                angulo_norm = angulo_raw + 90.0   # lado longo é o eixo "altura"
+            else:
+                angulo_norm = angulo_raw           # lado longo já é horizontal
+
+            # Centraliza em -90..+90  →  negativo = inclinado esq, positivo = dir
+            if angulo_norm > 90:
+                angulo_norm -= 180.0
+
+            angulo_gap = round(angulo_norm, 1)
+
+            # Desenha minAreaRect em azul (RGB: 100, 180, 255)
+            box = cv2.boxPoints(rect)
+            box = np.int0(box)
+            cv2.drawContours(hud, [box], 0, (100, 180, 255), 2)
+
+            # Contorno em amarelo
+            cv2.drawContours(hud, [maior], -1, (255, 220, 0), 1)
+
+            # Linha do eixo do retângulo (mostra ângulo visualmente)
+            # Pega os 2 pontos do topo do box (menor y)
+            box_sorted = sorted(box, key=lambda p: p[1])
+            p1, p2 = tuple(box_sorted[0]), tuple(box_sorted[1])
+            cv2.line(hud, p1, p2, (0, 80, 255), 2)   # azul escuro = borda superior
+
+            # Centróide para decisão lateral
             M = cv2.moments(maior)
             if M["m00"] > 0:
                 alvo_x = int(M["m10"] / M["m00"])
                 alvo_y = int(M["m01"] / M["m00"])
-
-                # Ponto centróide
                 cv2.circle(hud, (alvo_x, alvo_y), 6, (255, 255, 0), -1)
-
-                # Linha do centro do círculo até o centróide (vermelho RGB)
-                cv2.line(hud, (LINHA_GAP_CX, LINHA_GAP_CY),
+                cv2.line(hud,
+                         (LINHA_GAP_CX, LINHA_GAP_CY),
                          (alvo_x, alvo_y), (255, 60, 60), 2)
 
-                # Decisão de direção com base no desvio lateral
                 desvio = alvo_x - LINHA_GAP_CX
                 if   desvio < -LINHA_GAP_DESVIO: cmd = "linha esquerda"
                 elif desvio >  LINHA_GAP_DESVIO: cmd = "linha direita"
                 else:                             cmd = "linha centro"
 
-    # ── 6. Histórico: estabiliza detecção de GAP ─────────────────
-    # Adiciona 0 (sem linha) ou 1 (com linha) e mantém janela de 8 frames.
+            # Exibe ângulo no HUD
+            cv2.putText(hud, f"{angulo_gap:.1f}deg",
+                        (centro_rect[0] - 30, centro_rect[1] - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 200, 255), 1)
+
+    # ── 6. Histórico de gap ───────────────────────────────────────
     _linha_gap_historico.append(0 if gap_detectado else 1)
     if len(_linha_gap_historico) > 8:
         _linha_gap_historico.pop(0)
-    # GAP estável = maioria dos últimos frames sem linha detectada
     gap_estavel = (len(_linha_gap_historico) >= 5 and
                    sum(_linha_gap_historico) < 3)
 
-    # ── 7. HUD — escurece área fora do círculo ────────────────────
-    outside    = cv2.bitwise_not(mask_circulo)
-    hud_float  = hud.astype(np.float32)
+    # ── 7. Escurece fora do círculo ───────────────────────────────
+    outside   = cv2.bitwise_not(mask_circulo)
+    hud_float = hud.astype(np.float32)
     hud_float[outside > 0] = (hud_float[outside > 0] * 0.28)
-    hud        = np.clip(hud_float, 0, 255).astype(np.uint8)
+    hud = np.clip(hud_float, 0, 255).astype(np.uint8)
 
-    # ── 8. Desenha círculo ROI ────────────────────────────────────
-    # Vermelho quando em GAP, verde quando linha encontrada (cores RGB)
-    cor_circulo = (255, 60,  60)  if gap_estavel else (60, 255, 100)
+    # ── 8. Círculo ROI ────────────────────────────────────────────
+    cor_circulo = (255, 60, 60) if gap_estavel else (60, 255, 100)
     cv2.circle(hud, (LINHA_GAP_CX, LINHA_GAP_CY),
                LINHA_GAP_RAIO, cor_circulo, 2)
-    # Cruz no centro do círculo
     tam_cruz = 8
     cv2.line(hud,
              (LINHA_GAP_CX - tam_cruz, LINHA_GAP_CY),
-             (LINHA_GAP_CX + tam_cruz, LINHA_GAP_CY),
-             cor_circulo, 1)
+             (LINHA_GAP_CX + tam_cruz, LINHA_GAP_CY), cor_circulo, 1)
     cv2.line(hud,
              (LINHA_GAP_CX, LINHA_GAP_CY - tam_cruz),
-             (LINHA_GAP_CX, LINHA_GAP_CY + tam_cruz),
-             cor_circulo, 1)
+             (LINHA_GAP_CX, LINHA_GAP_CY + tam_cruz), cor_circulo, 1)
 
-    # ── 9. Texto de status ────────────────────────────────────────
-    status_txt = "GAP!" if gap_estavel else cmd.upper()
+    # ── 9. Status text ────────────────────────────────────────────
+    if gap_estavel:
+        status_txt = f"GAP! ang={angulo_gap}deg" if angulo_gap is not None else "GAP!"
+    else:
+        status_txt = cmd.upper()
     cv2.putText(hud, status_txt, (10, h_f - 10),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.55, cor_circulo, 2)
+                cv2.FONT_HERSHEY_SIMPLEX, 0.50, cor_circulo, 2)
 
-    cmd_final = "gap" if gap_estavel else cmd
-    return cmd_final, hud, gap_estavel
+    # ── 10. Comando serial final ──────────────────────────────────
+    if gap_estavel:
+        if angulo_gap is not None:
+            cmd_final = f"gap angulo {angulo_gap}"
+        else:
+            cmd_final = "gap"
+    else:
+        cmd_final = cmd
+
+    return cmd_final, hud, gap_estavel, angulo_gap
 
 # ══════════════════════════════════════════════════════════════════
 #  VARIÁVEIS DE CONTROLE GLOBAL
@@ -904,19 +934,17 @@ try:
         # MODO LINHA_GAP — contorno da linha preta + detecção de gap
         # ══════════════════════════════════════════════════════
         elif modo_atual == "linha_gap":
-            cmd_linha, hud, gap = processar_linha_gap(frame)
+            cmd_linha, hud, gap, angulo = processar_linha_gap(frame)
             agora = time.time()
 
-            # Só envia serial se o comando mudou ou já passou 0.3 s
             if (cmd_linha != last_detection["cmd"] or
                     (agora - last_detection["time"]) > 0.3):
                 msg_serial = f"{cmd_linha}\n"
                 last_detection = {"time": agora, "side": None, "cmd": cmd_linha}
-                print(f"[LINHA_GAP] cmd={cmd_linha} gap={gap}")
+                print(f"[LINHA_GAP] cmd={cmd_linha} gap={gap} angulo={angulo}")
 
             dash.atualizar_estado(
                 log={"msg": f"Linha: {cmd_linha}", "tipo": "warn" if gap else "ok"})
-
         # ══════════════════════════════════════════════════════
         # MODO NADAPROSS — câmera ligada, zero processamento
         # Útil para verificar visualmente a câmera sem enviar

@@ -298,7 +298,7 @@ class Silver:
     # Inclui: confirmação por câmera + validação ultrad3 + retry se falhar
     # =========================================================================
     def _pegar_vitima(self, vitima, vendoVITIMA):
-        MAX_TENTATIVAS = 2
+        MAX_TENTATIVAS = 5
 
         for tentativa in range(1, MAX_TENTATIVAS + 1):
             print("[pegar] tentativa", tentativa)
@@ -603,6 +603,38 @@ class Silver:
                             break
                     self.tanki.stop()
 
+                    if semvitima == 75:
+                        # tentar ir no meio do resgate
+                        self.motorB.reset_angle(0)
+                        self.motorC.reset_angle(0)
+                        wait(100)
+                        self.motorB.dc(60)
+                        self.motorC.dc(-60)
+                        while True:
+                            self.talk.drenar()
+                            retorno1  = self.multiplex1.read(0)
+                            ChoqueESQ = retorno1[4]
+                            ChoqueDIR = retorno1[7]
+                            wait(50)
+                            print(self.motorB.angle(), self.motorC.angle(), semvitima)
+                            if self.motorB.angle() >= 400 or parado > 20:
+                                self.tanki.stop()
+                                semvitima += 1
+                                break
+                            if self.tanki.state()[3] < 20:
+                                parado += 1
+                            if self.tanki.state()[3] > 60:
+                                parado = 0
+                            if ChoqueDIR == 1:
+                                self.tanki.stop()
+                                self.tanki.straight(-90)
+                                self.tanki.stop()
+                            if ChoqueESQ == 1:
+                                self.tanki.stop()
+                                self.tanki.straight(90)
+                                self.tanki.stop()
+                        self.tanki.stop()
+                    
                     if semvitima >= 150:
                         print("não tem vítima")
                         self.vitimas      = 10
@@ -611,7 +643,7 @@ class Silver:
                         sairdoRESGATE     = 1
                         break
 
-                    wait(300)
+                    wait(500)
 
             if sairdoRESGATE == 1:
                 self.exit()
@@ -1020,10 +1052,74 @@ class Silver:
     # =========================================================================
     # exit — Sair do resgate
     # =========================================================================
-    def exit(self):
+    def exit(self,esqgray1,mindgray1,dirgray1):
         print("sair do resgate")
-        self.motorB.dc(-100)
-        self.motorC.dc(100)
-        wait(1000)
+        retorno = self.sensor1.read(2)
+        fora1 = retorno[3]
+        meio1 = retorno[2]
+        meio2 = retorno[1]
+        fora2 = retorno[0]
+        retorno1  = self.multiplex1.read(0)
+        ChoqueESQ = retorno1[4]
+        ChoqueDIR = retorno1[7]
+        self._ler_ultras()
+        linha_preta = fora1<30 or meio1<30 or meio2<30 or fora2<30
+        linha_prata = esqgray1 or mindgray1 or dirgray1
+
         self.tanki.stop()
-        wait(10000)
+        self.talk.girar_graus(90,self.motorB,self.motorC)
+        self.tanki.stop()
+        while True:
+            self.tanki.stop()
+            retorno = self.sensor1.read(2)
+            fora1 = retorno[3]
+            meio1 = retorno[2]
+            meio2 = retorno[1]
+            fora2 = retorno[0]
+            retorno1  = self.multiplex1.read(0)
+            ChoqueESQ = retorno1[4]
+            ChoqueDIR = retorno1[7]
+            self._ler_ultras()
+            if self.ultra2 >= 180 or linha_preta:
+                print("sem parede")
+                self.tanki.stop()
+                #verifica se tem linha preta ou prata
+                while True:
+                    self.tanki.stop()
+                    retorno = self.sensor1.read(2)
+                    fora1 = retorno[3]
+                    meio1 = retorno[2]
+                    meio2 = retorno[1]
+                    fora2 = retorno[0]
+                    retorno1  = self.multiplex1.read(0)
+                    ChoqueESQ = retorno1[4]
+                    ChoqueDIR = retorno1[7]
+                    self._ler_ultras()
+                    if linha_preta:
+                        self.motorB.dc(50)
+                        self.motorC.dc(-50)
+                        while True:
+                            retorno = self.sensor1.read(2)
+                            fora1 = retorno[3]
+                            meio1 = retorno[2]
+                            meio2 = retorno[1]
+                            fora2 = retorno[0]
+                            if meio1<meio2 or meio1>meio2:
+                                self.tanki.stop()
+                                self.tanki.turn(90)
+                                self.tanki.stop()
+                                return
+            self.motorB.dc(60)
+            self.motorC.dc(-60) #frente
+            if ChoqueESQ == 1 or ChoqueDIR == 1:
+                self.tanki.stop()
+                self.tanki.straight(-30)
+                self.tanki.stop()
+            if linha_prata:
+                wait(10)
+                if linha_prata:
+                    self.tanki.stop()
+                    self.tanki.turn(-150)
+                    self.tanki.straight(-120)
+                    self.tanki.stop()
+            wait(10)
