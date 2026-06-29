@@ -15,8 +15,12 @@ class Green:
     
     def MoveGreen(self,H1, S1, V1, H2, S2, V2, H3, S3, V3, alvo,
                    fora1, meio1, meio2, fora2, previsao_camera, cloresq, clordir, pretoesq, pretodir):
+        
+
         verdeDireita = H1 >=(90-alvo) and H1 <=(140+alvo) and S1 >=(43-alvo) and S1 <=(75+alvo) and V1 >=(40-alvo) and V1 <=(80+alvo)
+
         verdeMeio = H3 >=(90-alvo) and H3 <=(140+alvo) and S3 >=(43-alvo) and S3 <=(73+alvo) and V3 >=(40-alvo) and V3 <=(80+alvo)
+        
         verdeEsquerda = H2 >=(90-alvo) and H2 <=(140+alvo) and S2 >=(43-alvo) and S2 <=(75+alvo) and V2 >=(40-alvo) and V2 <=(80+alvo)
 
         if not (verdeDireita or verdeEsquerda or verdeMeio or previsao_camera != None):
@@ -28,16 +32,34 @@ class Green:
         self.ev3.speaker.beep(800)
         print("verde")
         if verdeDireita and not pretodir > 0:
-            if meio1 >= 40 or meio2 >= 40:
+            if verdeEsquerda: #detectou dois verdes, é beco
+                wait(10)
                 self.tanki.stop()
-                self.tanki.turn(40)
-                self.tanki.straight(90)
+                self.ev3.speaker.beep(600) 
+                print(">>> EXECUTANDO BECO")
+                self.tanki.turn(30)
+                self.tanki.straight(190)
                 self.tanki.stop()
-                self.ev3.speaker.beep(400) 
+                
+                self.motorB.stop()
+                self.motorC.stop()
+                self.tanki.turn(-50)
+                self.tanki.stop()
+                return None
+            
+            #self.ser.write(b"passou_verde\n")
+            #se não for beco, segue a lógica normal
+            #if meio1 >= 40 or meio2 >= 40:
+            else: #verificar possíveis falhas de movimentação
+                self.tanki.stop()
+                self.tanki.turn(-40)
+                self.tanki.straight(-90)
+                self.tanki.stop()
+                self.ev3.speaker.beep(200) 
                 print(">>> EXECUTANDO VERDE DIREITA")
                 self.tanki.stop()
-                self.motorB.dc(100)
-                self.motorC.dc(100)
+                self.motorB.dc(-100)
+                self.motorC.dc(-100)
                 while True:
                     retorno = self.sensor1.read(2)
                     f1 = retorno[0]
@@ -46,14 +68,32 @@ class Green:
                         break
                 self.motorB.stop()
                 self.motorC.stop()
-                #self.ser.write(b"passou_verde\n")
+                return None 
+                
             return None 
 
         # ==================================
         # LÓGICA DA ESQUERDA
         # ==================================
         elif verdeEsquerda and not pretoesq > 0:
-            if meio1 >= 40 or meio2 >= 40:
+
+            if verdeDireita: #detectou dois verdes, é beco
+                wait(10)
+                self.tanki.stop()
+                self.ev3.speaker.beep(600) 
+                print(">>> EXECUTANDO BECO")
+                self.tanki.turn(30)
+                self.tanki.straight(190)
+                self.tanki.stop()
+                
+                self.motorB.stop()
+                self.motorC.stop()
+                self.tanki.turn(-50)
+                self.tanki.stop()
+                return None
+             
+            #if meio1 >= 40 or meio2 >= 40:
+            else: #verificar possíveis falhas de movimentação
                 self.tanki.stop()
                 self.tanki.turn(40)
                 self.tanki.straight(-90)
@@ -75,7 +115,7 @@ class Green:
             return None
 
         # ==================================
-        # LÓGICA DO BECO 
+        # LÓGICA DO BECO #MANTER SÓ PRA DIZER QUE TEM
         # ==================================
         elif (verdeDireita and verdeEsquerda):
             wait(10)
@@ -94,10 +134,12 @@ class Green:
             #self.ser.write(b"passou_verde\n")
             return None 
         
+
+        
         # ==================================
         # LÓGICA DE GAP (DEPOIS)
         # ==================================
-        elif (meio1 <= 30 or meio2 <= 30) and (cloresq == 1 or clordir == 1):
+        elif (meio1 <= 30 or meio2 <= 30) and (cloresq == 1 or clordir == 1): #pode dar errado?
             self.tanki.stop()
             self.ev3.speaker.beep(800, 200) 
             print(">>> SEGUINDO POR TEMPO (GAP/DEPOIS)")
