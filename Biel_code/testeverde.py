@@ -100,7 +100,9 @@ def sensor():
         clordir = retorno[19]
         #print(retorno)
         print("sensorD:","RGBC1>>",R1,G1,B1,C1,"<<RGBC1","sensorM:","RGBC3>>",R3,G3,B3,C3,"<<RGBC3","sensorE:","RGBC2>>",R2,G2,B2,C2,"<<RGBC2")
+
         print("fora1:",fora1,"meio1:",meio1,"meio2:",meio2,"fora2:",fora2,"undefined:",cloresq,clormind,clordir)
+        
         print("HSV1>>",H1,S1,V1,"<<HSV1","HSV3>>",H3,S3,V3,"<<HSV3","HSV2>>",H2,S2,V2,"<<HSV2")
         alvo= 5
         if H1 >=(98-alvo) and H1 <=(105+alvo) and S1 >=(50-alvo) and S1 <=(65+alvo) and V1 >=(45-alvo) and V1 <=(75+alvo):
