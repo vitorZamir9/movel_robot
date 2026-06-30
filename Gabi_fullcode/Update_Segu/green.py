@@ -16,11 +16,26 @@ class Green:
     def MoveGreen(self,H1, S1, V1, H2, S2, V2, H3, S3, V3, alvo,
                    fora1, meio1, meio2, fora2, previsao_camera, cloresq, clordir, pretoesq, pretodir):
         
+        #=====================================
+        #BLOCOS DE VERDES
+        #=====================================
+        
     # r1 b1 g1, h1 s1 v1, cloresq
-        #verdeDireita = H1 >=(90-alvo) and H1 <=(140+alvo) and S1 >=(43-alvo) and S1 <=(75+alvo) and V1 >=(40-alvo) and V1 <=(80+alvo)
-        verdeDireita = (90-alvo) <= H1 <= (140+alvo) and (43-alvo) <= S1 <= (75+alvo) and (40-alvo) <= V1 <= (80+alvo) and cloresq == 1
-        verdeMeio = (90-alvo) <= H3 <= (140+alvo) and (43-alvo) <= S3 <= (73+alvo) and (40-alvo) <= V3 <= (80+alvo)
-        verdeEsquerda = (90-alvo) <= H2 <= (140+alvo) and (43-alvo) <= S2 <= (75+alvo) and (40-alvo) <= V2 <= (80+alvo) and clordir == 1
+        
+        #VERDE1, MAIS CLARO, VINDO DA COMPETIÇÃO
+        verdeDireita = H1 >=(90-alvo) and H1 <=(140+alvo) and S1 >=(43-alvo) and S1 <=(75+alvo) and V1 >=(40-alvo) and V1 <=(80+alvo)
+        verdeMeio = H3 >=(90-alvo) and H3 <=(140+alvo) and S3 >=(43-alvo) and S3 <=(75+alvo) and V3 >=(40-alvo) and V3 <=(80+alvo)
+        verdeEsquerda = H2 >=(90-alvo) and H2 <=(140+alvo) and S2 >=(43-alvo) and S2 <=(75+alvo) and V2 >=(40-alvo) and V2 <=(80+alvo)
+
+        #VERDE2, MAIS ESCURO PRECISA CALIBRAR
+        verdeDireita2 = H1 >=(90-alvo) and H1 <=(140+alvo) and S1 >=(43-alvo) and S1 <=(75+alvo) and V1 >=(40-alvo) and V1 <=(80+alvo)
+        verdeMeio2 = H3 >=(90-alvo) and H3 <=(140+alvo) and S3 >=(43-alvo) and S3 <=(75+alvo) and V3 >=(40-alvo) and V3 <=(80+alvo)
+        verdeEsquerda2 = H2 >=(90-alvo) and H2 <=(140+alvo) and S2 >=(43-alvo) and S2 <=(75+alvo) and V2 >=(40-alvo) and V2 <=(80+alvo)
+
+
+
+
+
         if not (verdeDireita or verdeEsquerda or verdeMeio or previsao_camera != None):
             return previsao_camera
             
