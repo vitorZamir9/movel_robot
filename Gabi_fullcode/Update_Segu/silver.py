@@ -427,7 +427,7 @@ class Silver:
         self.servosMove.move(1, 5)
         wait(200)
         self.servosMove.move(2, 0)
-        self.servosMove.move(3, 60) # abriu tudo
+        self.servosMove.move(3, 60) # abriu tudo pra
         wait(200)
         self.servosMove.desativa(1)
         self.servosMove.desativa(2)

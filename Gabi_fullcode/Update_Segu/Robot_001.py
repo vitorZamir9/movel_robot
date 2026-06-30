@@ -218,7 +218,7 @@ def sensor():
         # ==========================================
         ev = ts.drenar_principal()
 
-        # gyro vem direto dos atributos
+        # gyro vem direto dos atributoss
         gyro_rasp_y = ts.pitch  # pitch (rampa)
         gyro_rasp_z = ts.yaw  # yaw
 
