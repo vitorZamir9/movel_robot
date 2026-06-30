@@ -13,8 +13,8 @@ from pybricks.tools import wait
 from talkingserial import TalkingSerial
 
 # ── Constantes de ajuste (mude aqui sem tocar na lógica) ─────────────────────
-GARRA_ULTRA_MIN   = 30    # ultrad3 mínimo para considerar vítima na garra
-GARRA_ULTRA_MAX   = 100   # ultrad3 máximo para considerar vítima na garra
+GARRA_ULTRA_MIN   = 10    # ultrad3 mínimo para considerar vítima na garra
+GARRA_ULTRA_MAX   = 40   # ultrad3 máximo para considerar vítima na garra
 GARRA_CONFIRM_SUM = 100   # somatório de ticks até confirmar posse
 ENTER_TIMEOUT_MS  = 3000  # timeout para detectar lado na entrada (ms)
 
@@ -411,36 +411,39 @@ class Silver:
         self.servosMove.desativa(3)
         self.servosMove.desativa(4)
         wait(500)
-        self.servosMove.move(2, 0)
-        self.servosMove.move(3, 65)
-        self.servosMove.move(3, 40)
-        wait(100)
-        self.servosMove.move(3, 65)
-        self.servosMove.move(3, 30)
-        wait(100)
-        self.servosMove.move(3, 65)
-        self.servosMove.move(3, 20)
-        wait(500)
-        self.servosMove.move(1, 5)
-        wait(500)
+        self.servosMove.move(3, 60)
+        self.servosMove.move(2, 45)
+        wait(200)
+        self.servosMove.move(2, 20)
+        wait(200)
         self.servosMove.move(2, 60)
-        self.servosMove.move(3, 0)
-        wait(500)
+        wait(200)
+        self.servosMove.move(2, 20)
+        wait(200)
+        self.servosMove.move(2, 60)
+        wait(200)
+        self.servosMove.move(2, 20)
+        wait(200)
+        self.servosMove.move(1, 5)
+        wait(200)
+        self.servosMove.move(2, 0)
+        self.servosMove.move(3, 60) # abriu tudo
+        wait(200)
         self.servosMove.desativa(1)
         self.servosMove.desativa(2)
         self.servosMove.desativa(3)
         self.servosMove.desativa(4)
-        wait(100)
+        wait(200)
         self.servosMove.move(1, 10)
-        wait(100)
+        wait(200)
         self.servosMove.move(1, 0)
-        wait(500)
+        wait(200)
         self.servosMove.move(1, 5)
         self.servosMove.move(2, 0)
         self.servosMove.move(3, 60)
-        wait(100)
+        wait(200)
         self.servosMove.move(1, 0)
-        wait(500)
+        wait(200)
 
     # =========================================================================
     # _separar_silver — Deposita vítima viva (Silver Ball)
@@ -451,36 +454,39 @@ class Silver:
         self.servosMove.desativa(3)
         self.servosMove.desativa(4)
         wait(500)
-        self.servosMove.move(3, 0)
-        self.servosMove.move(2, 65)
-        self.servosMove.move(2, 40)
-        wait(100)
-        self.servosMove.move(2, 65)
-        self.servosMove.move(2, 30)
-        wait(100)
-        self.servosMove.move(2, 65)
-        self.servosMove.move(2, 20)
-        wait(500)
-        self.servosMove.move(1, 5)
-        wait(500)
         self.servosMove.move(2, 0)
-        self.servosMove.move(3, 60)
-        wait(500)
+        self.servosMove.move(3, 15)
+        wait(200)
+        self.servosMove.move(3, 30)
+        wait(200)
+        self.servosMove.move(3, 0)
+        wait(200)
+        self.servosMove.move(3, 30)
+        wait(200)
+        self.servosMove.move(3, 0)
+        wait(200)
+        self.servosMove.move(3, 20)
+        wait(200)
+        self.servosMove.move(1, 5)
+        wait(200)
+        self.servosMove.move(2, 0)
+        self.servosMove.move(3, 60) # abriu tudo
+        wait(200)
         self.servosMove.desativa(1)
         self.servosMove.desativa(2)
         self.servosMove.desativa(3)
         self.servosMove.desativa(4)
-        wait(100)
+        wait(200)
         self.servosMove.move(1, 10)
-        wait(100)
+        wait(200)
         self.servosMove.move(1, 0)
-        wait(500)
+        wait(200)
         self.servosMove.move(1, 5)
         self.servosMove.move(2, 0)
         self.servosMove.move(3, 60)
-        wait(100)
+        wait(200)
         self.servosMove.move(1, 0)
-        wait(500)
+        wait(200)
 
 
     # =========================================================================
@@ -539,7 +545,7 @@ class Silver:
 
                         # ── FRAME 2: confirmação ──────────────────────────────
                         self.talk.limpar()
-                        wait(400)
+                        wait(500)
                         frame2 = self.talk.ler_frame()
                         confirmado = False
                         if frame2 and tipo in frame2.get("detected", ""):
@@ -557,7 +563,7 @@ class Silver:
                             continue
 
                         # ── FRAME 3: alinhamento fino ─────────────────────────
-                        wait(300)
+                        wait(500)
                         frame3 = self.talk.ler_frame()
                         if frame3 and tipo in frame3.get("detected", ""):
                             lado_final = frame3.get("lado", lado2)
@@ -597,13 +603,14 @@ class Silver:
                         self.talk.drenar()
                         wait(50)
                         print(self.motorB.angle(), self.motorC.angle(), semvitima)
-                        if self.motorB.angle() >= 25:
+                        if self.motorB.angle() >= 35:
                             self.tanki.stop()
                             semvitima += 1
                             break
                     self.tanki.stop()
 
                     if semvitima == 75:
+                        print("tentando ir no meio do resgate")
                         # tentar ir no meio do resgate
                         self.motorB.reset_angle(0)
                         self.motorC.reset_angle(0)

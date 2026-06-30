@@ -236,10 +236,10 @@ def sensor():
         servosMove.desativa(2) # Pinça esquerda
         servosMove.desativa(3) # Pinça direita
         servosMove.desativa(4) # Caçamba
-        servosMove.move(4, 60) # posição fechada servo caçamba
         servosMove.move(1, 0)  # posição fechada servo angulo garra
-        servosMove.move(3, 60) # aberto pinça direita
         servosMove.move(2, 0)  # aberto pinça esquerda
+        servosMove.move(3, 60) # aberto pinça direita
+        servosMove.move(4, 60) # posição fechada servo caçamba
         # ==========================================
         # 2. VERIFICAÇÃO DE INCLINAÇÃO
         # gyro_rasp_y já está atualizado pelo módulo 1.2
