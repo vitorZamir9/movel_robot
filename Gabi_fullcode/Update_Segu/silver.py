@@ -16,10 +16,10 @@ from talkingserial import TalkingSerial
 GARRA_ULTRA_MIN   = 10    # ultrad3 mínimo para considerar vítima na garra
 GARRA_ULTRA_MAX   = 40   # ultrad3 máximo para considerar vítima na garra
 GARRA_CONFIRM_SUM = 100   # somatório de ticks até confirmar posse
-ENTER_TIMEOUT_MS  = 3000  # timeout para detectar lado na entrada (ms)
+ENTER_TIMEOUT_MS  = 50000  # timeout para detectar lado na entrada (ms)
 
-TURN_TRIANGULO_VERDE    = -170   # graus tanki.turn() para depositar no verde
-TURN_TRIANGULO_VERMELHO = -170   # graus tanki.turn() para depositar no vermelho
+TURN_TRIANGULO_VERDE    = -270   # graus tanki.turn() para depositar no verde
+TURN_TRIANGULO_VERMELHO = -270   # graus tanki.turn() para depositar no vermelho
 
 
 class Silver:
@@ -40,6 +40,8 @@ class Silver:
         self.vitimaBLACK  = 0
         self.vitimaSILVER = 0
 
+        
+
         self._ler_ultras()
 
     # ── Leitura centralizada dos ultrassônicos ────────────────────────────────
@@ -49,11 +51,88 @@ class Silver:
         self.ultra2  = retorno[1]   # direita
         self.ultrad3 = retorno[2]   # vítima na garra
         self.ultra4  = retorno[3]   # esquerda
+    #################################################################
+    # DEF de atualizar informações do sensor
+    #################################################################
+    def atualiza_sensor1(self):
+        global sensor1
+        global R1, R2, R3
+        global G1, G2, G3
+        global B1, B2, B3, alvo
+        global cloresq, clormind, clordir
+        global fora1, meio1, meio2, fora2
+        global H1, H2, H3
+        global S1, S2, S3
+        global V1, V2, V3
+        global posicao
+        global C1, C2, C3
+        # ==========================================
+        # 1.0 LEITURA DO SENSOR DE COR
+        # ==========================================
+        retorno = self.sensor1.read(2)
+        # Leitura dos sensores para seguir linha
+        fora1 = retorno[3] # esquerda 
+        meio1 = retorno[2] # esquerda 
+        meio2 = retorno[1] # direita  
+        fora2 = retorno[0] # direita  
+        # Leitura da posição do sensor sobre a linha preta
+        posicao = (retorno[29]*2)
+        # Leitura unitária dos sensores de cor
+        cloresq = retorno[17]
+        clormind = retorno[18]
+        clordir = retorno[19]
+        # Leitura RGBC dos sensores
+        R1, R3, R2 = (retorno[4]), (retorno[8]), (retorno[12])
+        G1, G3, G2 = (retorno[5]), (retorno[9]), (retorno[13])
+        B1, B3, B2 = (retorno[6]), (retorno[10]), (retorno[14])
+        C1, C3, C2 = (retorno[7]), (retorno[11]), (retorno[15])
+        # Leitura HSV para o verde
+        H1, H3, H2 = (retorno[20]*2), (retorno[23]*2), (retorno[26]*2)
+        S1, S3, S2 = (retorno[21]*2), (retorno[24]*2), (retorno[27]*2)
+        V1, V3, V2 = (retorno[22]*2), (retorno[25]*2), (retorno[28]*2)
+        alvo = 8 # Alvo para a calibração do HSV do verde
 
+    def atualiza_multiplex1(self):
+        global multiplex1
+        global ultra1, ultra2, ultrad3, ultra4
+        global botao_stop, botao_parar
+        global ChoqueESQ, ChoqueDIR
+        # ==========================================
+        # 1.1 LEITURA DO SENSOR MULTIPLEX
+        # ==========================================
+        retorno1= self.multiplex1.read(0)
+        # Leitura dos sensores ultrasônicos
+        ultra1  = retorno1[0] # frente
+        ultra2  = retorno1[1] # direita
+        ultrad3 = retorno1[2] # vitima
+        ultra4  = retorno1[3] # esquerda
+        if ultra1 or ultra2 or ultra4 or ultrad3 == -1:
+            #print("não esta identificando os ultra")
+            if ultra1 == -1:
+                print("ultra1")
+                return -1
+            if ultra2 == -1:
+                print("ultra2")
+                return -1
+            if ultrad3 == -1:
+                print("ultra3")
+                return -1
+            if ultra4 == -1:
+                print("ultra4")
+                return -1
+        # Leitura dos botões para função pro robô
+        botao_stop  = retorno1[6]
+        botao_parar = retorno1[5]
+        # Leitura dos botôes que servem pro parachoque
+        ChoqueESQ = retorno1[4]
+        ChoqueDIR = retorno1[7]
     # =========================================================================
     # ENTER — Entrada no resgate, identifica lado da parede (com timeout)
     # =========================================================================
     def enter(self, esqgray1, mindgray1, dirgray1):
+        self.esqgray1  = esqgray1
+        self.mindgray1 = mindgray1
+        self.dirgray1  = dirgray1
         self.tanki.turn(-70)
         self.ev3.speaker.beep(900, 600)
         self.ev3.speaker.beep()
@@ -142,14 +221,14 @@ class Silver:
             self._ler_ultras()
             print(self.ultra4, self.ultra2)
 
-            if self.ultra4 <= 150 and self.ultra2 >= 150:
+            if self.ultra4 <= 120 and self.ultra2 >= 120:
                 self.tanki.stop()
                 print("parede esquerda")
                 entradaR = "parede esquerda"
                 self.tanki.straight(10)
                 self.tanki.stop()
                 break
-            elif self.ultra4 >= 150 and self.ultra2 <= 150:
+            elif self.ultra4 >= 120 and self.ultra2 <= 120:
                 self.tanki.stop()
                 print("parede direita")
                 entradaR = "parede direita"
@@ -197,11 +276,11 @@ class Silver:
                     self.ev3.speaker.beep(800)
                     return True
                 if lado == "esquerda":
-                    self.motorB.dc(-90)
-                    self.motorC.dc(-90)
+                    self.tanki.straight(-10)
+                    self.tanki.stop()
                 elif lado == "direita":
-                    self.motorB.dc(90)
-                    self.motorC.dc(90)
+                    self.tanki.straight(10)
+                    self.tanki.stop()
                 wait(50)
                 self.motorB.stop()
                 self.motorC.stop()
@@ -298,7 +377,7 @@ class Silver:
     # Inclui: confirmação por câmera + validação ultrad3 + retry se falhar
     # =========================================================================
     def _pegar_vitima(self, vitima, vendoVITIMA):
-        MAX_TENTATIVAS = 5
+        MAX_TENTATIVAS = 3
 
         for tentativa in range(1, MAX_TENTATIVAS + 1):
             print("[pegar] tentativa", tentativa)
@@ -337,7 +416,7 @@ class Silver:
                     lado = frame["lado"]
                     area = frame["area"]
                     print("[cam-avanco] lado:", lado, "area:", area)
-                    if lado == "meio" and area >= 3000:
+                    if lado == "meio" and area >= 2700:
                         cam_confirmou = True
                         self.tanki.stop()
                         print("[cam-avanco] vítima na área — parando para fechar garra")
@@ -349,7 +428,7 @@ class Silver:
                     parado = 0
 
                 # Limite por ângulo ou robô travado
-                if self.motorB.angle() >= 200 or parado > 20:
+                if self.motorB.angle() >= 350 or parado > 20:
                     self.tanki.stop()
                     break
 
@@ -381,7 +460,7 @@ class Silver:
                 self.servosMove.move(1, 250)
                 self.servosMove.move(3, 60)
                 wait(500)
-                self.tanki.turn(-60)   # recua abrindo espaço
+                self.tanki.turn(-20)   # recua abrindo espaço
                 self.tanki.stop()
                 wait(300)
 
@@ -389,6 +468,15 @@ class Silver:
                     print("[pegar] máximo de tentativas atingido — desistindo")
 
         # ── Classificar e depositar ───────────────────────────────────────────
+        self.servosMove.desativa(1)
+        self.servosMove.desativa(2)
+        self.servosMove.desativa(3)
+        self.servosMove.desativa(4)
+        self.servosMove.move(2, 60)
+        self.servosMove.move(3, 0)
+        wait(100)
+        self.servosMove.move(4, 40)
+        self.servosMove.move(1, 0)
         if vendoVITIMA == "Black Ball":
             self._separar_black()
             self.vitimaBLACK += 1
@@ -528,7 +616,6 @@ class Silver:
 
             while not vitima_encontrada:
                 frame1 = self.talk.ler_frame()
-
                 if frame1:
                     detected  = frame1.get("detected", "")
                     confianca = frame1.get("confianca", 0)
@@ -540,12 +627,20 @@ class Silver:
                         # ── PARA imediatamente ────────────────────────────────
                         self.tanki.stop()
                         self.ev3.speaker.beep(500 if "Black" in detected else 200)
+                        # som muito grave é vitima viva
+                        # som mais agudo é vitima morta
                         print("[varredura] frame1 OK — aguardando confirmação")
                         wait(200)
-
+                        if lado1 == "esquerda": 
+                            self.tanki.straight(-25)
+                            self.tanki.stop()
+                        if lado1 == "direita":
+                            self.tanki.straight(25)
+                            self.tanki.stop()
                         # ── FRAME 2: confirmação ──────────────────────────────
+                        self.tanki.stop()
                         self.talk.limpar()
-                        wait(500)
+                        wait(700)
                         frame2 = self.talk.ler_frame()
                         confirmado = False
                         if frame2 and tipo in frame2.get("detected", ""):
@@ -563,6 +658,7 @@ class Silver:
                             continue
 
                         # ── FRAME 3: alinhamento fino ─────────────────────────
+                        self.tanki.stop()
                         wait(500)
                         frame3 = self.talk.ler_frame()
                         if frame3 and tipo in frame3.get("detected", ""):
@@ -581,14 +677,10 @@ class Silver:
 
                         # Ajuste fino de alinhamento com base no frame3
                         if lado_final == "esquerda":
-                            self.motorB.dc(-60)
-                            self.motorC.dc(-60)
-                            wait(80)
+                            self.tanki.straight(-20)
                             self.tanki.stop()
                         elif lado_final == "direita":
-                            self.motorB.dc(60)
-                            self.motorC.dc(60)
-                            wait(80)
+                            self.tanki.straight(20)
                             self.tanki.stop()
 
                 else:
@@ -612,6 +704,7 @@ class Silver:
                     if semvitima == 75:
                         print("tentando ir no meio do resgate")
                         # tentar ir no meio do resgate
+                        parado = 0
                         self.motorB.reset_angle(0)
                         self.motorC.reset_angle(0)
                         wait(100)
@@ -653,8 +746,8 @@ class Silver:
                     wait(500)
 
             if sairdoRESGATE == 1:
-                self.exit()
-                break
+                return "sairdoRESGATE"
+                
 
             # ── Alinhar câmera com a vítima (se necessário) ───────────────────
             self.tanki.stop()
@@ -699,10 +792,30 @@ class Silver:
             wait(100)
             self.motorB.dc(60)
             self.motorC.dc(-60)
+                
             while True:
-                self.talk.drenar()
-                wait(100)
-                self._ler_ultras()   # atualiza ultra1 durante o avanço
+                frameAndar = self.talk.ler_frame()
+                self._ler_ultras()   
+                if frameAndar:
+                    detected  = frameAndar.get("detected", "")
+                    confianca = frameAndar.get("confianca", 0)
+                    lado1     = frameAndar.get("lado", "")
+                    area1     = frameAndar.get("area", 0)
+                    print("FRAMEandada:", detected, confianca, lado1, area1)
+                    if confianca > 50.0 and tipo in detected: 
+                        self.tanki.stop()
+                        wait(200)
+                        if lado1 == "esquerda":
+                            self.ev3.speaker.beep(200)
+                            self.tanki.straight(-20)
+                            self.tanki.stop()
+                        if lado1 == "direita":
+                            self.ev3.speaker.beep(200)
+                            self.tanki.straight(20)
+                            self.tanki.stop()
+                        elif area1 > 1500:
+                            self.tanki.stop()
+                            break
                 if self.tanki.state()[3] < 20:
                     parado += 1
                 if self.tanki.state()[3] > 60:
@@ -715,6 +828,7 @@ class Silver:
                 if self.motorB.angle() >= prafrente or parado > 20:
                     self.tanki.stop()
                     break
+                wait(100)
             self.tanki.stop()
             wait(500)
 
@@ -763,7 +877,7 @@ class Silver:
                     and vendoTRIANGULOVERDE >= 1
                     and vendoTRIANGULOVERMELHO >= 1):
                 self.tanki.stop()
-                self.ev3.speaker.beep(900, 10000)
+                self.ev3.speaker.beep(900)
                 print("procurar saida")
                 break
 
@@ -976,6 +1090,8 @@ class Silver:
         wait(500)
         self.motorB.dc(-100)
         self.motorC.dc(100)
+        self.motorB.dc(-100)
+        self.motorC.dc(100)
         wait(1000)
         while True:
             self.talk.drenar()
@@ -993,7 +1109,7 @@ class Silver:
         self.servosMove.desativa(3)
         self.servosMove.desativa(4)
         wait(500)
-        self.servosMove.move(5, abertura_servo)
+        self.servosMove.move(4, abertura_servo)
         wait(1000)
 
         for c in range(1, 4):
@@ -1017,7 +1133,7 @@ class Silver:
                     parado += 1
                 if self.tanki.state()[3] > 60:
                     parado = 0
-                if self.motorB.angle() >= 100 or parado > 20:
+                if self.motorB.angle() >= 30 or parado > 20:
                     self.tanki.stop()
                     break
             self.motorB.stop()
@@ -1053,7 +1169,7 @@ class Silver:
             self.tanki.stop()
 
         self.servosMove.move(4, fechamento_servo)
-        self.tanki.turn(150)
+        self.tanki.turn(50)
         self.tanki.stop()
 
     # =========================================================================
@@ -1061,72 +1177,53 @@ class Silver:
     # =========================================================================
     def exit(self,esqgray1,mindgray1,dirgray1):
         print("sair do resgate")
-        retorno = self.sensor1.read(2)
-        fora1 = retorno[3]
-        meio1 = retorno[2]
-        meio2 = retorno[1]
-        fora2 = retorno[0]
-        retorno1  = self.multiplex1.read(0)
-        ChoqueESQ = retorno1[4]
-        ChoqueDIR = retorno1[7]
+        self.atualiza_sensor1()
+        self.atualiza_multiplex1()
         self._ler_ultras()
-        linha_preta = fora1<30 or meio1<30 or meio2<30 or fora2<30
+        linha_preta = self.fora1<30 or self.meio1<30 or self.meio2<30 or self.fora2<30
         linha_prata = esqgray1 or mindgray1 or dirgray1
 
         self.tanki.stop()
-        self.talk.girar_graus(90,self.motorB,self.motorC)
+        self.tanki.straight(100)
         self.tanki.stop()
         while True:
-            self.tanki.stop()
-            retorno = self.sensor1.read(2)
-            fora1 = retorno[3]
-            meio1 = retorno[2]
-            meio2 = retorno[1]
-            fora2 = retorno[0]
-            retorno1  = self.multiplex1.read(0)
-            ChoqueESQ = retorno1[4]
-            ChoqueDIR = retorno1[7]
+            self.atualiza_sensor1()
+            self.atualiza_multiplex1()
             self._ler_ultras()
-            if self.ultra2 >= 180 or linha_preta:
-                print("sem parede")
+            if ultra2 <= 30:
+                self.tanki.straight(-30)
                 self.tanki.stop()
-                #verifica se tem linha preta ou prata
-                while True:
-                    self.tanki.stop()
-                    retorno = self.sensor1.read(2)
-                    fora1 = retorno[3]
-                    meio1 = retorno[2]
-                    meio2 = retorno[1]
-                    fora2 = retorno[0]
-                    retorno1  = self.multiplex1.read(0)
-                    ChoqueESQ = retorno1[4]
-                    ChoqueDIR = retorno1[7]
-                    self._ler_ultras()
-                    if linha_preta:
-                        self.motorB.dc(50)
-                        self.motorC.dc(-50)
-                        while True:
-                            retorno = self.sensor1.read(2)
-                            fora1 = retorno[3]
-                            meio1 = retorno[2]
-                            meio2 = retorno[1]
-                            fora2 = retorno[0]
-                            if meio1<meio2 or meio1>meio2:
-                                self.tanki.stop()
-                                self.tanki.turn(90)
-                                self.tanki.stop()
-                                return
-            self.motorB.dc(60)
-            self.motorC.dc(-60) #frente
-            if ChoqueESQ == 1 or ChoqueDIR == 1:
+            elif ultra2 > 150:
+                self.tanki.stop()
+                break
+            elif ChoqueESQ == 1 or ChoqueDIR == 1:
                 self.tanki.stop()
                 self.tanki.straight(-30)
                 self.tanki.stop()
-            if linha_prata:
+            elif linha_prata:
                 wait(10)
                 if linha_prata:
                     self.tanki.stop()
                     self.tanki.turn(-150)
                     self.tanki.straight(-120)
                     self.tanki.stop()
+            elif linha_preta:
+                wait(10)
+                if linha_preta:
+                    self.tanki.stop()
+                    self.tanki.turn(150)
+                    self.tanki.straight(-120)
+                    self.tanki.stop()
+            else:
+                self.motorB.dc(60)
+                self.motorC.dc(-60) #frente
             wait(10)
+        print("saindo do resgate")
+        self.tanki.turn(100)
+        self.tanki.stop()
+        self.atualiza_sensor1()
+        if meio1 < 50 or meio2 < 50:
+            self.tanki.turn(100)
+            self.tanki.stop()
+            return
+        

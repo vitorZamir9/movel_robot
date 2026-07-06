@@ -77,7 +77,7 @@ class TalkingSerial:
     """
 
     # ── Modos reconhecidos ────────────────────────────────────────────────────
-    MODOS = ("bolas", "triangulo", "obstaculo")
+    MODOS = ("bolas", "triangulo", "obstaculo","nadapross","linha_gap")  # "nadapross" é modo de teste sem visão
 
     def __init__(self, ser, debug=False):
         """
@@ -149,7 +149,7 @@ class TalkingSerial:
     def set_modo(self, modo):
         """
         Muda o modo de visão da Raspberry.
-        modo: "bolas" | "triangulo" | "obstaculo"
+        modo: "bolas" | "triangulo" | "obstaculo" | "nadapross" | "linha_gap"
         """
         if modo not in self.MODOS:
             print("[TalkingSerial] Modo desconhecido:", modo)
@@ -171,7 +171,11 @@ class TalkingSerial:
     #  LEITURA INTERNA — parseia cada linha recebida
     # =========================================================================
 
-    def _parsear_linha(self, linha):
+    def _parsear_linha(self, linha): 
+        """
+        Lê uma linha de texto recebida da Raspberry e atualiza o estado interno.
+        Chamado internamente por drenar() e drenar_principal().
+        """
         if not linha or linha == "frente":
             return
 
@@ -268,7 +272,7 @@ class TalkingSerial:
                 self.gap_angulo = None
             return
 
-    def _tentar_montar_frame(self):
+    def _tentar_montar_frame(self): #vitima ou triangulo
         """
         Tenta montar um frame de bola ou triângulo a partir das linhas cruas.
         Remove as linhas consumidas do buffer quando monta com sucesso.
@@ -370,7 +374,7 @@ class TalkingSerial:
             linha, self._buf = self._buf.split("\n", 1)
             self._parsear_linha(linha.strip())
 
-    def drenar_principal(self):
+    def drenar_principal(self): #serve para o obstaculo
         """
         Versão para o loop principal do EV3.
 
@@ -398,7 +402,7 @@ class TalkingSerial:
             "gap":                self._ev_gap, 
         }
 
-    def ler_frame(self):
+    def ler_frame(self): # ler algo mais atual de vitima ou triangulo
         """
         Drena a serial e retorna o frame de visão mais recente (bola ou triângulo).
         Consome o frame — próxima chamada retorna None até chegar um novo.
@@ -446,6 +450,8 @@ class TalkingSerial:
     # =========================================================================
     #  PROPRIEDADES DE CONVENIÊNCIA
     # =========================================================================
+    # EX: se eu quiser saber algo específico do último frame de bola ou triângulo sem precisar chamar ler_frame() e drenar() toda hora, posso usar essas propriedades.
+    # Elas retornam None se não houver frame novo, ou o valor específico do último frame não consumido.
 
     @property
     def vendo_bola(self):
@@ -481,7 +487,7 @@ class TalkingSerial:
     #  HELPERS BLOQUEANTES
     # =========================================================================
 
-    def aguardar_resultado_linha(self, timeout_ms=3000):
+    def aguardar_resultado_linha(self, timeout_ms=3000): #obstaculo
         """
         Bloqueia até receber o resultado dos lados da linha ou timeout.
         Retorna: "linha esquerda"|"linha direita"|"linha ambos"|"linha nenhum"|None
@@ -497,7 +503,7 @@ class TalkingSerial:
             elapsed += 50
         return None
 
-    def aguardar_lado_bola(self, tipo_alvo, timeout_ms=5000):
+    def aguardar_lado_bola(self, tipo_alvo, timeout_ms=5000): # vitimas
         """
         Bloqueia até receber um frame de bola que contenha tipo_alvo.
         Retorna o frame ou None (timeout).

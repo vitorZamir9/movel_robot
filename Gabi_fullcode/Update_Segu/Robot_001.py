@@ -93,17 +93,82 @@ def calibraPreto(): #tudo preto, verifique para ver se está certo mesmo
         wait(100)
     print("Calibrado Preto")
 
-def botao():
-    global multiplex1
-    while True:
-        retorno1 = multiplex1.read(0)
-        botao_stop = retorno1[6]
-        if botao_stop > 0:
-            print("parado")
-            motorB.stop()
-            motorC.stop()
 #################################################################
+# DEF de atualizar informações do sensor
+#################################################################
+def atualiza_sensor1():
+    global sensor1
+    global R1, R2, R3
+    global G1, G2, G3
+    global B1, B2, B3, alvo
+    global cloresq, clormind, clordir
+    global fora1, meio1, meio2, fora2
+    global H1, H2, H3
+    global S1, S2, S3
+    global V1, V2, V3
+    global posicao
+    global C1, C2, C3
+     # ==========================================
+    # 1.0 LEITURA DO SENSOR DE COR
+    # ==========================================
+    retorno = sensor1.read(2)
+    # Leitura dos sensores para seguir linha
+    fora1 = retorno[3] # esquerda 
+    meio1 = retorno[2] # esquerda 
+    meio2 = retorno[1] # direita  
+    fora2 = retorno[0] # direita  
+    # Leitura da posição do sensor sobre a linha preta
+    posicao = (retorno[29]*2)
+    # Leitura unitária dos sensores de cor
+    cloresq = retorno[17]
+    clormind = retorno[18]
+    clordir = retorno[19]
+    # Leitura RGBC dos sensores
+    R1, R3, R2 = (retorno[4]), (retorno[8]), (retorno[12])
+    G1, G3, G2 = (retorno[5]), (retorno[9]), (retorno[13])
+    B1, B3, B2 = (retorno[6]), (retorno[10]), (retorno[14])
+    C1, C3, C2 = (retorno[7]), (retorno[11]), (retorno[15])
+    # Leitura HSV para o verde
+    H1, H3, H2 = (retorno[20]*2), (retorno[23]*2), (retorno[26]*2)
+    S1, S3, S2 = (retorno[21]*2), (retorno[24]*2), (retorno[27]*2)
+    V1, V3, V2 = (retorno[22]*2), (retorno[25]*2), (retorno[28]*2)
+    alvo = 8 # Alvo para a calibração do HSV do verde
 
+def atualiza_multiplex1():
+    global multiplex1
+    global ultra1, ultra2, ultrad3, ultra4
+    global botao_stop, botao_parar
+    global ChoqueESQ, ChoqueDIR
+    # ==========================================
+    # 1.1 LEITURA DO SENSOR MULTIPLEX
+    # ==========================================
+    retorno1= multiplex1.read(0)
+    # Leitura dos sensores ultrasônicos
+    ultra1  = retorno1[0] # frente
+    ultra2  = retorno1[1] # direita
+    ultrad3 = retorno1[2] # vitima
+    ultra4  = retorno1[3] # esquerda
+    if ultra1 or ultra2 or ultra4 or ultrad3 == -1:
+        #print("não esta identificando os ultra")
+        if ultra1 == -1:
+            print("ultra1")
+            return -1
+        if ultra2 == -1:
+            print("ultra2")
+            return -1
+        if ultrad3 == -1:
+            print("ultra3")
+            return -1
+        if ultra4 == -1:
+            print("ultra4")
+            return -1
+    # Leitura dos botões para função pro robô
+    botao_stop  = retorno1[6]
+    botao_parar = retorno1[5]
+    # Leitura dos botôes que servem pro parachoque
+    ChoqueESQ = retorno1[4]
+    ChoqueDIR = retorno1[7]
+#################################################################
 def sensor():
     global old_error  
     global sensor1  
@@ -133,13 +198,19 @@ def sensor():
     global ultra4
     global R1, R2, R3
     global G1, G2, G3
-    global B1, B2, B3
+    global B1, B2, B3, alvo
+    global H1, H2, H3
+    global S1, S2, S3
+    global V1, V2, V3
+    global posicao
+    global C1, C2, C3
     global esqgray1, mindgray1, dirgray1
     global esqgray, mindgray, dirgray
     global rgb, clear
     global cloresq, clormind, clordir
     global fora1, meio1, meio2, fora2
-    
+    global botao_stop, botao_parar
+    global ChoqueESQ, ChoqueDIR
     buffer_serial = ""
     
     while True:
@@ -148,71 +219,20 @@ def sensor():
         # ==========================================
         ev3.screen.clear()
         ev3.screen.print("-7")
-        ser.write(b'nadapross\r\n') 
+        ts.set_modo("nadapross") 
+        #ser.write(b'nadapross\r\n') 
         #ser.write(b'OFF\r\n')
         # ==========================================
         # 1.0 LEITURA DO SENSOR DE COR
         # ==========================================
-        retorno = sensor1.read(2)
-
-        # Leitura dos sensores para seguir linha
-        fora1 = retorno[3] # esquerda 
-        meio1 = retorno[2] # esquerda 
-        meio2 = retorno[1] # direita  
-        fora2 = retorno[0] # direita  
-
-        # Leitura da posição do sensor sobre a linha preta
-        posicao = (retorno[29]*2)
-        
-        # Leitura unitária dos sensores de cor
-        cloresq = retorno[17]
-        clormind = retorno[18]
-        clordir = retorno[19]
-
-        # Leitura RGBC dos sensores
-        R1, R3, R2 = (retorno[4]), (retorno[8]), (retorno[12])
-        G1, G3, G2 = (retorno[5]), (retorno[9]), (retorno[13])
-        B1, B3, B2 = (retorno[6]), (retorno[10]), (retorno[14])
-        C1, C3, C2 = (retorno[7]), (retorno[11]), (retorno[15])
-
-        # Leitura HSV para o verde
-        H1, H3, H2 = (retorno[20]*2), (retorno[23]*2), (retorno[26]*2)
-        S1, S3, S2 = (retorno[21]*2), (retorno[24]*2), (retorno[27]*2)
-        V1, V3, V2 = (retorno[22]*2), (retorno[25]*2), (retorno[28]*2)
-        
-        alvo = 8 # Alvo para a calibração do HSV do verde
+        atualiza_sensor1()
         # ==========================================
         # 1.1 LEITURA DO SENSOR MULTIPLEX
         # ==========================================
-        retorno1= multiplex1.read(0)
-
-        # Leitura dos sensores ultrasônicos
-        ultra1  = retorno1[0] # frente
-        ultra2  = retorno1[1] # direita
-        ultrad3 = retorno1[2] # vitima
-        ultra4  = retorno1[3] # esquerda
-        if ultra1 or ultra2 or ultra4 or ultrad3 == -1:
-            #print("não esta identificando os ultra")
-            if ultra1 == -1:
-                print("ultra1")
-                break
-            if ultra2 == -1:
-                print("ultra2")
-                break
-            if ultrad3 == -1:
-                print("ultra3")
-                break
-            if ultra4 == -1:
-                print("ultra4")
-                break
-            
-        # Leitura dos botões para função pro robô
-        botao_stop  = retorno1[6]
-        botao_parar = retorno1[5]
-
-        # Leitura dos botôes que servem pro parachoque
-        ChoqueESQ = retorno1[4]
-        ChoqueDIR = retorno1[7]
+        atualiza_multiplex1()
+        if atualiza_multiplex1() == -1:
+            print("problema em algum ultrassônico, verifique a conexão")
+            break
         # ==========================================
         # 1.2 LEITURA SERIAL — GIROSCÓPIO E CÂMERA
         # ==========================================
@@ -246,16 +266,16 @@ def sensor():
         # ==========================================
         print("RAW pitch:", ts.gyro_y, "| raw yaw:", ts.gyro_z)
         if gyro_rasp_y > 10:
-            ev3.speaker.beep()
+            #ev3.speaker.beep()
             print("subindo")
-            kp_atual, ki_atual, base_atual = 3.0, 0.02, 180   # subindo
+            kp_atual, ki_atual, base_atual = 1.0, 0.02, 180   # subindo
         elif gyro_rasp_y < -10:
-            ev3.speaker.beep()
+            #ev3.speaker.beep()
             print("descendo")
             kp_atual, ki_atual, base_atual = 2.0, 0.01, 100   # descendo
         else:
             print("plano")
-            kp_atual, ki_atual, base_atual = 2.0, 0.01, 120   # plano
+            kp_atual, ki_atual, base_atual = 2.0, 0.01, 110   # plano
         # ==========================================
         # 3. VERIFICAÇÃO SE O ROBÔ ESTÁ PARADO
         # ==========================================
@@ -273,7 +293,16 @@ def sensor():
             ev3.speaker.beep(600)# aviso sonoro
             # Aqui coloca a lógica doq fazer quando ele estiver totalmente parado
             print("saiu do codigo pq o robo ficou travado!")
-            break
+            motorB.dc(100)
+            motorC.dc(-100)
+            wait(100)
+            motorB.dc(-100)
+            motorC.dc(100)
+            motorB.stop()
+            motorC.stop()
+            tanki.stop()
+            ev3.speaker.beep()
+            continue
         # ==========================================
         # 4. RED TAPE
         # ==========================================
@@ -291,21 +320,18 @@ def sensor():
         mindgray = R3 > rgb and G3 > rgb and B3 > rgb and C3 > clear #prata reflectivo
         dirgray = R2 > rgb and G2 > rgb and B2 > rgb and C2 > clear 
         
-        blue = 55
+        blue = 50
         esqgray1 = B1 > blue and B1 < 62 and C1 > 24 and C1 < 30 and cloresq == 6
         mindgray1 = B3 > blue and B3 < 62 and C3 > 24 and C3 < 30 and clormind == 6 #prata não reflectivo
         dirgray1 = B2 > blue and B2 < 62 and C2> 24 and C2 < 30 and clordir == 6
         y=1
-
         # ^^^^^^se essa variavel ficar 0 ela vai fazer com que o robo ignore o seguidor e va direto pro resgate
         if esqgray1 or mindgray1 or dirgray1 or y==0 and resgate_uma_vez == 0:
             print("prata")
             wait(10)
-
             if esqgray1 and mindgray1 and dirgray1 or y==0:
                 tanki.stop()
                 ev3.speaker.beep(900)
- 
                 # ==========================================
                 # RESGATE — chama a classe Silver
                 # ==========================================
@@ -318,10 +344,16 @@ def sensor():
                 # Pegar vítimas vivas (Silver Ball) — 2 no total
                 resultado_vivas = silver.clawLife()
                 print("Resultado clawLife:", resultado_vivas)
- 
+                if resultado_vivas == "sairdoRESGATE":
+                    silver.exit(esqgray1, mindgray1, dirgray1)
+                    continue
+
                 # Pegar vítima morta (Black Ball) — 1 no total
                 resultado_mortas = silver.clawDead()
                 print("Resultado clawDead:", resultado_mortas)
+                if resultado_mortas == "sairdoRESGATE":
+                    silver.exit(esqgray1, mindgray1, dirgray1)
+                    continue
  
                 # Verificação dos dados de vítimas
                 print("=== VERIFICAÇÃO FINAL DE VÍTIMAS ===")
@@ -383,11 +415,7 @@ def sensor():
                     motorC.dc(100)
                     wait(1000)
                     while True:
-                        retorno = sensor1.read(2)
-                        fora1 = retorno[3]
-                        meio1 = retorno[2]
-                        meio2 = retorno[1]
-                        fora2 = retorno[0]
+                        atualiza_sensor1()
                         wait(100)
                         if fora2 < 40 or meio2 < 40:
                             tanki.stop()
@@ -410,11 +438,7 @@ def sensor():
                     motorC.dc(-10)
                     wait(1000)
                     while True:
-                        retorno = sensor1.read(2)
-                        fora1 = retorno[3]
-                        meio1 = retorno[2]
-                        meio2 = retorno[1]
-                        fora2 = retorno[0]
+                        atualiza_sensor1()
                         wait(100)
                         if fora1 < 40 or meio1 < 40:
                             tanki.stop()
@@ -437,11 +461,7 @@ def sensor():
                     motorC.dc(100)
                     wait(1000)
                     while True:
-                        retorno = sensor1.read(2)
-                        fora1 = retorno[3]
-                        meio1 = retorno[2]
-                        meio2 = retorno[1]
-                        fora2 = retorno[0]
+                        atualiza_sensor1()
                         wait(100)
                         if fora2 < 40 or meio2 < 40:
                             tanki.stop()
@@ -464,11 +484,7 @@ def sensor():
                     motorC.dc(-10)
                     wait(1000)
                     while True:
-                        retorno = sensor1.read(2)
-                        fora1 = retorno[3]
-                        meio1 = retorno[2]
-                        meio2 = retorno[1]
-                        fora2 = retorno[0]
+                        atualiza_sensor1()
                         wait(100)
                         if fora1 < 40 or meio1 < 40:
                             tanki.stop()
@@ -493,11 +509,7 @@ def sensor():
                 motorC.dc(-10)
                 wait(1000)
                 while True:
-                    retorno = sensor1.read(2)
-                    fora1 = retorno[3]
-                    meio1 = retorno[2]
-                    meio2 = retorno[1]
-                    fora2 = retorno[0]
+                    atualiza_sensor1()
                     wait(100)
                     if fora1 < 40 or meio1 < 40:
                         tanki.stop()
@@ -520,11 +532,7 @@ def sensor():
             motorC.dc(-10)
             wait(1000)
             while True:
-                retorno = sensor1.read(2)
-                fora1 = retorno[3]
-                meio1 = retorno[2]
-                meio2 = retorno[1]
-                fora2 = retorno[0]
+                atualiza_sensor1()
                 wait(100)
                 if fora1 < 40 or meio1 < 40:
                     tanki.stop()
@@ -553,10 +561,10 @@ def sensor():
         # ==========================================
         # 8. GREEN
         # ==========================================
-        previsao_camera = grein.MoveGreen(
-        H1, S1, V1, H2, S2, V2, H3, S3, V3, alvo, 
-        fora1, meio1, meio2, fora2, previsao_camera, cloresq, clordir,
-        pretoesq, pretodir)
+        #previsao_camera = grein.MoveGreen(
+        #H1, S1, V1, H2, S2, V2, H3, S3, V3, alvo, 
+        #fora1, meio1, meio2, fora2, previsao_camera, cloresq, clordir,
+        #pretoesq, pretodir)
         # ==========================================
         # 9. ALL SENSORS DETECTED WHITE
         # ==========================================
