@@ -269,17 +269,23 @@ class Silver:
         while True:
             frame = self.talk.ler_frame()
             if frame:
+                tipo = frame.get("detected", "")
                 lado = frame["lado"]
-                if lado == "meio":
+                area = frame["area"]
+                if lado == "meio" and tipo == vendoVITIMA:
                     print("Alinhado com a vítima!")
                     self.tanki.stop()
                     self.ev3.speaker.beep(800)
                     return True
-                if lado == "esquerda":
+                elif lado == "esquerda" and tipo == vendoVITIMA:
                     self.tanki.straight(-10)
                     self.tanki.stop()
-                elif lado == "direita":
+                elif lado == "direita" and tipo == vendoVITIMA:
                     self.tanki.straight(10)
+                    self.tanki.stop()
+                elif area < 2500 and tipo == vendoVITIMA and lado == "meio":
+                    print("Vítima detectada, mas fora da área de captura")
+                    self.tanki.turn(30)
                     self.tanki.stop()
                 wait(50)
                 self.motorB.stop()
@@ -290,7 +296,7 @@ class Silver:
                     parado += 1
                 if self.tanki.state()[3] > 60:
                     parado = 0
-                if parado > 10:
+                if parado > 20:
                     print("não está conseguindo ver vítima")
                     self.motorB.dc(-50)
                     self.motorC.dc(50)
@@ -416,19 +422,26 @@ class Silver:
                     lado = frame["lado"]
                     area = frame["area"]
                     print("[cam-avanco] lado:", lado, "area:", area)
-                    if lado == "meio" and area >= 2700:
+                    if lado == "meio" and area >= 2000:
                         cam_confirmou = True
                         self.tanki.stop()
                         print("[cam-avanco] vítima na área — parando para fechar garra")
                         break
-
+                    if lado == "esquerda":
+                        self.ev3.speaker.beep(200)
+                        self.tanki.straight(-20)
+                        self.tanki.stop()
+                    if lado == "direita":
+                        self.ev3.speaker.beep(200)
+                        self.tanki.straight(20)
+                        self.tanki.stop()
                 if self.tanki.state()[3] < 20:
                     parado += 1
                 if self.tanki.state()[3] > 60:
                     parado = 0
 
                 # Limite por ângulo ou robô travado
-                if self.motorB.angle() >= 350 or parado > 20:
+                if self.motorB.angle() >= 400 or parado > 20:
                     self.tanki.stop()
                     break
 
@@ -449,15 +462,85 @@ class Silver:
             self.tanki.stop()
 
             # ── Validar posse com ultrad3 ─────────────────────────────────────
-            tem_vitima = self._validar_posse_ultrad3()
-
-            if tem_vitima:
+            print("verificar estados de vitimas")
+            # agora aqui ele vai ver se ta vendo alguma vitima depois que subiu a garra
+            # ai se ele tiver vendo, primeiro ele vai ver o tipo,  e dpois a distancia
+            # ai quando ele ver a distancia, ele vai o seguinte, qual foi a vitima que ele acabou de falar que pegou
+            # ai agora vendo, se ele tiver pego uma silver se tiver 0/2 e ele disser que que ta vendo uma, são dois casos
+            # ou ele pegou uma ja, ou a que ele tava tentando pegar ainda não pegou, ai nesse segundo caso a gnt tem que subtrair do painel
+            # se for uma black se ele pegar e disser que ta vendo ainda uma black quer dizer que ele não pegou
+            #self._alinhar_camera(lapooo=None, vendoVITIMA=vendoVITIMA)
+            alinhamento = False
+            vitima_confirmada = None
+            sem_vitimasVISAO = None
+            wait(300) 
+            while True:
+                frame1 = self.talk.ler_frame()
+                if frame1:
+                    detected  = frame1.get("detected", "")
+                    confianca = frame1.get("confianca", 0)
+                    lado1     = frame1.get("lado", "")
+                    area1     = frame1.get("area", 0)
+                    print("Validação garra em cima:", detected, confianca, lado1, area1)
+                    if not vendoVITIMA in detected:
+                        sem_vitimasVISAO = True
+                        break
+                    if confianca > 50.0 and alinhamento == False:
+                        self.tanki.stop()
+                        wait(100)
+                        if lado1 == "meio":
+                            self.tanki.stop()
+                            alinhamento = True
+                        if lado1 == "esquerda" and alinhamento == False: 
+                            self.tanki.straight(-25)
+                            self.tanki.stop()
+                        if lado1 == "direita" and alinhamento == False:
+                            self.tanki.straight(25)
+                            self.tanki.stop()
+                    if vendoVITIMA in detected and alinhamento == True:
+                        print("a vitima que ele pegou esta vendo")
+                        print("verificar se isso esta certo!?")
+                        if vendoVITIMA == "Silver Ball" :
+                            if self.vitimaSILVER == 0:
+                                print("talvez ele tenha pego a primeira silver")
+                                print("finalizando e separando")
+                                vitima_confirmada = True
+                                break
+                            elif self.vitimaSILVER == 1:
+                                print("talvez ele tenha pego a ultima silver")
+                                print("finalizando e separando")
+                                # como eu não tenha informação eu vou diminuir uma vitima do painel
+                                self.vitimaSILVER -= 1
+                                self.vitimas += 1
+                                vitima_confirmada = False
+                                break
+                        elif vendoVITIMA == "Black Ball":
+                            if self.vitimaBLACK == 0:
+                                print("talvez ele tenha pego a primeira black")
+                                print("finalizando e separando")
+                                vitima_confirmada = True
+                                break
+                            elif self.vitimaBLACK == 1:
+                                print("talvez ele tenha pego a ultima black")
+                                print("finalizando e separando")
+                                # como eu não tenha informação eu vou diminuir uma vitima do painel
+                                self.vitimaBLACK -= 1
+                                self.vitimas += 1
+                                vitima_confirmada = False
+                                break
+            
+            if vitima_confirmada == True or sem_vitimasVISAO == True:
                 print("[pegar] vítima confirmada pela garra!")
                 break
-            else:
+            elif vitima_confirmada == False:
                 print("[pegar] vítima NÃO detectada pela garra — retry")
                 # Abre a garra e recua para tentar de novo
+                self.servosMove.desativa(1)
+                self.servosMove.desativa(2)
+                self.servosMove.desativa(3)
+                self.servosMove.desativa(4)
                 self.servosMove.move(1, 250)
+                self.servosMove.move(2, 0)
                 self.servosMove.move(3, 60)
                 wait(500)
                 self.tanki.turn(-20)   # recua abrindo espaço
@@ -472,11 +555,11 @@ class Silver:
         self.servosMove.desativa(2)
         self.servosMove.desativa(3)
         self.servosMove.desativa(4)
+        self.servosMove.move(1, 0)
         self.servosMove.move(2, 60)
         self.servosMove.move(3, 0)
-        wait(100)
         self.servosMove.move(4, 40)
-        self.servosMove.move(1, 0)
+        wait(100)
         if vendoVITIMA == "Black Ball":
             self._separar_black()
             self.vitimaBLACK += 1
@@ -761,27 +844,47 @@ class Silver:
                 turn_rate=9999999, turn_acceleration=99999999
             )
             wait(300)
-            print("alinhar")
-
             if lapooo != "meio":
+                print("alinhar")
                 self._alinhar_camera(lapooo, vendoVITIMA)
-
+            print("alinhado")
             # ── Aproximar da vítima usando ultra1 + pxvitima ─────────────────
             self.motorB.stop()
             self.motorC.stop()
             self.tanki.stop()
 
             # Define quanto avançar baseado nos px E na distância real
-            self._ler_ultras()
-            dist_frente = self.ultra1
-
-            if pxvitima >= 2500 or dist_frente <= 80:
-                # Já está perto o suficiente — vai direto para captura
-                prafrente = 10
-            elif dist_frente <= 150:
-                prafrente = 100
-            else:
-                prafrente = 200
+            while True:
+                self._ler_ultras()
+                dist_frente = self.ultra1
+                if dist_frente == -1:
+                    print("[aprox] ultra1 não está funcionando — usando pxvitima")
+                    dist_frente = 9999  # ignora ultra1
+                    break
+                elif pxvitima >= 2500 or dist_frente <= 80 and dist_frente != -1:
+                    # Já está perto o suficiente — vai direto para captura
+                    prafrente = 10
+                    break
+                elif pxvitima <= 2500:
+                    print("verificando distancia da vitima")
+                    if pxvitima <= 1000 and pxvitima > 500:
+                        print("vitima perto")
+                        prafrente = 150
+                        break
+                    elif pxvitima <= 1500 and pxvitima > 1000:
+                        print("vitima longe")
+                        prafrente = 200
+                        break
+                    else:
+                        print("vitima muito longe")
+                        prafrente = 250
+                        break
+                elif dist_frente <= 150 and dist_frente != -1:
+                    prafrente = 100
+                    break
+                else:
+                    prafrente = 200
+                    break
 
             print("[aprox] pxvitima:", pxvitima, "ultra1:", dist_frente,
                   "→ prafrente:", prafrente)
@@ -821,7 +924,7 @@ class Silver:
                 if self.tanki.state()[3] > 60:
                     parado = 0
                 # Para se chegou perto o suficiente pelo ultrassônico
-                if self.ultra1 <= 60:
+                if self.ultra1 <= 60 and self.ultra1 != -1:
                     self.tanki.stop()
                     print("[aprox] ultra1 ≤ 60 — parando")
                     break
@@ -834,7 +937,7 @@ class Silver:
 
             # ── Capturar se vítima está na área (px ou ultra1) ───────────────
             self._ler_ultras()
-            if pxvitima >= 2500 or self.ultra1 <= 80:
+            if pxvitima >= 2500:
                 self.tanki.stop()
                 self._pegar_vitima(vendoVITIMA + "," + lapooo, vendoVITIMA)
 
@@ -1050,7 +1153,7 @@ class Silver:
                         self.tanki.stop()
                         break
                 self.tanki.stop()
-                self.tanki.turn(-150)
+                self.tanki.turn(-60)
                 self.tanki.stop()
                 self.motorB.stop()
                 self.motorC.stop()
@@ -1108,11 +1211,11 @@ class Silver:
         self.servosMove.desativa(2)
         self.servosMove.desativa(3)
         self.servosMove.desativa(4)
-        wait(500)
+        wait(200)
         self.servosMove.move(4, abertura_servo)
-        wait(1000)
+        wait(200)
 
-        for c in range(1, 4):
+        for c in range(1, 5):
             parado = 0
             self.motorB.reset_angle(0)
             self.motorC.reset_angle(0)
@@ -1120,9 +1223,8 @@ class Silver:
             self.servosMove.desativa(2)
             self.servosMove.desativa(3)
             self.servosMove.desativa(4)
-            wait(500)
+            wait(150)
             self.servosMove.move(4, fechamento_servo)
-            wait(500)
             self.motorB.dc(100)
             self.motorC.dc(-100)
             print("pra frente")
@@ -1133,26 +1235,24 @@ class Silver:
                     parado += 1
                 if self.tanki.state()[3] > 60:
                     parado = 0
-                if self.motorB.angle() >= 30 or parado > 20:
+                if self.motorB.angle() >= 10 or parado > 20:
                     self.tanki.stop()
                     break
             self.motorB.stop()
             self.motorC.stop()
             self.tanki.stop()
-            wait(100)
             parado = 0
             self.motorB.reset_angle(0)
             self.motorC.reset_angle(0)
             wait(100)
-            self.motorB.dc(-100)
-            self.motorC.dc(100)
-            wait(200)
             self.servosMove.desativa(1)
             self.servosMove.desativa(2)
             self.servosMove.desativa(3)
             self.servosMove.desativa(4)
             wait(100)
             self.servosMove.move(4, abertura_servo)
+            self.motorB.dc(-100)
+            self.motorC.dc(100)
             print("pra tras")
             while True:
                 self.talk.drenar()
@@ -1161,7 +1261,7 @@ class Silver:
                     parado += 1
                 if self.tanki.state()[3] > 60:
                     parado = 0
-                if self.motorB.angle() <= -1000 or parado > 20:
+                if self.motorB.angle() <= -500 or parado > 20:
                     self.tanki.stop()
                     break
             self.motorB.stop()
@@ -1180,9 +1280,14 @@ class Silver:
         self.atualiza_sensor1()
         self.atualiza_multiplex1()
         self._ler_ultras()
-        linha_preta = self.fora1<30 or self.meio1<30 or self.meio2<30 or self.fora2<30
+        retorno = self.sensor1.read(2)
+        # Leitura dos sensores para seguir linha
+        fora1 = retorno[3] # esquerda 
+        meio1 = retorno[2] # esquerda 
+        meio2 = retorno[1] # direita  
+        fora2 = retorno[0] # direita 
+        linha_preta = fora1<30 or meio1<30 or meio2<30 or fora2<30
         linha_prata = esqgray1 or mindgray1 or dirgray1
-
         self.tanki.stop()
         self.tanki.straight(100)
         self.tanki.stop()

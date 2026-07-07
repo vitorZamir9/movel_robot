@@ -232,7 +232,11 @@ def sensor():
         atualiza_multiplex1()
         if atualiza_multiplex1() == -1:
             print("problema em algum ultrassônico, verifique a conexão")
-            break
+        retorno1= multiplex1.read(0)
+        ChoqueESQ = retorno1[4]
+        ChoqueDIR = retorno1[7]
+        botao_stop  = retorno1[6]
+        botao_parar = retorno1[5]
         # ==========================================
         # 1.2 LEITURA SERIAL — GIROSCÓPIO E CÂMERA
         # ==========================================
