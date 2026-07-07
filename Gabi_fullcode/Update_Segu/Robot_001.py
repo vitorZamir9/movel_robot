@@ -270,16 +270,16 @@ def sensor():
         # ==========================================
         print("RAW pitch:", ts.gyro_y, "| raw yaw:", ts.gyro_z)
         if gyro_rasp_y > 10:
-            #ev3.speaker.beep()
+            ev3.speaker.beep()
             print("subindo")
-            kp_atual, ki_atual, base_atual = 1.0, 0.02, 180   # subindo
+            kp_atual, ki_atual, base_atual = 3.0, 0.02, 180   # subindo
         elif gyro_rasp_y < -10:
-            #ev3.speaker.beep()
+            ev3.speaker.beep()
             print("descendo")
             kp_atual, ki_atual, base_atual = 2.0, 0.01, 100   # descendo
         else:
             print("plano")
-            kp_atual, ki_atual, base_atual = 2.0, 0.01, 110   # plano
+            kp_atual, ki_atual, kd_atual, base_atual = 1.7, 0.001, 0.08, 120   # plano
         # ==========================================
         # 3. VERIFICAÇÃO SE O ROBÔ ESTÁ PARADO
         # ==========================================
