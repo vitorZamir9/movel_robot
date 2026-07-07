@@ -200,7 +200,7 @@ class Silver:
         self.ev3.speaker.beep(400, 1000)
         self.ev3.speaker.beep(100)
         wait(200)
-        self.tanki.turn(150)
+        self.tanki.turn(150) # anda para o primeiro ladrilho da frente
         self.tanki.stop()
         wait(1000)
 
@@ -254,7 +254,26 @@ class Silver:
             turn_rate=999999, turn_acceleration=99999
         )
         return entradaR
-
+    # =========================================================================
+    # IR PRO MEIO DO RESGATE
+    # =========================================================================
+    def ir_pro_meio(self, entradaR):
+        print("ir para o meio do resgate!")
+        print("indo de: ", entradaR)
+        self.tanki.stop()
+        if entradaR == "parede esquerda":
+            self.tanki.straight(100)
+            self.tanki.turn(300)
+            self.tanki.straight(-100)
+            self.tanki.stop()
+        elif entradaR == "parede direita":
+            self.tanki.straight(-100)
+            self.tanki.turn(300)
+            self.tanki.straight(100)
+            self.tanki.stop()
+        elif entradaR == "parede meeeio":
+            self.tanki.turn(300)
+            self.tanki.stop()
     # =========================================================================
     # girar_graus — delegado ao TalkingSerial (já corrigido lá)
     # =========================================================================

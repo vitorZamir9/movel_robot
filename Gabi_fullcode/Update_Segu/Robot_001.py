@@ -344,7 +344,9 @@ def sensor():
                 if entrada_resgate_lado is None:
                     print("Erro na entrada do resgate. Retomando seguir linha.")
                     continue  # volta pro loop de seguir linha
- 
+                
+                silver.ir_pro_meio(entrada_resgate_lado)    
+
                 # Pegar vítimas vivas (Silver Ball) — 2 no total
                 resultado_vivas = silver.clawLife()
                 print("Resultado clawLife:", resultado_vivas)
