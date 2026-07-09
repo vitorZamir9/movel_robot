@@ -168,6 +168,72 @@ def atualiza_multiplex1():
     # Leitura dos botôes que servem pro parachoque
     ChoqueESQ = retorno1[4]
     ChoqueDIR = retorno1[7]
+
+def draw_hud():
+    ev3.screen.clear()
+
+    # Modo de inclinação
+    if gyro_rasp_y > 10:
+        modo = "SUBINDO"
+    elif gyro_rasp_y < -10:
+        modo = "DESCENDO"
+    else:
+        modo = "PLANO"
+
+    # Estado atual
+    if cloresq == 2 and clormind == 2 and clordir == 2:
+        estado = "FITA VERMELHA"
+    elif esqgray or mindgray or dirgray or esqgray1 or mindgray1 or dirgray1:
+        estado = "PRATA RESGATE"
+    elif obstaculo_camera_pendente:
+        estado = "OBST CAMERA..."
+    elif obstaculo_camera_aguardando_linha:
+        estado = "AGUARD RASP"
+    elif obstaculo_camera_resultado_linha:
+        estado = "DESV:" + str(obstaculo_camera_resultado_linha)[:8]
+    elif ChoqueESQ == 1 or ChoqueDIR == 1:
+        estado = "BUMPER HIT"
+    elif fora1 > 90 and meio1 > 90 and meio2 > 90 and fora2 > 90:
+        estado = "CURVA/GAP"
+    else:
+        estado = "PID kp" + str(kp_atual)
+
+    # ── Título ──────────────────────────────
+    ev3.screen.draw_text(2, 2, modo + " p" + str(int(gyro_rasp_y)) + " y" + str(int(gyro_rasp_z)))
+    ev3.screen.draw_line(0, 14, 177, 14)
+
+    # ── Sensores de linha (F1 M1 | M2 F2) ──
+    ev3.screen.draw_text(2,  17, "F1")
+    ev3.screen.draw_text(16, 17, str(fora1))
+    ev3.screen.draw_text(42, 17, "M1")
+    ev3.screen.draw_text(56, 17, str(meio1))
+    ev3.screen.draw_text(85, 17, "M2")
+    ev3.screen.draw_text(99, 17, str(meio2))
+    ev3.screen.draw_text(128, 17, "F2")
+    ev3.screen.draw_text(142, 17, str(fora2))
+    ev3.screen.draw_line(0, 29, 177, 29)
+
+    # ── Ultrassônicos ───────────────────────
+    ev3.screen.draw_text(2,  32, "^" + str(ultra1))
+    ev3.screen.draw_text(50, 32, ">" + str(ultra2))
+    ev3.screen.draw_text(98, 32, "<" + str(ultra4))
+    ev3.screen.draw_text(140, 32, "v" + str(ultrad3))
+    ev3.screen.draw_line(0, 44, 177, 44)
+
+    # ── Estado ──────────────────────────────
+    ev3.screen.draw_box(0, 45, 177, 60)
+    ev3.screen.draw_text(4, 48, estado)
+    ev3.screen.draw_line(0, 61, 177, 61)
+
+    # ── PID + portas ────────────────────────
+    s2ok = atualiza_multiplex1() != -1
+    ev3.screen.draw_text(2,  64, "kp" + str(kp_atual))
+    ev3.screen.draw_text(70, 64, "S1:" + ("OK" if True else "ERR"))
+    ev3.screen.draw_text(120, 64, "S2:" + ("OK" if s2ok else "ERR"))
+    ev3.screen.draw_line(0, 76, 177, 76)
+
+    # ── Parado counter ──────────────────────
+    ev3.screen.draw_text(2, 79, "parado:" + str(parado))
 #################################################################
 def sensor():
     global old_error  
@@ -217,8 +283,7 @@ def sensor():
         # ==========================================
         # 0.0 Ligar tela-desafio surpresa/Enviar msg rasp
         # ==========================================
-        ev3.screen.clear()
-        ev3.screen.print("-7")
+        draw_hud()
         ts.set_modo("nadapross") 
         #ser.write(b'nadapross\r\n') 
         #ser.write(b'OFF\r\n')
