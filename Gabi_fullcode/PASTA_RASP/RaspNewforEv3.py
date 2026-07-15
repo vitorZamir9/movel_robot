@@ -109,11 +109,11 @@ RESGATE_BLACK_MIN_AREA  = 2000
 
 # ── Bolas (CPU) ──────────────────────────────────────────────────
 BALL_CONF_MIN     = 0.55
-BALL_AREA_MIN     = 400
-BALL_AREA_MAX     = 20000
+BALL_AREA_MIN     = 100
+BALL_AREA_MAX     = 30000
 BALL_PROP_MIN     = 0.35
-BALL_PROP_MAX     = 2.50
-BALL_MARGEM_BORDA = 0.05
+BALL_PROP_MAX     = 5.50
+BALL_MARGEM_BORDA = 0.01
 BALL_DEBUG        = True
 DEBUG_FILTROS     = True
 
@@ -380,14 +380,14 @@ def filtrar_melhor_bola(dets, frame_w, frame_h):
                 print(f"  ✗ REJEITADO: proporção {prop:.2f} fora do range [{BALL_PROP_MIN}, {BALL_PROP_MAX}]")
             continue
 
-        if d["x1"] <= 2 or d["y1"] <= 2:
-            if DEBUG_FILTROS:
-                print(f"  ✗ REJEITADO: muito perto da borda superior/esquerda")
-            continue
-        if d["x2"] >= frame_w - 2 or d["y2"] >= frame_h - 2:
-            if DEBUG_FILTROS:
-                print(f"  ✗ REJEITADO: muito perto da borda inferior/direita")
-            continue
+        # if d["x1"] <= 2 or d["y1"] <= 2:
+        #     if DEBUG_FILTROS:
+        #         print(f"  ✗ REJEITADO: muito perto da borda superior/esquerda")
+        #     continue
+        # if d["x2"] >= frame_w - 2 or d["y2"] >= frame_h - 2:
+        #     if DEBUG_FILTROS:
+        #         print(f"  ✗ REJEITADO: muito perto da borda inferior/direita")
+        #     continue
 
         mx = int(frame_w * BALL_MARGEM_BORDA)
         my = int(frame_h * BALL_MARGEM_BORDA)
