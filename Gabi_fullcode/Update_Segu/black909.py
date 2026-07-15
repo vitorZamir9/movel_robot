@@ -14,14 +14,20 @@ class Black909:
     def blackORwhite(self, fora1, meio1, meio2, fora2, pretoesq, pretodir):
         if pretodir > 0 : 
             print("90preto esquerda")
+            self.motorB.dc(100)
+            self.motorC.dc(100)
+            parado = 0
             while True:
-                self.motorB.dc(80)
-                self.motorC.dc(80)
+                self.motorB.dc(100)
+                self.motorC.dc(100)
                 retorno = self.sensor1.read(2)
                 meio2 = retorno[1] #direita  
-                
+                if self.tanki.state()[3] < 20:
+                    parado += 1
+                if self.tanki.state()[3] > 60:
+                    parado = 0
                 print(meio2)
-                if meio2 <= 50:
+                if meio2 <= 50 or parado > 20:
                     self.motorB.stop()
                     self.motorC.stop()
                     pretodir = 0
@@ -38,14 +44,20 @@ class Black909:
             
         elif pretoesq > 0 :
             print("90preto direita")
+            self.motorB.dc(-100)
+            self.motorC.dc(-100)
+            parado = 0
             while True:
-                self.motorB.dc(-80)
-                self.motorC.dc(-80)
+                self.motorB.dc(-100)
+                self.motorC.dc(-100)
                 retorno = self.sensor1.read(2)
                 meio1 = retorno[2] #direita  
-                
+                if self.tanki.state()[3] < 20:
+                    parado += 1
+                if self.tanki.state()[3] > 60:
+                    parado = 0
                 print(meio1)
-                if meio1 <= 50:
+                if meio1 <= 50 or parado > 20:
                     self.motorB.stop()
                     self.motorC.stop()
                     pretodir = 0
@@ -64,27 +76,27 @@ class Black909:
             self.ev3.speaker.beep()
             print("GAP detectado")
 
-            angulo = self.ts.gap_angulo   # None se não veio ângulo
+            #angulo = self.ts.gap_angulo   # None se não veio ângulo
 
-            if angulo is not None and abs(angulo) > 5:
-                # Gira para alinhar com a linha antes do gap (angulo → 0)
-                print("Alinhando gap: angulo=", angulo)
-                sentido = -1 if angulo > 0 else 1
-                self.motorB.dc(60 * sentido)
-                self.motorC.dc(-60 * sentido)
-                wait(abs(int(angulo * 8)))   # ~8ms por grau, ajuste conforme robô
-                self.motorB.stop()
-                self.motorC.stop()
-                wait(100)
+            # if angulo is not None and abs(angulo) > 5:
+            #     # Gira para alinhar com a linha antes do gap (angulo → 0)
+            #     print("Alinhando gap: angulo=", angulo)
+            #     sentido = -1 if angulo > 0 else 1
+            #     self.motorB.dc(60 * sentido)
+            #     self.motorC.dc(-60 * sentido)
+            #     wait(abs(int(angulo * 8)))   # ~8ms por grau, ajuste conforme robô
+            #     self.motorB.stop()
+            #     self.motorC.stop()
+            #     wait(100)
 
             # Avança reto para cruzar o gap
-            self.motorB.dc(60)
-            self.motorC.dc(-60)
-            wait(400)   # ajuste conforme largura do gap
-            self.motorB.stop()
-            self.motorC.stop()
-            wait(100)
-            self.ev3.speaker.beep(600)
+            # self.motorB.dc(60)
+            # self.motorC.dc(-60)
+            # wait(400)   # ajuste conforme largura do gap
+            # self.motorB.stop()
+            # self.motorC.stop()
+            # wait(100)
+            # self.ev3.speaker.beep(600)
             # print("vendo gap")
             #self.gap.Litleshirt(fora1, meio1, meio2, fora2, pretoesq, pretodir)
 
