@@ -103,8 +103,24 @@ def sensor():
 
 
         alvo= 8
-        verdeDireita = H1 >=(98-alvo) and H1 <=(120+alvo) and S1 >=(40-alvo) and S1 <=(65+alvo) and V1 >=(45-alvo) and V1 <=(105+alvo)
-        verdeEsquerda = H2 >=(98-alvo) and H2 <=(120+alvo) and S2 >=(35-alvo) and S2 <=(65+alvo) and V2 >=(45-alvo) and V2 <=(130+alvo)
+        #verdeDireita = H1 >=(98-alvo) and H1 <=(120+alvo) and S1 >=(40-alvo) and S1 <=(65+alvo) and V1 >=(45-alvo) and V1 <=(105+alvo)
+        #verdeEsquerda = H2 >=(98-alvo) and H2 <=(120+alvo) and S2 >=(35-alvo) and S2 <=(65+alvo) and V2 >=(45-alvo) and V2 <=(130+alvo)
+
+        verdeDireita1 =  H1 >=(110-alvo) and H1 <=(110+alvo) and S1 >=(64-alvo) and S1 <=(72+alvo) and V1 >=(72-alvo) and V1 <=(74+alvo)
+        verdeMeio1 = H3 >=(90-alvo) and H3 <=(140+alvo) and S3 >=(43-alvo) and S3 <=(75+alvo) and V3 >=(40-alvo) and V3 <=(80+alvo)
+        verdeEsquerda1 = H2 >=(110-alvo) and H2 <=(110+alvo) and S2 >=(60-alvo) and S2 <=(60+alvo) and V2 >=(86-alvo) and V2 <=(86+alvo)
+
+        verdeDireita2 =  H1 >=(110-alvo) and H1 <=(110+alvo) and S1 >=(30-alvo) and S1 <=(30+alvo) and V1 >=(140-alvo) and V1 <=(140+alvo)
+        verdeMeio2 = H3 >=(90-alvo) and H3 <=(140+alvo) and S3 >=(43-alvo) and S3 <=(75+alvo) and V3 >=(40-alvo) and V3 <=(80+alvo)
+        verdeEsquerda2 = H2 >=(95-alvo) and H2 <=(103+alvo) and S2 >=(40-alvo) and S2 <=(40+alvo) and V2 >=(127-alvo) and V2 <=(127+alvo)
+
+        verdeDireita = verdeDireita1 or verdeDireita2
+        verdeEsquerda = verdeEsquerda1 or verdeEsquerda2
+
+        
+
+
+
 
         #print(retorno)
         print("sensorD:","RGBC1>>",R1,G1,B1,C1,"<<RGBC1","sensorM:","RGBC3>>",R3,G3,B3,C3,"<<RGBC3","sensorE:","RGBC2>>",R2,G2,B2,C2,"<<RGBC2")

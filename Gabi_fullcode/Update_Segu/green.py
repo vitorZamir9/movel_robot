@@ -22,16 +22,16 @@ class Green:
         
         # r1 b1 g1, h1 s1 v1, cloresq
         
-        #VERDE1, MAIS CLARO, VINDO DA COMPETIÇÃO
-        verdeDireita =  H1 >=(96-alvo) and H1 <=(103+alvo) and S1 >=(28-alvo) and S1 <=(30+alvo) and V1 >=(100-alvo) and V1 <=(105+alvo)
+        verdeDireita1 =  H1 >=(110-alvo) and H1 <=(110+alvo) and S1 >=(64-alvo) and S1 <=(72+alvo) and V1 >=(72-alvo) and V1 <=(74+alvo)
         verdeMeio = H3 >=(90-alvo) and H3 <=(140+alvo) and S3 >=(43-alvo) and S3 <=(75+alvo) and V3 >=(40-alvo) and V3 <=(80+alvo)
-        verdeEsquerda = H2 >=(115-alvo) and H2 <=(116+alvo) and S2 >=(40-alvo) and S2 <=(42+alvo) and V2 >=(110-alvo) and V2 <=(115+alvo)
+        verdeEsquerda1 = H2 >=(110-alvo) and H2 <=(110+alvo) and S2 >=(60-alvo) and S2 <=(60+alvo) and V2 >=(86-alvo) and V2 <=(86+alvo)
 
-
-        #VERDE2, MAIS ESCURO PRECISA CALIBRAR
-        verdeDireita2 = H1 >=(90-alvo) and H1 <=(140+alvo) and S1 >=(43-alvo) and S1 <=(75+alvo) and V1 >=(40-alvo) and V1 <=(80+alvo)
-        verdeMeio2 = H3 >=(90-alvo) and H3 <=(140+alvo) and S3 >=(43-alvo) and S3 <=(75+alvo) and V3 >=(40-alvo) and V3 <=(80+alvo)
-        verdeEsquerda2 = H2 >=(90-alvo) and H2 <=(140+alvo) and S2 >=(43-alvo) and S2 <=(75+alvo) and V2 >=(40-alvo) and V2 <=(80+alvo)
+        verdeDireita2 =  H1 >=(110-alvo) and H1 <=(110+alvo) and S1 >=(30-alvo) and S1 <=(30+alvo) and V1 >=(140-alvo) and V1 <=(140+alvo)
+        # verdeMeio2 = H3 >=(90-alvo) and H3 <=(140+alvo) and S3 >=(43-alvo) and S3 <=(75+alvo) and V3 >=(40-alvo) and V3 <=(80+alvo)
+        verdeEsquerda2 = H2 >=(95-alvo) and H2 <=(103+alvo) and S2 >=(40-alvo) and S2 <=(40+alvo) and V2 >=(127-alvo) and V2 <=(127+alvo)
+        verdeDireita = verdeDireita1 or verdeDireita2
+        # verdeMeio = verdeMeio1 or verdeMeio2
+        verdeEsquerda = verdeEsquerda1 or verdeEsquerda2
 
         if not (verdeDireita or verdeEsquerda or verdeMeio or previsao_camera != None):
             return previsao_camera
@@ -42,6 +42,7 @@ class Green:
         #wait(100)
         print("verde")
         if verdeDireita and not pretodir > 0:
+
             wait(10)
             if verdeEsquerda: #detectou dois verdes, é beco
                 wait(10)
@@ -63,20 +64,22 @@ class Green:
             #if meio1 >= 40 or meio2 >= 40:
             else: #verificar possíveis falhas de movimentação
                 self.tanki.stop()
-                self.tanki.turn(-40)
-                self.tanki.straight(-90)
+                self.tanki.turn(50)
+                self.tanki.straight(90)
+                self.ev3.speaker.beep(200,100)
                 self.tanki.stop()
-                self.ev3.speaker.beep(200) 
+                self.ev3.speaker.beep(200,1000) 
                 print(">>> EXECUTANDO VERDE DIREITA")
                 self.tanki.stop()
-                self.motorB.dc(-100)
-                self.motorC.dc(-100)
+                self.motorB.dc(100)
+                self.motorC.dc(100)
                 while True:
                     retorno = self.sensor1.read(2)
-                    f1 = retorno[0]
-                    if f1 <= 40:
+                    m1 = retorno[2]
+                    if m1 <= 40:
                         self.tanki.stop()
                         break
+                
                 self.motorB.stop()
                 self.motorC.stop()
                 return None 
@@ -107,22 +110,25 @@ class Green:
             #if meio1 >= 40 or meio2 >= 40:
             else: #verificar possíveis falhas de movimentação
                 self.tanki.stop()
-                self.tanki.turn(40)
+                self.tanki.turn(50)
                 self.tanki.straight(-90)
                 self.tanki.stop()
-                self.ev3.speaker.beep(200) 
+                self.ev3.speaker.beep(200,1000) 
                 print(">>> EXECUTANDO VERDE ESQUERDA")
                 self.tanki.stop()
                 self.motorB.dc(-100)
                 self.motorC.dc(-100)
                 while True:
                     retorno = self.sensor1.read(2)
-                    f2 = retorno[3]
-                    if f2 <= 40:
+                    m2 = retorno[1]
+                    if m2 <= 40:
                         self.tanki.stop()
                         break
                 self.motorB.stop()
                 self.motorC.stop()
+                # print('viu verde e tá parado')
+                # self.tanki.stop()
+                # wait(300000000)
                 #self.ser.write(b"passou_verde\n")
             return None
 
