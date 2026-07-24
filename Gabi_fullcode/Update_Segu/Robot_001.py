@@ -47,6 +47,7 @@ PESO_MEIO = 1.0
 PESO_FORA = 2.275
 parado=0
 resgate_uma_vez = 1
+botao_STOPING = 0
 
 #----> drivebase <----
 tanki = DriveBase(motorB, motorC, wheel_diameter= 55.5 , axle_track=104.0) #isso funciona para movimentos do robô, alguns, mas é melhor usar o motorB e C dc
@@ -135,7 +136,7 @@ def atualiza_sensor1():
     H1, H3, H2 = (retorno[20]*2), (retorno[23]*2), (retorno[26]*2)
     S1, S3, S2 = (retorno[21]*2), (retorno[24]*2), (retorno[27]*2)
     V1, V3, V2 = (retorno[22]*2), (retorno[25]*2), (retorno[28]*2)
-    alvo = 8 # Alvo para a calibração do HSV do verde
+    alvo = 10 # Alvo para a calibração do HSV do verde
 
 def atualiza_multiplex1():
     global multiplex1
@@ -213,7 +214,7 @@ def sensor():
     global rgb, clear
     global cloresq, clormind, clordir
     global fora1, meio1, meio2, fora2
-    global botao_stop, botao_parar
+    global botao_stop, botao_parar, botao_STOPING
     global ChoqueESQ, ChoqueDIR
     buffer_serial = ""
     
@@ -282,7 +283,7 @@ def sensor():
             kp_atual, ki_atual, base_atual = 2.0, 0.01, 100   # descendo
         else:
             print("plano")
-            kp_atual, ki_atual, kd_atual, base_atual = 2.0, 0.01, 0.08, 120   # plano
+            kp_atual, ki_atual, kd_atual, base_atual = 2.0, 0.01, 0.1, 120   # plano
         # ==========================================
         # 3. VERIFICAÇÃO SE O ROBÔ ESTÁ PARADO
         # ==========================================
@@ -310,6 +311,51 @@ def sensor():
             tanki.stop()
             ev3.speaker.beep()
             continue
+
+        #=============================
+        # 3.1 BUTTON STOP IS ACTIVE
+        #=============================
+        
+
+        if botao_parar > 0:
+            print("parar programação!")
+            motorB.stop()
+            motorC.stop()
+            ev3.speaker.beep(500,1500)
+            sys.exit()
+        
+        # ==========================================
+        
+        # if botao_stop > 0:
+        #     if botao_STOPING == 1:
+        #         wait(1000)
+        #         botao_STOPING = 0
+        #         #wait(500)
+        #     else:
+        #         botao_STOPING = 1
+        #         wait(1000)
+            
+        if botao_stop > 0:
+            print("parado")
+            motorB.stop()
+            motorC.stop()
+            pretodir = 0
+            pretoesq = 0    
+            wait(2000)
+            while True:
+                contD = 0
+
+                contE = 0
+                contM = 0
+                pretodir = 0
+                pretoesq = 0
+                if botao_stop == 1:
+                    break
+                if botao_stop == 0:
+                    motorB.stop()
+                    motorC.stop() 
+
+
         # ==========================================
         # 4. RED TAPE
         # ==========================================
@@ -490,7 +536,7 @@ def sensor():
                     tanki.straight(-150)
                     tanki.stop()
                     motorB.dc(100)
-                    motorC.dc(-10)
+                    motorC.dc(-15)
                     wait(1000)
                     while True:
                         atualiza_sensor1()
@@ -556,11 +602,11 @@ def sensor():
         # ==========================================
         # 7. SEEING BLACK AT THE EDGE SENSORS
         # ==========================================
-        if fora1 <= 10:
-            pretoesq = 140
+        if fora1 <= 10  :
+            pretoesq = 70
             pretodir = 0
-        if fora2 <= 10:
-            pretodir = 140
+        if fora2 <= 10 :
+            pretodir = 70
             pretoesq = 0
         else:
              if pretoesq > 0:
@@ -577,8 +623,8 @@ def sensor():
         # ==========================================
         # 9. ALL SENSORS DETECTED WHITE
         # ==========================================
-        if fora1 > 90 and meio1 > 90 and meio2 > 90 and fora2 > 90:
-            ev3.speaker.beep(800)
+        if fora1 > 80 and meio1 > 80 and meio2 > 80 and fora2 > 80 and clordir == 1 and cloresq == 1 and clormind == 1:
+            ev3.speaker.beep(100)
             print("vendo alguma curva preta ou  gap")
             pretoesq, pretodir = blackMove.blackORwhite(fora1, meio1, meio2, fora2, pretoesq, pretodir)
         # ==========================================
@@ -586,30 +632,8 @@ def sensor():
         # ==========================================
         motores.PID(fora1,meio1,meio2,fora2,kp_atual,kd_atual,ki_atual,base_atual)
         # ==========================================
-        # 11. BUTTON STOP IS ACTIVE
-        # ==========================================
-        if botao_parar > 0:
-            print("parar programação!")
-            motorB.stop()
-            motorC.stop()
-            ev3.speaker.beep(500,1500)
-            sys.exit()
-        if botao_stop > 0:
-            print("parado")
-            motorB.stop()
-            motorC.stop()
-            wait(2000)
-            while True:
-                contD = 0
-                contE = 0
-                contM = 0
-                pretodir = 0
-                pretoesq = 0
-                if botao_stop == 1:
-                    break
-                if botao_stop == 0:
-                    motorB.stop()
-                    motorC.stop() 
+       
+        
 
 def teste_Linha():
     while True:
