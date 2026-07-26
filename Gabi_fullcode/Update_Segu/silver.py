@@ -1244,9 +1244,9 @@ class Silver:
 
                 # ── Depositar no triângulo ────────────────────────────────────
                 if vendoTRIANGULOcor == "verde":
-                    self._depositar_triangulo(abertura_servo=0,  fechamento_servo=60)
+                    self._depositar_triangulo(abertura_servo=0,  fechamento_servo=40)
                 elif vendoTRIANGULOcor == "vermelho":
-                    self._depositar_triangulo(abertura_servo=20, fechamento_servo=60)
+                    self._depositar_triangulo(abertura_servo=60, fechamento_servo=40)
 
             print("triangulos_final: verde:", vendoTRIANGULOVERDE,
                   "vermelho:", vendoTRIANGULOVERMELHO)

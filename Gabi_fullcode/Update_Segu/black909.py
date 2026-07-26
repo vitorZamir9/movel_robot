@@ -21,13 +21,14 @@ class Black909:
                 self.motorB.dc(100)
                 self.motorC.dc(100)
                 retorno = self.sensor1.read(2)
-                meio2 = retorno[1] #direita  
+                meio2 = retorno[1] #direita 
+                fora2 = retorno[0] 
                 if self.tanki.state()[3] < 20:
                     parado += 1
                 if self.tanki.state()[3] > 60:
                     parado = 0
                 print(meio2)
-                if meio2 <= 50 or parado > 20:
+                if meio2 <= 50 or fora2 <= 50 or parado > 20:
                     self.motorB.stop()
                     self.motorC.stop()
                     pretodir = 0
@@ -51,13 +52,14 @@ class Black909:
                 self.motorB.dc(-100)
                 self.motorC.dc(-100)
                 retorno = self.sensor1.read(2)
-                meio1 = retorno[2] #direita  
+                meio1 = retorno[2]
+                fora1 = retorno [3] #direita  
                 if self.tanki.state()[3] < 20:
                     parado += 1
                 if self.tanki.state()[3] > 60:
                     parado = 0
                 print(meio1)
-                if meio1 <= 50 or parado > 20:
+                if meio1 <= 50 or fora1 <= 50 or parado > 20:
                     self.motorB.stop()
                     self.motorC.stop()
                     pretodir = 0
@@ -75,7 +77,21 @@ class Black909:
             # Se tiver ângulo, giramos até endireitar, depois seguimos
             self.ev3.speaker.beep()
             print("GAP detectado")
-
+            self.motorB.dc(-70)
+            self.motorC.dc(70)
+            while True:
+                # ==========================================
+                # 1.0 LEITURA DO SENSOR DE COR
+                # ==========================================
+                retorno = self.sensor1.read(2)
+                # Leitura dos sensores para seguir linha
+                fora1 = retorno[3] # esquerda 
+                meio1 = retorno[2] # esquerda 
+                meio2 = retorno[1] # direita  
+                fora2 = retorno[0] # direita  
+                if meio1 < 50 or meio2 < 50:
+                    self.tanki.stop()
+                    break
             #angulo = self.ts.gap_angulo   # None se não veio ângulo
 
             # if angulo is not None and abs(angulo) > 5:

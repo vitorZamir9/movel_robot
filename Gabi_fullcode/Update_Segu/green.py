@@ -158,16 +158,17 @@ class Green:
             return None
         
         elif verdeMeio: #foi torto e viu o verde no meio
+            return None
             self.tanki.stop()
             self.motorB.stop()
             self.motorC.stop()
-            self.ev3.speaker.beep(200,1000) 
+            self.ev3.speaker.beep(200,100) 
             print(">>> EXECUTANDO VERDE MEIO")
-            wait(1000)
+            #wait(100)
             if meio1 < 20: #pra direita
                 self.tanki.turn(30)
                 self.tanki.straight(60)
-                self.ev3.speaker.beep(200,1000) 
+                self.ev3.speaker.beep(200,100) 
                 print(">>> EXECUTANDO VERDE MEIO DIREITA")
                 self.tanki.stop()
                 self.motorB.dc(90)
@@ -186,7 +187,7 @@ class Green:
             elif meio2 < 20:#pra esquerda
                 self.tanki.turn(30)
                 self.tanki.straight(-60)
-                self.ev3.speaker.beep(200,1000) 
+                self.ev3.speaker.beep(200,100) 
                 print(">>> EXECUTANDO VERDE MEIO ESQUERDA")
                 self.tanki.stop()
                 self.motorB.dc(-100)

@@ -25,7 +25,7 @@ multiplex1 = LUMPDevice(Port.S2)
 motorB = Motor(Port.B,gears=[12,25],positive_direction=Direction.COUNTERCLOCKWISE)
 motorC = Motor(Port.D,gears=[12,25],positive_direction=Direction.COUNTERCLOCKWISE)
 ser = UARTDevice(Port.S6, baudrate=115200, timeout=0.1)
-ts = ts(ser,True)
+ts = ts(ser,False)
 serialservo = UARTDevice(Port.S5, baudrate=115200, timeout=0.1)
 servosMove= Servos(serialservo,True)
 
@@ -273,89 +273,81 @@ def sensor():
         # gyro_rasp_y já está atualizado pelo módulo 1.2
         # ==========================================
         print("RAW pitch:", ts.gyro_y, "| raw yaw:", ts.gyro_z)
-        if gyro_rasp_y > 10:
-            ev3.speaker.beep()
+        if gyro_rasp_y > 22:
+            ev3.speaker.beep(100)
             print("subindo")
-            kp_atual, ki_atual, base_atual = 3.0, 0.02, 180   # subindo
+            kp_atual, kd_atual, base_atual = 1.2, 0.5, 180   # subindo
+            tanki.turn(-40)
+            tanki.stop()
+            wait(100)
+            tanki.stop()
+            servosMove.desativa(1) # Angular
+            servosMove.desativa(2) # Pinça esquerda
+            servosMove.desativa(3) # Pinça direita
+            servosMove.desativa(4) # Caçamba
+            while True:
+                # ==========================================
+                # 1.0 LEITURA DO SENSOR DE COR
+                # ==========================================
+                retorno = sensor1.read(2)
+                # Leitura dos sensores para seguir linha
+                fora1 = retorno[3] # esquerda 
+                meio1 = retorno[2] # esquerda 
+                meio2 = retorno[1] # direita  
+                fora2 = retorno[0] # direita  
+                atualiza_sensor1()
+                #############################################
+                #atualizar giro
+                ev = ts.drenar_principal()
+                # gyro vem direto dos atributoss
+                gyro_rasp_y = ts.pitch  # pitch (rampa)
+                gyro_rasp_z = ts.yaw  # yaw
+
+                #verificar angulo
+                if gyro_rasp_y <= 2: #desceu
+                    tanki.stop()
+                    ev3.speaker.beep(500,100)
+                    break
+                elif gyro_rasp_y >= 2:
+                    motores.PID(fora1,meio1,meio2,fora2,kp_atual,kd_atual,ki_atual,base_atual)
+                    #servosMove.move(1, 0)  # posição fechada servo angulo garra
+            tanki.stop()
+            #wait(100000)
         elif gyro_rasp_y < -10:
-            ev3.speaker.beep()
+            ev3.speaker.beep(1000)
             print("descendo")
-            kp_atual, ki_atual, base_atual = 2.0, 0.01, 100   # descendo
+            kp_atual, kd_atual, base_atual = 2.0, 0.1, 100   # descendo
         else:
             print("plano")
-            kp_atual, ki_atual, kd_atual, base_atual = 2.0, 0.01, 0.1, 120   # plano
+            kp_atual, ki_atual, kd_atual, base_atual = 2.0, 0.01, 0.5, 110   # plano
         # ==========================================
         # 3. VERIFICAÇÃO SE O ROBÔ ESTÁ PARADO
         # ==========================================
         # tanki.state()[3] > rotação do eixo graus por segundos
         #parado=0
-        #print(tanki.state()[3],"parado: ",parado)
+        print(tanki.state()[3],"parado: ",parado)
         if tanki.state()[3] > 60:
             # Se estiver alta a rotação dos eixos ele zera a informação que ta parado
             parado = 0
         elif tanki.state()[3] < 20:
             # Se tiver baixa a rotação dos eixos ele começa a somar
             parado = parado + 1
-        elif parado > 100 :
+        if parado > 100 :
             tanki.stop()
             ev3.speaker.beep(600)# aviso sonoro
             # Aqui coloca a lógica doq fazer quando ele estiver totalmente parado
             print("saiu do codigo pq o robo ficou travado!")
             motorB.dc(100)
             motorC.dc(-100)
-            wait(100)
+            wait(1000)
             motorB.dc(-100)
             motorC.dc(100)
             motorB.stop()
             motorC.stop()
             tanki.stop()
             ev3.speaker.beep()
+            parado=0
             continue
-
-        #=============================
-        # 3.1 BUTTON STOP IS ACTIVE
-        #=============================
-        
-
-        if botao_parar > 0:
-            print("parar programação!")
-            motorB.stop()
-            motorC.stop()
-            ev3.speaker.beep(500,1500)
-            sys.exit()
-        
-        # ==========================================
-        
-        # if botao_stop > 0:
-        #     if botao_STOPING == 1:
-        #         wait(1000)
-        #         botao_STOPING = 0
-        #         #wait(500)
-        #     else:
-        #         botao_STOPING = 1
-        #         wait(1000)
-            
-        if botao_stop > 0:
-            print("parado")
-            motorB.stop()
-            motorC.stop()
-            pretodir = 0
-            pretoesq = 0    
-            wait(2000)
-            while True:
-                contD = 0
-
-                contE = 0
-                contM = 0
-                pretodir = 0
-                pretoesq = 0
-                if botao_stop == 1:
-                    break
-                if botao_stop == 0:
-                    motorB.stop()
-                    motorC.stop() 
-
-
         # ==========================================
         # 4. RED TAPE
         # ==========================================
@@ -373,10 +365,10 @@ def sensor():
         mindgray = R3 > rgb and G3 > rgb and B3 > rgb and C3 > clear #prata reflectivo
         dirgray = R2 > rgb and G2 > rgb and B2 > rgb and C2 > clear 
         
-        blue = 35
-        esqgray1 = B1 > blue and B1 < 62 and C1 > 24 and C1 < 30 and cloresq == 6
-        mindgray1 = B3 > blue and B3 < 62 and C3 > 24 and C3 < 30 and clormind == 6 #prata não reflectivo
-        dirgray1 = B2 > blue and B2 < 62 and C2> 24 and C2 < 30 and clordir == 6
+        blue = 45
+        esqgray1 = B1 > blue and B1 < 70 and C1 > 21 and C1 < 30 and cloresq == 6
+        mindgray1 = B3 > blue and B3 < 70 and C3 > 21 and C3 < 30 and clormind == 6 #prata não reflectivo
+        dirgray1 = B2 > blue and B2 < 70 and C2> 21 and C2 < 30 and clordir == 6
         y=1
         # ^^^^^^se essa variavel ficar 0 ela vai fazer com que o robo ignore o seguidor e va direto pro resgate
         if esqgray1 or mindgray1 or dirgray1 or y==0 and resgate_uma_vez == 0:
@@ -632,6 +624,31 @@ def sensor():
         # ==========================================
         motores.PID(fora1,meio1,meio2,fora2,kp_atual,kd_atual,ki_atual,base_atual)
         # ==========================================
+        #=============================
+        # 11. BUTTON STOP IS ACTIVE
+        #=============================
+        if botao_parar > 0:
+            print("parar programação!")
+            motorB.stop()
+            motorC.stop()
+            ev3.speaker.beep(500,1000)
+            sys.exit()
+        if botao_stop > 0:
+            print("parado")
+            motorB.stop()
+            motorC.stop()
+            wait(500)
+            while True:
+                contD = 0
+                contE = 0
+                contM = 0
+                pretodir = 0
+                pretoesq = 0
+                if botao_stop == 1:
+                    break
+                if botao_stop == 0:
+                    motorB.stop()
+                    motorC.stop() 
        
         
 
@@ -662,9 +679,9 @@ def teste_Linha():
         mindgray = R3 > rgb and G3 > rgb and B3 > rgb and C3 > clear and C3 < (clear + 5) #prata reflectivo
         dirgray = R2 > rgb and G2 > rgb and B2 > rgb and C2 > clear and C2 < (clear + 5)
         
-        esqgray1 = B1 > 55 and B1 < 62 and C1 > 24 and C1 < 30 and cloresq == 6
-        mindgray1 = B3 > 55 and B3 < 62 and C3 > 24 and C3 < 30 and clormind == 6 #calibrar o prata não reflectivo
-        dirgray1 = B2 > 55 and B2 < 62 and C2> 24 and C2 < 30 and clordir == 6
+        esqgray1 = B1 > 45 and B1 < 70 and C1 > 21 and C1 < 30 and cloresq == 6
+        mindgray1 = B3 > 45 and B3 < 70 and C3 > 21 and C3 < 30 and clormind == 6 #calibrar o prata não reflectivo
+        dirgray1 = B2 > 45 and B2 < 70 and C2> 21 and C2 < 30 and clordir == 6
 
         print("sensor esquerdo Reflectivo", "R1: ", R1,"G1: ", G1,"B1: ", B1,"C1:  ", C1)
         print("sensor medio Reflectivo   ",    "R3: ", R3,"G3: ", G3,"B3: ", B3,"C3:  ", C3)
