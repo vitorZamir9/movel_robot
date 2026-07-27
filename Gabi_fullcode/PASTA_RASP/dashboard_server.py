@@ -182,15 +182,12 @@ HTML = r"""<!DOCTYPE html>
   .npu-on  { background: #0d3320; color: #4ade80; border: 1px solid #16a34a50; }
   .npu-off { background: #2a1a06; color: #fbbf24; border: 1px solid #d9770630; }
 
-  /* ══════════════════════════════════════════
-     LAYOUT PRINCIPAL — duas colunas no desktop
-     ══════════════════════════════════════════ */
+  /* ══ LAYOUT PRINCIPAL ══ */
   .main {
     padding: 10px;
     display: grid;
     gap: 8px;
-    /* coluna esquerda: câmera fixa 320px; direita: ocupa o resto */
-    grid-template-columns: 320px 1fr;
+    grid-template-columns: 480px 1fr;
     grid-template-areas:
       "modebar  modebar"
       "cam      right"
@@ -228,7 +225,6 @@ HTML = r"""<!DOCTYPE html>
     cursor: pointer; transition: all .15s; letter-spacing: .5px;
   }
   .mbtn:hover { color: var(--txt); background: var(--bg3); }
-  /* cores por modo */
   .mb  { background: #2a1a0610; border-color: var(--amber);  color: #fbbf24; }
   .mt  { background: #1a102a10; border-color: var(--purple); color: #c084fc; }
   .mo  { background: #1a0a0a10; border-color: var(--orange); color: #fb923c; }
@@ -252,7 +248,7 @@ HTML = r"""<!DOCTYPE html>
   }
   .ebtn:hover { background: #ef444428; }
 
-  /* ══ CÂMERA — coluna esquerda, tamanho fixo ══ */
+  /* ══ CÂMERA ══ */
   .cam-col   { grid-area: cam; display: flex; flex-direction: column; gap: 8px; }
   .cam-wrap  {
     background: var(--bg2); border: 1px solid var(--border);
@@ -266,14 +262,8 @@ HTML = r"""<!DOCTYPE html>
     justify-content: space-between; border-bottom: 1px solid var(--border);
   }
   .cam-t { font-family: var(--mono); font-size: 9px; color: var(--txt2); letter-spacing: 1px; }
-
-  /* altura da imagem CONTROLADA aqui */
   .cam-screen { position: relative; background: #020408; overflow: hidden; height: 180px; }
-  .cam-screen img {
-    width: 100%; height: 100%;
-    object-fit: contain;          /* mantém proporção sem cortar */
-    display: block;
-  }
+  .cam-screen img { width: 100%; height: 100%; object-fit: contain; display: block; }
 
   @keyframes scan { 0%{top:-2px} 100%{top:100%} }
   .cam-scanline {
@@ -296,7 +286,6 @@ HTML = r"""<!DOCTYPE html>
   .hud-txt.teal   { color: #2dd4bf80; text-shadow: 0 0 6px #2dd4bf40; }
   .hud-txt.gray   { color: #9ca3af60; }
 
-  /* mini status sob a câmera */
   .cam-mini-status {
     background: var(--bg2); border: 1px solid var(--border);
     border-radius: 8px; padding: 8px 12px;
@@ -306,7 +295,7 @@ HTML = r"""<!DOCTYPE html>
   .cms-lbl  { font-family: var(--mono); font-size: 8px; color: var(--txt3); letter-spacing: 1px; }
   .cms-val  { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--cyan); }
 
-  /* ══ SEÇÃO OBSTÁCULO ══ */
+  /* ══ OBSTÁCULO ══ */
   .obst-area { grid-area: obstarea; }
   .obst-section {
     display: none;
@@ -341,7 +330,7 @@ HTML = r"""<!DOCTYPE html>
   .oic-lbl { font-family: var(--mono); font-size: 8px; color: var(--txt3); letter-spacing: 1px; margin-bottom: 4px; }
   .oic-val { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--txt); }
 
-  /* ══ COLUNA DIREITA — cards empilhados ══ */
+  /* ══ COLUNA DIREITA ══ */
   .right-col {
     grid-area: right;
     display: flex; flex-direction: column; gap: 8px;
@@ -357,6 +346,36 @@ HTML = r"""<!DOCTYPE html>
     display: flex; align-items: center; gap: 6px;
   }
   .cdot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ══ CUBO 3D ══ */
+  .cube-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 8px; overflow: hidden;
+  }
+  .cube-screen {
+    position: relative; background: var(--bg); height: 210px; overflow: hidden;
+  }
+  .cube-screen canvas { display: block; width: 100% !important; height: 100% !important; }
+  .cube-grid-dots {
+    position: absolute; inset: 0; pointer-events: none;
+    background-image: radial-gradient(circle, #1b2035 1px, transparent 1px);
+    background-size: 24px 24px; opacity: 0.5;
+  }
+  .cube-hud-axes {
+    position: absolute; bottom: 7px; left: 10px;
+    display: flex; gap: 12px; pointer-events: none;
+  }
+  .cube-ax { font-family: var(--mono); font-size: 9px; }
+  .cube-controls {
+    padding: 7px 11px; border-top: 1px solid var(--border);
+    display: flex; gap: 7px; align-items: center;
+  }
+  .cube-controls input[type=range] { flex: 1; accent-color: var(--cyan); }
+  .cube-controls label { font-family: var(--mono); font-size: 8px; color: var(--txt3); letter-spacing: 1px; white-space: nowrap; }
+  .cube-badge {
+    font-family: var(--mono); font-size: 9px; padding: 2px 8px; border-radius: 4px;
+    background: #0a1e2a; color: var(--cyan); border: 1px solid #22d3ee30;
+  }
 
   /* giroscópio */
   .gyro-row { display: flex; align-items: center; margin-bottom: 7px; gap: 7px; }
@@ -401,8 +420,11 @@ HTML = r"""<!DOCTYPE html>
   .ctrl-btn-teal:hover { background: #2dd4bf10; }
   .ctrl-btn-gray { border-color: #6b728030; color: #9ca3af; }
   .ctrl-btn-gray:hover { background: #6b728010; }
+  .ctrl-btn-cyan { border-color: #22d3ee40; color: var(--cyan); }
+  .ctrl-btn-cyan:hover { background: #22d3ee10; }
+  .ctrl-btn-cyan.active { background: #22d3ee18; border-color: var(--cyan); }
 
-  /* linha_gap status */
+  /* linha_gap badge */
   .gap-badge {
     display: none; font-family: var(--mono); font-size: 10px;
     font-weight: 700; padding: 3px 10px; border-radius: 4px;
@@ -474,7 +496,7 @@ HTML = r"""<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- ══ COLUNA ESQUERDA — câmera compacta ══ -->
+  <!-- ══ COLUNA ESQUERDA ══ -->
   <div class="cam-col">
 
     <div class="cam-wrap" id="cam-imx500">
@@ -494,7 +516,6 @@ HTML = r"""<!DOCTYPE html>
       </div>
     </div>
 
-    <!-- mini métricas sob a câmera -->
     <div class="cam-mini-status">
       <div class="cms-item">
         <span class="cms-lbl">FPS</span>
@@ -514,9 +535,9 @@ HTML = r"""<!DOCTYPE html>
       </div>
     </div>
 
-  </div><!-- /cam-col -->
+  </div>
 
-  <!-- ══ ÁREA OBSTÁCULO (abaixo da câmera, aparece só nesse modo) ══ -->
+  <!-- ══ ÁREA OBSTÁCULO ══ -->
   <div class="obst-area">
     <div class="obst-section" id="obst-section">
       <div class="obst-section-title">
@@ -546,7 +567,7 @@ HTML = r"""<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- ══ LOG (abaixo da área de obstáculo, ocupa largura da câmera) ══ -->
+  <!-- ══ LOG ══ -->
   <div class="log-area">
     <div class="card">
       <div class="log-hdr">
@@ -561,8 +582,31 @@ HTML = r"""<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- ══ COLUNA DIREITA — cards ══ -->
+  <!-- ══ COLUNA DIREITA ══ -->
   <div class="right-col">
+
+    <!-- ══ CUBO 3D ORIENTAÇÃO ══ -->
+    <div class="cube-card">
+      <div class="cam-hdr">
+        <span class="cam-t">▣ ORIENTAÇÃO 3D — IMU</span>
+        <span class="cube-badge" id="cube-mode-badge">LIVE</span>
+      </div>
+      <div class="cube-screen" id="cube-screen">
+        <div class="cube-grid-dots"></div>
+        <canvas id="cube-canvas"></canvas>
+        <div class="cube-hud-axes">
+          <span class="cube-ax" style="color:var(--blue)">ROLL <span id="cube-r">0.0°</span></span>
+          <span class="cube-ax" style="color:var(--green)">PITCH <span id="cube-p">0.0°</span></span>
+          <span class="cube-ax" style="color:var(--purple)">YAW <span id="cube-y">0.0°</span></span>
+        </div>
+      </div>
+      <div class="cube-controls">
+        <label>VELOCIDADE</label>
+        <input type="range" id="cube-speed" min="0.2" max="5" step="0.1" value="1.5">
+        <button class="ctrl-btn ctrl-btn-cyan" id="cube-sim-btn" onclick="cubeToggleSim()">▶ SIM</button>
+        <button class="ctrl-btn" onclick="cubeReset()">⟳</button>
+      </div>
+    </div>
 
     <!-- Giroscópio -->
     <div class="card">
@@ -631,8 +675,206 @@ HTML = r"""<!DOCTYPE html>
 
 </div><!-- /main -->
 
+<!-- ══════════════════════════════════════════════════════════════
+     THREE.JS — Cubo 3D
+══════════════════════════════════════════════════════════════ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-// ── Mapeamentos de modo ───────────────────────────────────────────
+(function(){
+  const canvas = document.getElementById('cube-canvas');
+  const wrap   = document.getElementById('cube-screen');
+
+  const W = wrap.clientWidth  || 400;
+  const H = 210;
+
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+  renderer.setSize(W, H);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setClearColor(0x07090f, 1);
+
+  const scene  = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(42, W / H, 0.1, 100);
+  camera.position.set(2.4, 1.7, 2.9);
+  camera.lookAt(0, 0, 0);
+
+  // Grid no chão
+  const grid = new THREE.GridHelper(5, 10, 0x1b2035, 0x111526);
+  grid.position.y = -0.85;
+  scene.add(grid);
+
+  // Luzes
+  scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+  const dL1 = new THREE.DirectionalLight(0x22d3ee, 1.1);
+  dL1.position.set(3, 5, 3);
+  scene.add(dL1);
+  const dL2 = new THREE.DirectionalLight(0xa855f7, 0.45);
+  dL2.position.set(-3, -2, -3);
+  scene.add(dL2);
+
+  // Corpo do robô — caixa achatada (omni 3 rodas)
+  const bodyGeo = new THREE.BoxGeometry(1.1, 0.45, 1.1);
+  const faceMats = [
+    new THREE.MeshPhongMaterial({ color: 0x1d3a6e, emissive: 0x0a1e3a, emissiveIntensity: 0.5 }), // right
+    new THREE.MeshPhongMaterial({ color: 0x1d3a6e, emissive: 0x0a1e3a, emissiveIntensity: 0.5 }), // left
+    new THREE.MeshPhongMaterial({ color: 0x0d3320, emissive: 0x072210, emissiveIntensity: 0.6 }), // top (verde)
+    new THREE.MeshPhongMaterial({ color: 0x080b14 }),                                              // bottom
+    new THREE.MeshPhongMaterial({ color: 0x2a1d5e, emissive: 0x150f30, emissiveIntensity: 0.4 }), // front (roxo)
+    new THREE.MeshPhongMaterial({ color: 0x111526 }),                                              // back
+  ];
+  const body = new THREE.Mesh(bodyGeo, faceMats);
+  scene.add(body);
+
+  // Wireframe cyan sobre o corpo
+  const wireGeo = new THREE.EdgesGeometry(bodyGeo);
+  const wireMat = new THREE.LineBasicMaterial({ color: 0x22d3ee, linewidth: 1 });
+  body.add(new THREE.LineSegments(wireGeo, wireMat));
+
+  // 3 rodas omni (cilindros finos nas posições 120° cada)
+  const wheelMat = new THREE.MeshPhongMaterial({ color: 0x2a3050, emissive: 0x111526 });
+  const wheelGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.07, 16);
+  const wheelAngles = [0, Math.PI * 2 / 3, Math.PI * 4 / 3];
+  const wheelRadius = 0.62;
+  wheelAngles.forEach(a => {
+    const w = new THREE.Mesh(wheelGeo, wheelMat);
+    w.rotation.z = Math.PI / 2;
+    w.position.set(
+      Math.cos(a) * wheelRadius,
+      -0.26,
+      Math.sin(a) * wheelRadius
+    );
+    w.rotation.x = a; // orienta cada roda tangencialmente
+    // Anel cyan na roda
+    const ringGeo = new THREE.TorusGeometry(0.18, 0.015, 8, 24);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.y = Math.PI / 2;
+    w.add(ring);
+    body.add(w);
+  });
+
+  // Seta de direção frontal (verde)
+  const arrow = new THREE.ArrowHelper(
+    new THREE.Vector3(0, 0, 1),
+    new THREE.Vector3(0, 0.3, 0),
+    0.75, 0x22c55e, 0.22, 0.12
+  );
+  body.add(arrow);
+
+  // Eixos de referência globais (pequenos)
+  const axHelper = new THREE.AxesHelper(1.4);
+  scene.add(axHelper);
+
+  // Estado
+  let rollDeg  = 0;
+  let pitchDeg = 0;
+  let yawDeg   = 0;
+  let simActive = false;
+  let simT      = 0;
+
+  function deg2rad(d) { return d * Math.PI / 180; }
+
+  function applyPose() {
+    body.rotation.set(
+      deg2rad(pitchDeg),
+      deg2rad(yawDeg),
+      deg2rad(rollDeg),
+      'YXZ'
+    );
+    const fmt = v => (v >= 0 ? '+' : '') + v.toFixed(1) + '°';
+    document.getElementById('cube-r').textContent = fmt(rollDeg);
+    document.getElementById('cube-p').textContent = fmt(pitchDeg);
+    document.getElementById('cube-y').textContent = fmt(yawDeg);
+  }
+
+  // Poll do backend (sincroniza com gyro real quando não simulando)
+  function pollGyro() {
+    if (simActive) return;
+    fetch('/api/estado')
+      .then(r => r.json())
+      .then(d => {
+        rollDeg  = parseFloat(d.gyro_roll  || 0);
+        pitchDeg = parseFloat(d.gyro_pitch || 0);
+        yawDeg   = parseFloat(d.gyro_yaw   || 0);
+        applyPose();
+      })
+      .catch(() => {});
+  }
+  setInterval(pollGyro, 400);
+
+  // Controles expostos globalmente
+  window.cubeToggleSim = function() {
+    simActive = !simActive;
+    const btn = document.getElementById('cube-sim-btn');
+    btn.textContent  = simActive ? '⏹ PARAR' : '▶ SIM';
+    btn.className    = simActive
+      ? 'ctrl-btn ctrl-btn-cyan active'
+      : 'ctrl-btn ctrl-btn-cyan';
+    document.getElementById('cube-mode-badge').textContent = simActive ? 'SIM' : 'LIVE';
+    if (!simActive) {
+      simT = 0;
+      rollDeg = pitchDeg = yawDeg = 0;
+      applyPose();
+    }
+  };
+
+  window.cubeReset = function() {
+    simActive = false;
+    simT = 0;
+    rollDeg = pitchDeg = yawDeg = 0;
+    applyPose();
+    const btn = document.getElementById('cube-sim-btn');
+    btn.textContent = '▶ SIM';
+    btn.className   = 'ctrl-btn ctrl-btn-cyan';
+    document.getElementById('cube-mode-badge').textContent = 'LIVE';
+  };
+
+  // Render loop
+  let lastTs = 0;
+  // Órbita suave da câmera
+  let camAngle = 0;
+
+  function animate(ts) {
+    requestAnimationFrame(animate);
+    const dt = Math.min((ts - lastTs) / 1000, 0.1);
+    lastTs = ts;
+
+    if (simActive) {
+      const spd = parseFloat(document.getElementById('cube-speed').value);
+      simT += dt * spd;
+      rollDeg  = Math.sin(simT * 0.7)  * 38;
+      pitchDeg = Math.sin(simT * 0.5)  * 28;
+      yawDeg   = (simT * 28) % 360;
+      applyPose();
+    }
+
+    // Câmera orbita lentamente
+    camAngle += dt * 0.08;
+    camera.position.x = 3.0 * Math.cos(camAngle);
+    camera.position.z = 3.0 * Math.sin(camAngle);
+    camera.position.y = 1.7;
+    camera.lookAt(0, 0, 0);
+
+    renderer.render(scene, camera);
+  }
+  requestAnimationFrame(animate);
+
+  // Resize
+  const ro = new ResizeObserver(() => {
+    const nw = wrap.clientWidth;
+    if (nw < 10) return;
+    renderer.setSize(nw, H);
+    camera.aspect = nw / H;
+    camera.updateProjectionMatrix();
+  });
+  ro.observe(wrap);
+
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════
+     DASHBOARD JS — polling + UI
+══════════════════════════════════════════════════════════════ -->
+<script>
 const PILL_MAP = {
   bolas:     ['pb','BOLAS'],
   triangulo: ['pt','TRIÂNGULO'],
@@ -663,54 +905,41 @@ const OBST_LABELS = {
 
 const ALL_MODOS = ['bolas','triangulo','obstaculo','linha_gap','nadapross'];
 let modoAtual = '';
-let ultimoCmd = '—';
 
 function atualizarUI(d) {
   const modo = d.modo || 'bolas';
 
-  // ── Modo: botões, pill, câmera ──────────────────────────────
+  // Modo
   if (modo !== modoAtual) {
     modoAtual = modo;
-
     ALL_MODOS.forEach(m => {
       const btn = document.getElementById('btn-' + m);
       if (btn) btn.className = 'mbtn' + (m === modoAtual ? ' ' + (MBTN_CLS[m] || '') : '');
     });
-
     const pill = document.getElementById('mode-pill');
     const [pcls, ptxt] = PILL_MAP[modoAtual] || ['pb', modoAtual.toUpperCase()];
-    pill.className = 'pill ' + pcls;
+    pill.className   = 'pill ' + pcls;
     pill.textContent = ptxt;
-
-    const tit = CAM_TITULO[modoAtual] || 'IMX500';
-    document.getElementById('cam500-titulo').textContent = tit;
+    document.getElementById('cam500-titulo').textContent = CAM_TITULO[modoAtual] || 'IMX500';
     document.getElementById('hud-modo').textContent = 'MODE: ' + modoAtual.toUpperCase();
     document.getElementById('s-modo-ativo').textContent = modoAtual;
-
-    // borda / scanline da câmera
     const cam  = document.getElementById('cam-imx500');
     const scan = document.getElementById('cam-scan');
-    if (modoAtual === 'obstaculo') {
-      cam.className = 'cam-wrap obst-alert';
-    } else if (modoAtual === 'linha_gap') {
-      cam.className = 'cam-wrap gap-alert';
-    } else {
-      cam.className = 'cam-wrap';
-    }
+    cam.className  = modoAtual === 'obstaculo' ? 'cam-wrap obst-alert'
+                   : modoAtual === 'linha_gap'  ? 'cam-wrap gap-alert'
+                   : 'cam-wrap';
     scan.className = SCAN_CLS[modoAtual] || 'cam-scanline';
-
-    // Seção obstáculo: visível só no modo obstáculo
     document.getElementById('obst-section').className =
       modoAtual === 'obstaculo' ? 'obst-section visible' : 'obst-section';
   }
 
-  // ── NPU badge ───────────────────────────────────────────────
+  // NPU
   const nb = document.getElementById('npu-badge');
   nb.textContent = d.npu_ativo ? 'NPU ON' : 'CPU';
   nb.className   = 'npu-badge ' + (d.npu_ativo ? 'npu-on' : 'npu-off');
   document.getElementById('s-modelo').textContent = d.npu_modelo || '—';
 
-  // ── Giroscópio ──────────────────────────────────────────────
+  // Giroscópio
   const fmt = v => (v >= 0 ? '+' : '') + parseFloat(v).toFixed(1) + '°';
   const bar = v => Math.min(100, (Math.abs(v) / 180) * 100 + 50);
   const rv = parseFloat(d.gyro_roll  || 0);
@@ -722,35 +951,31 @@ function atualizarUI(d) {
   document.getElementById('gfx').style.width = bar(rv) + '%';
   document.getElementById('gfy').style.width = bar(pv) + '%';
   document.getElementById('gfz').style.width = bar(yv) + '%';
-  // mini métricas
   document.getElementById('mini-roll').textContent  = fmt(rv);
   document.getElementById('mini-pitch').textContent = fmt(pv);
   document.getElementById('mini-yaw').textContent   = fmt(yv);
 
-  // ── FPS ─────────────────────────────────────────────────────
+  // FPS
   const fps = parseFloat(d.fps_imx500 || 0).toFixed(1);
-  document.getElementById('fps0').textContent            = fps;
-  document.getElementById('fps0b').textContent           = fps;
-  document.getElementById('hud-fps').textContent         = fps + ' fps';
+  document.getElementById('fps0').textContent             = fps;
+  document.getElementById('fps0b').textContent            = fps;
+  document.getElementById('hud-fps').textContent          = fps + ' fps';
   document.getElementById('cam500-fps-badge').textContent = fps + ' fps';
-  document.getElementById('mini-fps').textContent        = fps;
+  document.getElementById('mini-fps').textContent         = fps;
 
-  // ── Obstáculo ───────────────────────────────────────────────
+  // Obstáculo
   const pct    = parseFloat(d.obst_pct || 0);
   const estado = d.obstaculo || 'idle';
-  document.getElementById('hud-obst').textContent   = modoAtual === 'obstaculo'
-    ? 'OBST: ' + estado : '';
-  document.getElementById('oic-estado').textContent = estado;
+  document.getElementById('hud-obst').textContent     = modoAtual === 'obstaculo' ? 'OBST: ' + estado : '';
+  document.getElementById('oic-estado').textContent   = estado;
   document.getElementById('obst-pct-num').textContent = Math.round(pct);
-  document.getElementById('obst-bar').style.width   = Math.min(100, pct) + '%';
+  document.getElementById('obst-bar').style.width     = Math.min(100, pct) + '%';
   const [ocls, olbl] = OBST_LABELS[estado] || ['ost-idle', estado.toUpperCase()];
   const bigTxt = document.getElementById('obst-status-txt');
   bigTxt.className   = 'obst-status-txt ' + ocls;
   bigTxt.textContent = olbl;
 
-  // ── Linha GAP — badge piscando ───────────────────────────────
-  // O backend envia o último cmd no log; lemos o cmd_camera se existir,
-  // senão inferimos do log mais recente.
+  // Linha GAP badge
   let gapAtivo = false;
   if (modoAtual === 'linha_gap' && d.log && d.log.length) {
     const lastLinha = [...d.log].reverse().find(l => l.msg.startsWith('Linha:'));
@@ -764,28 +989,25 @@ function atualizarUI(d) {
   }
   document.getElementById('gap-badge').className = 'gap-badge' + (gapAtivo ? ' visible' : '');
 
-  // ── Log ─────────────────────────────────────────────────────
+  // Log
   if (d.log && d.log.length) {
     const CLS = { ok:'log-ok', warn:'log-warn', info:'log-info' };
-    // guarda scroll antes de atualizar
     const lw = document.getElementById('log-wrap');
     const atBottom = lw.scrollHeight - lw.clientHeight <= lw.scrollTop + 4;
     lw.innerHTML = d.log.slice().reverse().map(l =>
       `<div class="log-line"><span class="log-ts">${l.t}</span>`+
       `<span class="${CLS[l.tipo]||'log-def'}">${l.msg}</span></div>`
     ).join('');
-    if (atBottom) lw.scrollTop = 0;  // mantém no topo (log invertido)
-
-    // último resultado obstáculo
+    if (atBottom) lw.scrollTop = 0;
     const lastVerif = [...d.log].reverse().find(l => l.msg.startsWith('Verificação:'));
     if (lastVerif) document.getElementById('oic-ultimo').textContent =
       lastVerif.msg.replace('Verificação: ', '');
   }
 
-  // ── Estado geral ─────────────────────────────────────────────
+  // Estado geral
   document.getElementById('s-bumper').textContent = d.bumper || 'livre';
 
-  // ── Uptime ──────────────────────────────────────────────────
+  // Uptime
   const up = d.uptime || 0;
   const hh = String(Math.floor(up / 3600)).padStart(2, '0');
   const mm = String(Math.floor((up % 3600) / 60)).padStart(2, '0');

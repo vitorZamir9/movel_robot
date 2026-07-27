@@ -122,11 +122,35 @@ SILVER_INFER_INTERVALO = 7
 SILVER_AI_THRESHOLD    = 0.50
 
 # ══════════════════════════════════════════════════════════════════
-#  GRAVAÇÃO DVR
+#  GRAVAÇÃO DVR — separada por modo
 # ══════════════════════════════════════════════════════════════════
 DEBUG_DIR = "debug_videos"
 os.makedirs(DEBUG_DIR, exist_ok=True)
-gravador_500 = None
+gravadores = {}  # dicionário para armazenar gravadores por modo
+
+def iniciar_gravador(modo):
+    """Inicia gravador para o modo especificado se não existir."""
+    if modo not in gravadores or gravadores[modo] is None:
+        nome = time.strftime(f"{modo}_%Y%m%d_%H%M%S")
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        gravadores[modo] = cv2.VideoWriter(
+            f"{DEBUG_DIR}/{nome}.avi", fourcc, 20.0, (W, H))
+        print(f"[DVR] Gravando modo '{modo}' → {nome}.avi")
+
+def parar_gravador(modo):
+    """Para e libera o gravador do modo especificado."""
+    if modo in gravadores and gravadores[modo] is not None:
+        try:
+            gravadores[modo].release()
+            print(f"[DVR] Parou gravação do modo '{modo}'")
+        except:
+            pass
+        gravadores[modo] = None
+
+def parar_todos_gravadores():
+    """Para todos os gravadores ativos."""
+    for modo in list(gravadores.keys()):
+        parar_gravador(modo)
 
 # ══════════════════════════════════════════════════════════════════
 #  CÂMERA IMX500 — RGB888 (cores corretas, vermelho = vermelho)
@@ -134,7 +158,7 @@ gravador_500 = None
 picam2 = None
 
 def iniciar_imx500():
-    global picam2, gravador_500
+    global picam2
     if picam2 is not None:
         return
     print("[*] Ligando câmera IMX500 (RGB888, sem NPU)...")
@@ -144,10 +168,6 @@ def iniciar_imx500():
             main={"format": "RGB888", "size": (W, H)})
         picam2.configure(cfg)
         picam2.start()
-        nome   = time.strftime("%Y%m%d_%H%M%S")
-        fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        gravador_500 = cv2.VideoWriter(
-            f"{DEBUG_DIR}/imx500_{nome}.avi", fourcc, 20.0, (W, H))
         time.sleep(1)
         print("[+] Câmera IMX500 ativa (RGB888, CPU inference) ✓")
     except Exception as e:
@@ -155,16 +175,13 @@ def iniciar_imx500():
         picam2 = None
 
 def parar_imx500():
-    global picam2, gravador_500
+    global picam2
     if picam2:
         print("[*] Desligando câmera...")
         try: picam2.stop(); picam2.close()
         except: pass
         picam2 = None
-    if gravador_500:
-        try: gravador_500.release()
-        except: pass
-        gravador_500 = None
+    parar_todos_gravadores()
 
 # ══════════════════════════════════════════════════════════════════
 #  DETECÇÃO DE PRATA — mantida para uso futuro
@@ -351,67 +368,6 @@ def _parse_cpu_detections(frame_bgr, frame_w, frame_h):
         print(f"[CPU DET ERROR] {_e}")
     return dets
 
-
-def filtrar_melhor_bola(dets, frame_w, frame_h):
-    """Filtra com debug detalhado de por que cada detecção é rejeitada."""
-    melhor      = None
-    melhor_area = 0
-
-    if not dets and DEBUG_FILTROS:
-        print(f"[FILTER] Nenhuma detecção para filtrar")
-        return None
-
-    for d_idx, d in enumerate(dets):
-        larg = d["x2"] - d["x1"]
-        alt = d["y2"] - d["y1"]
-        area = larg * alt
-        prop = float(larg) / alt if alt > 0 else 0
-
-        if DEBUG_FILTROS:
-            print(f"[FILTER] Det #{d_idx} {d['cls_name']}: area={area}, prop={prop:.2f}")
-
-        if area < BALL_AREA_MIN or area > BALL_AREA_MAX:
-            if DEBUG_FILTROS:
-                print(f"  ✗ REJEITADO: área fora do range [{BALL_AREA_MIN}, {BALL_AREA_MAX}]")
-            continue
-
-        if not (BALL_PROP_MIN <= prop <= BALL_PROP_MAX):
-            if DEBUG_FILTROS:
-                print(f"  ✗ REJEITADO: proporção {prop:.2f} fora do range [{BALL_PROP_MIN}, {BALL_PROP_MAX}]")
-            continue
-
-        # if d["x1"] <= 2 or d["y1"] <= 2:
-        #     if DEBUG_FILTROS:
-        #         print(f"  ✗ REJEITADO: muito perto da borda superior/esquerda")
-        #     continue
-        # if d["x2"] >= frame_w - 2 or d["y2"] >= frame_h - 2:
-        #     if DEBUG_FILTROS:
-        #         print(f"  ✗ REJEITADO: muito perto da borda inferior/direita")
-        #     continue
-
-        mx = int(frame_w * BALL_MARGEM_BORDA)
-        my = int(frame_h * BALL_MARGEM_BORDA)
-        cx = d["x1"] + larg // 2
-        cy = d["y1"] + alt // 2
-        if cx < mx or cx > frame_w - mx or cy < my or cy > frame_h - my:
-            if DEBUG_FILTROS:
-                print(f"  ✗ REJEITADO: fora da margem central")
-            continue
-
-        if DEBUG_FILTROS:
-            print(f"  ✓ ACEITO! Será candidato (área={area})")
-
-        if area > melhor_area:
-            melhor_area = area
-            melhor = d
-
-    if melhor and DEBUG_FILTROS:
-        print(f"[FILTER] ✓ MELHOR BOLA SELECIONADA: {melhor['cls_name']} (área={melhor_area})")
-    elif DEBUG_FILTROS:
-        print(f"[FILTER] ✗ NENHUMA BOLA PASSOU NOS FILTROS")
-
-    return melhor
-
 # ══════════════════════════════════════════════════════════════════
 #  THREAD DE INFERÊNCIA YOLO
 # ══════════════════════════════════════════════════════════════════
@@ -425,13 +381,12 @@ def _worker_yolo():
         except queue.Empty:
             continue
         try:
-            dets   = _parse_cpu_detections(frame, frame.shape[1], frame.shape[0])
-            melhor = filtrar_melhor_bola(dets, frame.shape[1], frame.shape[0])
+            dets = _parse_cpu_detections(frame, frame.shape[1], frame.shape[0])
             try:
                 _fila_resultado.get_nowait()
             except queue.Empty:
                 pass
-            _fila_resultado.put((dets, melhor))
+            _fila_resultado.put((dets, dets))
         except Exception as e:
             print(f"[YOLO WORKER] {e}")
 
@@ -632,11 +587,11 @@ def processar_linha_gap(frame_rgb):
 # ══════════════════════════════════════════════════════════════════
 #  VARIÁVEIS DE CONTROLE GLOBAL
 # ══════════════════════════════════════════════════════════════════
-modo_atual             = "bolas"
+modo_atual             = "nadapross"
 estado_obstaculo       = "idle"
 last_detection         = {"time": 0.0, "side": None, "cmd": None}
 ultimo_aviso_obstaculo = 0.0
-COOLDOWN_OBSTACULO     = 3.0
+COOLDOWN_OBSTACULO     = 1.0
 
 # ══════════════════════════════════════════════════════════════════
 #  CALLBACKS DASHBOARD
@@ -645,10 +600,12 @@ COOLDOWN_OBSTACULO     = 3.0
 def ao_mudar_modo(novo_modo):
     global modo_atual, estado_obstaculo, _obst_acum, _linha_gap_historico
     print(f"[WEB] Modo → {novo_modo}")
+    parar_gravador(modo_atual)
     modo_atual = novo_modo
+    iniciar_gravador(modo_atual)
     estado_obstaculo = "idle"
     _obst_acum = None
-    _linha_gap_historico = []   # limpa histórico ao trocar de modo
+    _linha_gap_historico = []
     dash.atualizar_estado(modo=modo_atual, obstaculo="idle",
                           log={"msg": f"Modo → {novo_modo}", "tipo": "ok"})
 
@@ -677,6 +634,7 @@ dash.atualizar_estado(
 print("[+] SISTEMA INICIADO")
 print("[!] DEBUG_FILTROS ativo - verifique os logs para detecções")
 iniciar_imx500()
+iniciar_gravador(modo_atual)
 dash.atualizar_estado(
     modo=modo_atual,
     log={"msg": "Boot OK. IMX500 ativa (RGB888). Modos: bolas | triangulo | obstaculo | linha_gap | nadapross", "tipo": "info"}
@@ -702,15 +660,13 @@ try:
             rotacao_roll  =  math.degrees(math.atan2(ay, az)) - offset_roll
             gz = ler_mpu(GYRO_ZOUT) / 131.0
             if abs(gz) > 1.0: guinada_yaw += gz * dt_mpu
-            if (now_mpu - tempo_ultimo_print) > 0.5:
-                if ser: ser.write(f"MPU_Z:{guinada_yaw:.1f}\n".encode())
-                if ser: ser.write(f"MPU_Y:{arfagem_pitch:.1f}\n".encode())
-                if ser: ser.write(f"MPU_X:{rotacao_roll:.1f}\n".encode())
-                tempo_ultimo_print = now_mpu
-                dash.atualizar_estado(
-                    gyro_roll=round(rotacao_roll, 1),
-                    gyro_pitch=round(arfagem_pitch, 1),
-                    gyro_yaw=round(guinada_yaw, 1))
+            if ser: ser.write(f"MPU_Z:{guinada_yaw:.1f}\n".encode())
+            if ser: ser.write(f"MPU_Y:{arfagem_pitch:.1f}\n".encode())
+            if ser: ser.write(f"MPU_X:{rotacao_roll:.1f}\n".encode())
+            dash.atualizar_estado(
+                gyro_roll=round(rotacao_roll, 1),
+                gyro_pitch=round(arfagem_pitch, 1),
+                gyro_yaw=round(guinada_yaw, 1))
 
         # ── Recebe comandos do EV3 via serial ──────────────────
         if ser and ser.in_waiting:
@@ -745,6 +701,16 @@ try:
                 ultimo_aviso_obstaculo = time.time()
                 dash.atualizar_estado(obstaculo=estado_obstaculo,
                                       log={"msg": "EV3 negou obstáculo.", "tipo": "info"})
+            elif "reset_mpu0" in cmd.lower():
+                guinada_yaw = 0.0
+                offset_roll = 0.0
+                rotacao_roll = 0.0
+                arfagem_pitch = 0.0
+                dash.atualizar_estado(
+                    gyro_roll=0.0,
+                    gyro_pitch=0.0,
+                    gyro_yaw=0.0,
+                    log={"msg": "MPU resetado imediatamente!", "tipo": "info"})
 
         # ── Captura IMX500 ─────────────────────────────────────
         if picam2 is None:
@@ -777,9 +743,8 @@ try:
                 pass
 
             dets   = []
-            melhor = None
             try:
-                dets, melhor = _fila_resultado.get_nowait()
+                dets, _ = _fila_resultado.get_nowait()
             except queue.Empty:
                 pass
 
@@ -790,22 +755,22 @@ try:
                                 (d["x1"], max(d["y1"]-3, 8)),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.28, (200,200,0), 1)
 
-            if melhor is not None:
-                larg  = melhor["x2"] - melhor["x1"]
-                alt   = melhor["y2"] - melhor["y1"]
-                cx    = melhor["x1"] + larg // 2
-                cy    = melhor["y1"] + alt  // 2
+            for d in dets:
+                larg  = d["x2"] - d["x1"]
+                alt   = d["y2"] - d["y1"]
+                cx    = d["x1"] + larg // 2
+                cy    = d["y1"] + alt  // 2
                 area  = larg * alt
                 side  = ("esquerda" if cx < (w_f // 3)
-                         else "direita" if cx > (2 * w_f // 3)
-                         else "meio")
-                cls   = melhor["cls_name"]
+                        else "direita" if cx > (2 * w_f // 3)
+                        else "meio")
+                cls   = d["cls_name"]
                 cor_b = (180,180,180) if "silver" in cls.lower() else (40,40,40)
-                cv2.rectangle(hud, (melhor["x1"],melhor["y1"]),
-                                   (melhor["x2"],melhor["y2"]), cor_b, 2)
+                cv2.rectangle(hud, (d["x1"],d["y1"]),
+                                (d["x2"],d["y2"]), cor_b, 2)
                 cv2.circle(hud, (cx, cy), 5, (255,255,255), -1)
-                cv2.putText(hud, f"{cls} {side} {melhor['conf']:.2f}",
-                            (melhor["x1"], max(melhor["y1"]-6,10)),
+                cv2.putText(hud, f"{cls} {side} {d['conf']:.2f}",
+                            (d["x1"], max(d["y1"]-6,10)),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.38, cor_b, 1)
                 agora = time.time()
                 if (side != last_detection["side"] or (agora - last_detection["time"]) > 0.3):
@@ -957,9 +922,9 @@ try:
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (180, 180, 180), 2)
             # msg_serial permanece None → nada é enviado ao EV3
 
-        # ── Envia HUD para o dashboard ─────────────────────────
-        if gravador_500:
-            gravador_500.write(hud)
+        # ── Envia HUD para o dashboard e grava ────────────────────
+        if modo_atual in gravadores and gravadores[modo_atual] is not None:
+            gravadores[modo_atual].write(hud)
         dash.atualizar_frame_imx500(hud)
 
         fps = round(1.0 / (time.time() - loop_start + 1e-5), 1)
