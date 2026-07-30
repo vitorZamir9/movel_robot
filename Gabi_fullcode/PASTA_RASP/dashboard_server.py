@@ -262,7 +262,7 @@ HTML = r"""<!DOCTYPE html>
     justify-content: space-between; border-bottom: 1px solid var(--border);
   }
   .cam-t { font-family: var(--mono); font-size: 9px; color: var(--txt2); letter-spacing: 1px; }
-  .cam-screen { position: relative; background: #020408; overflow: hidden; height: 180px; }
+  .cam-screen { position: relative; background: 020408; overflow: hidden; height: 320px; }
   .cam-screen img { width: 100%; height: 100%; object-fit: contain; display: block; }
 
   @keyframes scan { 0%{top:-2px} 100%{top:100%} }
@@ -353,17 +353,25 @@ HTML = r"""<!DOCTYPE html>
     border-radius: 8px; overflow: hidden;
   }
   .cube-screen {
-    position: relative; background: var(--bg); height: 210px; overflow: hidden;
+    position: relative; background: var(--bg);
+    width: 100%;
+    height: 210px; 
+    display: block;
   }
-  .cube-screen canvas { display: block; width: 100% !important; height: 100% !important; }
+  .cube-screen canvas {
+    position: absolute; top: 0; left: 0;
+    width: 100% !important; 
+    height: 100% !important;
+    display: block !important;
+  }
   .cube-grid-dots {
     position: absolute; inset: 0; pointer-events: none;
     background-image: radial-gradient(circle, #1b2035 1px, transparent 1px);
-    background-size: 24px 24px; opacity: 0.5;
+    background-size: 24px 24px; opacity: 0.5; z-index: 1;
   }
   .cube-hud-axes {
     position: absolute; bottom: 7px; left: 10px;
-    display: flex; gap: 12px; pointer-events: none;
+    display: flex; gap: 12px; pointer-events: none; z-index: 2;
   }
   .cube-ax { font-family: var(--mono); font-size: 9px; }
   .cube-controls {
@@ -593,7 +601,7 @@ HTML = r"""<!DOCTYPE html>
       </div>
       <div class="cube-screen" id="cube-screen">
         <div class="cube-grid-dots"></div>
-        <canvas id="cube-canvas"></canvas>
+        <canvas id="cube-canvas" width="400" height="210"></canvas>
         <div class="cube-hud-axes">
           <span class="cube-ax" style="color:var(--blue)">ROLL <span id="cube-r">0.0°</span></span>
           <span class="cube-ax" style="color:var(--green)">PITCH <span id="cube-p">0.0°</span></span>
@@ -676,199 +684,251 @@ HTML = r"""<!DOCTYPE html>
 </div><!-- /main -->
 
 <!-- ══════════════════════════════════════════════════════════════
-     THREE.JS — Cubo 3D
+     THREE.JS — Cubo 3D CORRIGIDO
 ══════════════════════════════════════════════════════════════ -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-(function(){
+let cubeInitialized = false;
+
+function initCube() {
+  if (cubeInitialized) return;
+  cubeInitialized = true;
+
   const canvas = document.getElementById('cube-canvas');
   const wrap   = document.getElementById('cube-screen');
 
-  const W = wrap.clientWidth  || 400;
-  const H = 210;
-
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
-  renderer.setSize(W, H);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setClearColor(0x07090f, 1);
-
-  const scene  = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(42, W / H, 0.1, 100);
-  camera.position.set(2.4, 1.7, 2.9);
-  camera.lookAt(0, 0, 0);
-
-  // Grid no chão
-  const grid = new THREE.GridHelper(5, 10, 0x1b2035, 0x111526);
-  grid.position.y = -0.85;
-  scene.add(grid);
-
-  // Luzes
-  scene.add(new THREE.AmbientLight(0xffffff, 0.35));
-  const dL1 = new THREE.DirectionalLight(0x22d3ee, 1.1);
-  dL1.position.set(3, 5, 3);
-  scene.add(dL1);
-  const dL2 = new THREE.DirectionalLight(0xa855f7, 0.45);
-  dL2.position.set(-3, -2, -3);
-  scene.add(dL2);
-
-  // Corpo do robô — caixa achatada (omni 3 rodas)
-  const bodyGeo = new THREE.BoxGeometry(1.1, 0.45, 1.1);
-  const faceMats = [
-    new THREE.MeshPhongMaterial({ color: 0x1d3a6e, emissive: 0x0a1e3a, emissiveIntensity: 0.5 }), // right
-    new THREE.MeshPhongMaterial({ color: 0x1d3a6e, emissive: 0x0a1e3a, emissiveIntensity: 0.5 }), // left
-    new THREE.MeshPhongMaterial({ color: 0x0d3320, emissive: 0x072210, emissiveIntensity: 0.6 }), // top (verde)
-    new THREE.MeshPhongMaterial({ color: 0x080b14 }),                                              // bottom
-    new THREE.MeshPhongMaterial({ color: 0x2a1d5e, emissive: 0x150f30, emissiveIntensity: 0.4 }), // front (roxo)
-    new THREE.MeshPhongMaterial({ color: 0x111526 }),                                              // back
-  ];
-  const body = new THREE.Mesh(bodyGeo, faceMats);
-  scene.add(body);
-
-  // Wireframe cyan sobre o corpo
-  const wireGeo = new THREE.EdgesGeometry(bodyGeo);
-  const wireMat = new THREE.LineBasicMaterial({ color: 0x22d3ee, linewidth: 1 });
-  body.add(new THREE.LineSegments(wireGeo, wireMat));
-
-  // 3 rodas omni (cilindros finos nas posições 120° cada)
-  const wheelMat = new THREE.MeshPhongMaterial({ color: 0x2a3050, emissive: 0x111526 });
-  const wheelGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.07, 16);
-  const wheelAngles = [0, Math.PI * 2 / 3, Math.PI * 4 / 3];
-  const wheelRadius = 0.62;
-  wheelAngles.forEach(a => {
-    const w = new THREE.Mesh(wheelGeo, wheelMat);
-    w.rotation.z = Math.PI / 2;
-    w.position.set(
-      Math.cos(a) * wheelRadius,
-      -0.26,
-      Math.sin(a) * wheelRadius
-    );
-    w.rotation.x = a; // orienta cada roda tangencialmente
-    // Anel cyan na roda
-    const ringGeo = new THREE.TorusGeometry(0.18, 0.015, 8, 24);
-    const ringMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee });
-    const ring = new THREE.Mesh(ringGeo, ringMat);
-    ring.rotation.y = Math.PI / 2;
-    w.add(ring);
-    body.add(w);
-  });
-
-  // Seta de direção frontal (verde)
-  const arrow = new THREE.ArrowHelper(
-    new THREE.Vector3(0, 0, 1),
-    new THREE.Vector3(0, 0.3, 0),
-    0.75, 0x22c55e, 0.22, 0.12
-  );
-  body.add(arrow);
-
-  // Eixos de referência globais (pequenos)
-  const axHelper = new THREE.AxesHelper(1.4);
-  scene.add(axHelper);
-
-  // Estado
-  let rollDeg  = 0;
-  let pitchDeg = 0;
-  let yawDeg   = 0;
-  let simActive = false;
-  let simT      = 0;
-
-  function deg2rad(d) { return d * Math.PI / 180; }
-
-  function applyPose() {
-    body.rotation.set(
-      deg2rad(pitchDeg),
-      deg2rad(yawDeg),
-      deg2rad(rollDeg),
-      'YXZ'
-    );
-    const fmt = v => (v >= 0 ? '+' : '') + v.toFixed(1) + '°';
-    document.getElementById('cube-r').textContent = fmt(rollDeg);
-    document.getElementById('cube-p').textContent = fmt(pitchDeg);
-    document.getElementById('cube-y').textContent = fmt(yawDeg);
+  if (!canvas || !wrap) {
+    console.error('[CUBE] Canvas ou wrap não encontrado');
+    return;
   }
 
-  // Poll do backend (sincroniza com gyro real quando não simulando)
-  function pollGyro() {
-    if (simActive) return;
-    fetch('/api/estado')
-      .then(r => r.json())
-      .then(d => {
-        rollDeg  = parseFloat(d.gyro_roll  || 0);
-        pitchDeg = parseFloat(d.gyro_pitch || 0);
-        yawDeg   = parseFloat(d.gyro_yaw   || 0);
+  // Usa dimensões corretas com fallback
+  let W = wrap.offsetWidth;
+  let H = wrap.offsetHeight;
+  
+  if (W < 50) W = 400;
+  if (H < 50) H = 210;
+
+  console.log(`[CUBE] Init com dimensões: ${W}x${H}`);
+
+  try {
+    const renderer = new THREE.WebGLRenderer({ 
+      canvas: canvas, 
+      antialias: true, 
+      alpha: false,
+      precision: 'highp',
+      powerPreference: 'high-performance'
+    });
+    
+    renderer.setSize(W, H, false);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setClearColor(0x07090f, 1);
+
+    const scene  = new THREE.Scene();
+    scene.background = new THREE.Color(0x07090f);
+    
+    const camera = new THREE.PerspectiveCamera(42, W / H, 0.1, 100);
+    camera.position.set(2.4, 1.7, 2.9);
+    camera.lookAt(0, 0, 0);
+
+    // Grid no chão
+    const grid = new THREE.GridHelper(5, 10, 0x1b2035, 0x111526);
+    grid.position.y = -0.85;
+    scene.add(grid);
+
+    // Luzes
+    scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+    const dL1 = new THREE.DirectionalLight(0x22d3ee, 1.1);
+    dL1.position.set(3, 5, 3);
+    scene.add(dL1);
+    const dL2 = new THREE.DirectionalLight(0xa855f7, 0.45);
+    dL2.position.set(-3, -2, -3);
+    scene.add(dL2);
+
+    // Corpo do robô — caixa achatada
+    const bodyGeo = new THREE.BoxGeometry(1.1, 0.45, 1.1);
+    const faceMats = [
+      new THREE.MeshPhongMaterial({ color: 0x1d3a6e, emissive: 0x0a1e3a, emissiveIntensity: 0.5 }),
+      new THREE.MeshPhongMaterial({ color: 0x1d3a6e, emissive: 0x0a1e3a, emissiveIntensity: 0.5 }),
+      new THREE.MeshPhongMaterial({ color: 0x0d3320, emissive: 0x072210, emissiveIntensity: 0.6 }),
+      new THREE.MeshPhongMaterial({ color: 0x080b14 }),
+      new THREE.MeshPhongMaterial({ color: 0x2a1d5e, emissive: 0x150f30, emissiveIntensity: 0.4 }),
+      new THREE.MeshPhongMaterial({ color: 0x111526 }),
+    ];
+    const body = new THREE.Mesh(bodyGeo, faceMats);
+    scene.add(body);
+
+    // Wireframe cyan
+    const wireGeo = new THREE.EdgesGeometry(bodyGeo);
+    const wireMat = new THREE.LineBasicMaterial({ color: 0x22d3ee, linewidth: 1 });
+    body.add(new THREE.LineSegments(wireGeo, wireMat));
+
+    // 3 rodas omni
+    const wheelMat = new THREE.MeshPhongMaterial({ color: 0x2a3050, emissive: 0x111526 });
+    const wheelGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.07, 16);
+    const wheelAngles = [0, Math.PI * 2 / 3, Math.PI * 4 / 3];
+    const wheelRadius = 0.62;
+    
+    wheelAngles.forEach(a => {
+      const w = new THREE.Mesh(wheelGeo, wheelMat);
+      w.rotation.z = Math.PI / 2;
+      w.position.set(
+        Math.cos(a) * wheelRadius,
+        -0.26,
+        Math.sin(a) * wheelRadius
+      );
+      w.rotation.x = a;
+      
+      const ringGeo = new THREE.TorusGeometry(0.18, 0.015, 8, 24);
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.rotation.y = Math.PI / 2;
+      w.add(ring);
+      body.add(w);
+    });
+
+    // Seta frontal
+    const arrow = new THREE.ArrowHelper(
+      new THREE.Vector3(0, 0, 1),
+      new THREE.Vector3(0, 0.3, 0),
+      0.75, 0x22c55e, 0.22, 0.12
+    );
+    body.add(arrow);
+
+    // Eixos globais
+    const axHelper = new THREE.AxesHelper(1.4);
+    scene.add(axHelper);
+
+    // Estado
+    let rollDeg  = 0;
+    let pitchDeg = 0;
+    let yawDeg   = 0;
+    let simActive = false;
+    let simT      = 0;
+
+    function deg2rad(d) { return d * Math.PI / 180; }
+
+    function applyPose() {
+      body.rotation.set(
+        deg2rad(pitchDeg),
+        deg2rad(yawDeg),
+        deg2rad(rollDeg),
+        'YXZ'
+      );
+      const fmt = v => (v >= 0 ? '+' : '') + v.toFixed(1) + '°';
+      document.getElementById('cube-r').textContent = fmt(rollDeg);
+      document.getElementById('cube-p').textContent = fmt(pitchDeg);
+      document.getElementById('cube-y').textContent = fmt(yawDeg);
+    }
+
+    // Poll do backend
+    function pollGyro() {
+      if (simActive) return;
+      fetch('/api/estado')
+        .then(r => r.json())
+        .then(d => {
+          rollDeg  = parseFloat(d.gyro_roll  || 0);
+          pitchDeg = parseFloat(d.gyro_pitch || 0);
+          yawDeg   = parseFloat(d.gyro_yaw   || 0);
+          applyPose();
+        })
+        .catch(e => console.warn('[CUBE] Fetch erro:', e));
+    }
+    setInterval(pollGyro, 400);
+
+    // Controles expostos
+    window.cubeToggleSim = function() {
+      simActive = !simActive;
+      const btn = document.getElementById('cube-sim-btn');
+      btn.textContent  = simActive ? '⏹ PARAR' : '▶ SIM';
+      btn.className    = simActive
+        ? 'ctrl-btn ctrl-btn-cyan active'
+        : 'ctrl-btn ctrl-btn-cyan';
+      document.getElementById('cube-mode-badge').textContent = simActive ? 'SIM' : 'LIVE';
+      if (!simActive) {
+        simT = 0;
+        rollDeg = pitchDeg = yawDeg = 0;
         applyPose();
-      })
-      .catch(() => {});
-  }
-  setInterval(pollGyro, 400);
+      }
+    };
 
-  // Controles expostos globalmente
-  window.cubeToggleSim = function() {
-    simActive = !simActive;
-    const btn = document.getElementById('cube-sim-btn');
-    btn.textContent  = simActive ? '⏹ PARAR' : '▶ SIM';
-    btn.className    = simActive
-      ? 'ctrl-btn ctrl-btn-cyan active'
-      : 'ctrl-btn ctrl-btn-cyan';
-    document.getElementById('cube-mode-badge').textContent = simActive ? 'SIM' : 'LIVE';
-    if (!simActive) {
+    window.cubeReset = function() {
+      simActive = false;
       simT = 0;
       rollDeg = pitchDeg = yawDeg = 0;
       applyPose();
+      const btn = document.getElementById('cube-sim-btn');
+      btn.textContent = '▶ SIM';
+      btn.className   = 'ctrl-btn ctrl-btn-cyan';
+      document.getElementById('cube-mode-badge').textContent = 'LIVE';
+    };
+
+    // Render loop
+    let lastTs = 0;
+    let camAngle = 0;
+
+    function animate(ts) {
+      requestAnimationFrame(animate);
+      const dt = Math.min((ts - lastTs) / 1000, 0.1);
+      lastTs = ts;
+
+      if (simActive) {
+        const spd = parseFloat(document.getElementById('cube-speed').value);
+        simT += dt * spd;
+        rollDeg  = Math.sin(simT * 0.7)  * 38;
+        pitchDeg = Math.sin(simT * 0.5)  * 28;
+        yawDeg   = (simT * 28) % 360;
+        applyPose();
+      }
+
+      // Câmera orbita
+      camAngle += dt * 0.08;
+      camera.position.x = 3.0 * Math.cos(camAngle);
+      camera.position.z = 3.0 * Math.sin(camAngle);
+      camera.position.y = 1.7;
+      camera.lookAt(0, 0, 0);
+
+      renderer.render(scene, camera);
     }
-  };
-
-  window.cubeReset = function() {
-    simActive = false;
-    simT = 0;
-    rollDeg = pitchDeg = yawDeg = 0;
-    applyPose();
-    const btn = document.getElementById('cube-sim-btn');
-    btn.textContent = '▶ SIM';
-    btn.className   = 'ctrl-btn ctrl-btn-cyan';
-    document.getElementById('cube-mode-badge').textContent = 'LIVE';
-  };
-
-  // Render loop
-  let lastTs = 0;
-  // Órbita suave da câmera
-  let camAngle = 0;
-
-  function animate(ts) {
     requestAnimationFrame(animate);
-    const dt = Math.min((ts - lastTs) / 1000, 0.1);
-    lastTs = ts;
 
-    if (simActive) {
-      const spd = parseFloat(document.getElementById('cube-speed').value);
-      simT += dt * spd;
-      rollDeg  = Math.sin(simT * 0.7)  * 38;
-      pitchDeg = Math.sin(simT * 0.5)  * 28;
-      yawDeg   = (simT * 28) % 360;
-      applyPose();
-    }
+    // Resize observer
+    const ro = new ResizeObserver(() => {
+      const nw = wrap.offsetWidth;
+      const nh = wrap.offsetHeight;
+      if (nw < 10 || nh < 10) return;
+      
+      console.log(`[CUBE] Resize: ${nw}x${nh}`);
+      renderer.setSize(nw, nh, false);
+      camera.aspect = nw / nh;
+      camera.updateProjectionMatrix();
+    });
+    ro.observe(wrap);
 
-    // Câmera orbita lentamente
-    camAngle += dt * 0.08;
-    camera.position.x = 3.0 * Math.cos(camAngle);
-    camera.position.z = 3.0 * Math.sin(camAngle);
-    camera.position.y = 1.7;
-    camera.lookAt(0, 0, 0);
-
-    renderer.render(scene, camera);
+    console.log('[CUBE] Inicializado com sucesso!');
+  } catch (err) {
+    console.error('[CUBE] Erro durante init:', err);
   }
-  requestAnimationFrame(animate);
+}
 
-  // Resize
-  const ro = new ResizeObserver(() => {
-    const nw = wrap.clientWidth;
-    if (nw < 10) return;
-    renderer.setSize(nw, H);
-    camera.aspect = nw / H;
-    camera.updateProjectionMatrix();
+// Timing de inicialização ROBUSTO
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log('[CUBE] DOMContentLoaded - iniciando...');
+    setTimeout(initCube, 200);
   });
-  ro.observe(wrap);
+} else {
+  console.log('[CUBE] DOM já carregado - iniciando...');
+  setTimeout(initCube, 200);
+}
 
-})();
+// Fallback se nada funcionou
+setTimeout(() => {
+  if (!cubeInitialized) {
+    console.log('[CUBE] Fallback timeout acionado');
+    initCube();
+  }
+}, 1000);
 </script>
 
 <!-- ══════════════════════════════════════════════════════════════
@@ -909,7 +969,6 @@ let modoAtual = '';
 function atualizarUI(d) {
   const modo = d.modo || 'bolas';
 
-  // Modo
   if (modo !== modoAtual) {
     modoAtual = modo;
     ALL_MODOS.forEach(m => {
@@ -933,13 +992,11 @@ function atualizarUI(d) {
       modoAtual === 'obstaculo' ? 'obst-section visible' : 'obst-section';
   }
 
-  // NPU
   const nb = document.getElementById('npu-badge');
   nb.textContent = d.npu_ativo ? 'NPU ON' : 'CPU';
   nb.className   = 'npu-badge ' + (d.npu_ativo ? 'npu-on' : 'npu-off');
   document.getElementById('s-modelo').textContent = d.npu_modelo || '—';
 
-  // Giroscópio
   const fmt = v => (v >= 0 ? '+' : '') + parseFloat(v).toFixed(1) + '°';
   const bar = v => Math.min(100, (Math.abs(v) / 180) * 100 + 50);
   const rv = parseFloat(d.gyro_roll  || 0);
@@ -955,7 +1012,6 @@ function atualizarUI(d) {
   document.getElementById('mini-pitch').textContent = fmt(pv);
   document.getElementById('mini-yaw').textContent   = fmt(yv);
 
-  // FPS
   const fps = parseFloat(d.fps_imx500 || 0).toFixed(1);
   document.getElementById('fps0').textContent             = fps;
   document.getElementById('fps0b').textContent            = fps;
@@ -963,7 +1019,6 @@ function atualizarUI(d) {
   document.getElementById('cam500-fps-badge').textContent = fps + ' fps';
   document.getElementById('mini-fps').textContent         = fps;
 
-  // Obstáculo
   const pct    = parseFloat(d.obst_pct || 0);
   const estado = d.obstaculo || 'idle';
   document.getElementById('hud-obst').textContent     = modoAtual === 'obstaculo' ? 'OBST: ' + estado : '';
@@ -975,7 +1030,6 @@ function atualizarUI(d) {
   bigTxt.className   = 'obst-status-txt ' + ocls;
   bigTxt.textContent = olbl;
 
-  // Linha GAP badge
   let gapAtivo = false;
   if (modoAtual === 'linha_gap' && d.log && d.log.length) {
     const lastLinha = [...d.log].reverse().find(l => l.msg.startsWith('Linha:'));
@@ -989,7 +1043,6 @@ function atualizarUI(d) {
   }
   document.getElementById('gap-badge').className = 'gap-badge' + (gapAtivo ? ' visible' : '');
 
-  // Log
   if (d.log && d.log.length) {
     const CLS = { ok:'log-ok', warn:'log-warn', info:'log-info' };
     const lw = document.getElementById('log-wrap');
@@ -1004,10 +1057,8 @@ function atualizarUI(d) {
       lastVerif.msg.replace('Verificação: ', '');
   }
 
-  // Estado geral
   document.getElementById('s-bumper').textContent = d.bumper || 'livre';
 
-  // Uptime
   const up = d.uptime || 0;
   const hh = String(Math.floor(up / 3600)).padStart(2, '0');
   const mm = String(Math.floor((up % 3600) / 60)).padStart(2, '0');

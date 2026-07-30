@@ -22,6 +22,7 @@ from talkingserial import TalkingSerial as ts
 ev3= EV3Brick()
 sensor1 = LUMPDevice(Port.S1)
 multiplex1 = LUMPDevice(Port.S2)
+Gyroangle = GyroSensor(Port.S3)
 motorB = Motor(Port.B,gears=[12,25],positive_direction=Direction.COUNTERCLOCKWISE)
 motorC = Motor(Port.D,gears=[12,25],positive_direction=Direction.COUNTERCLOCKWISE)
 ser = UARTDevice(Port.S6, baudrate=115200, timeout=0.1)
@@ -30,10 +31,10 @@ serialservo = UARTDevice(Port.S5, baudrate=115200, timeout=0.1)
 servosMove= Servos(serialservo,True)
 
 # VARIAVEIS / IMPORT
-kp_atual = 2.0
-kd_atual = 0.01
-ki_atual = 0.01
-base_atual = 120
+kp_atual = 1.97
+kd_atual = 0.55
+ki_atual = 0.001
+base_atual = 110
 error = 0
 powerB = 0
 powerC = 0
@@ -44,10 +45,11 @@ pretodir = 0
 integral = 0
 derivative = 0
 PESO_MEIO = 1.0
-PESO_FORA = 2.275
+PESO_FORA = 2.0
 parado=0
 resgate_uma_vez = 1
 botao_STOPING = 0
+triangulo = 0
 
 #----> drivebase <----
 tanki = DriveBase(motorB, motorC, wheel_diameter= 55.5 , axle_track=104.0) #isso funciona para movimentos do robô, alguns, mas é melhor usar o motorB e C dc
@@ -72,6 +74,7 @@ gap = Gapwhite(tanki, motorB, motorC, sensor1, ev3)
 gyro_rasp_z = 0.0 
 gyro_rasp_y = 0.0
 previsao_camera = None # Memória da câmara para o verde
+ts.enviar("reset_mpu0")
 # --->Variáveis de controle do obstáculo pela câmera<---
 obstaculo_camera_pendente = False        # câmera avisou que viu obstáculo
 obstaculo_camera_aguardando_linha = False  # esperando câmera dizer os lados
@@ -112,6 +115,7 @@ def atualiza_sensor1():
     global V1, V2, V3
     global posicao
     global C1, C2, C3
+    global triangulo
     # ==========================================
     # 1.0 LEITURA DO SENSOR DE COR
     # ==========================================
@@ -188,6 +192,7 @@ def sensor():
     global resgate_uma_vez
     global gyro_rasp_z 
     global gyro_rasp_y
+    global Gyroangle
     global previsao_camera
     global pretodir
     global pretoesq
@@ -219,11 +224,13 @@ def sensor():
     buffer_serial = ""
     
     while True:
+        
         # ==========================================
         # 0.0 Ligar tela-desafio surpresa/Enviar msg rasp
         # ==========================================
         
         ts.set_modo("nadapross") 
+
         #ser.write(b'nadapross\r\n') 
         #ser.write(b'OFF\r\n')
         # ==========================================
@@ -249,6 +256,7 @@ def sensor():
         # gyro vem direto dos atributoss
         gyro_rasp_y = ts.pitch  # pitch (rampa)
         gyro_rasp_z = ts.yaw  # yaw
+        Afagem = Gyroangle.angle() # pitch negativo pra cima
 
         # eventos do ciclo
         if ev["obstaculo_pendente"]:
@@ -272,19 +280,20 @@ def sensor():
         # 2. VERIFICAÇÃO DE INCLINAÇÃO
         # gyro_rasp_y já está atualizado pelo módulo 1.2
         # ==========================================
-        print("RAW pitch:", ts.gyro_y, "| raw yaw:", ts.gyro_z)
-        if gyro_rasp_y > 22:
+        #print("RAW pitch:", ts.gyro_y, "| raw yaw:", ts.gyro_z)
+        if Afagem < -15: #pra cima
             ev3.speaker.beep(100)
             print("subindo")
-            kp_atual, kd_atual, base_atual = 1.2, 0.5, 180   # subindo
-            tanki.turn(-40)
-            tanki.stop()
-            wait(100)
-            tanki.stop()
+            kp_atual, kd_atual, base_atual = 5.0, 0.7, 990   # subindo
             servosMove.desativa(1) # Angular
             servosMove.desativa(2) # Pinça esquerda
             servosMove.desativa(3) # Pinça direita
             servosMove.desativa(4) # Caçamba
+            #servosMove.move(1, 160)  # posição fechada servo angulo garra
+            # tanki.turn(-20)
+            tanki.stop()
+            wait(100)
+            tanki.stop()
             while True:
                 # ==========================================
                 # 1.0 LEITURA DO SENSOR DE COR
@@ -302,24 +311,27 @@ def sensor():
                 # gyro vem direto dos atributoss
                 gyro_rasp_y = ts.pitch  # pitch (rampa)
                 gyro_rasp_z = ts.yaw  # yaw
+                Afagem = Gyroangle.angle() # pitch negativo pra cima
+
 
                 #verificar angulo
-                if gyro_rasp_y <= 2: #desceu
+                if Afagem >= 0: #desceu
+                    print("DESCEUUUUUUUUUUUUUUUUUu")
                     tanki.stop()
-                    ev3.speaker.beep(500,100)
+                    ev3.speaker.beep(500,80)
                     break
-                elif gyro_rasp_y >= 2:
+                elif Afagem <= -1:
                     motores.PID(fora1,meio1,meio2,fora2,kp_atual,kd_atual,ki_atual,base_atual)
-                    #servosMove.move(1, 0)  # posição fechada servo angulo garra
+                    #servosMove.move(1, 0)  # posição fechada servo angulo garra   
             tanki.stop()
             #wait(100000)
-        elif gyro_rasp_y < -10:
+        elif gyro_rasp_y > 15: 
             ev3.speaker.beep(1000)
             print("descendo")
             kp_atual, kd_atual, base_atual = 2.0, 0.1, 100   # descendo
         else:
             print("plano")
-            kp_atual, ki_atual, kd_atual, base_atual = 2.0, 0.01, 0.5, 110   # plano
+            kp_atual, ki_atual, kd_atual, base_atual = 1.97, 0.001, 0.45, 100   # plano
         # ==========================================
         # 3. VERIFICAÇÃO SE O ROBÔ ESTÁ PARADO
         # ==========================================
@@ -359,6 +371,7 @@ def sensor():
         # ==========================================
         # 5. SILVER TAPE
         # ==========================================
+        triangulo = 0
         clear = 70
         rgb=85
         esqgray = R1 > rgb and G1 > rgb and B1 > rgb and C1 > clear 
@@ -371,7 +384,7 @@ def sensor():
         dirgray1 = B2 > blue and B2 < 70 and C2> 21 and C2 < 30 and clordir == 6
         y=1
         # ^^^^^^se essa variavel ficar 0 ela vai fazer com que o robo ignore o seguidor e va direto pro resgate
-        if esqgray1 or mindgray1 or dirgray1 or y==0 and resgate_uma_vez == 0:
+        if (esqgray1 or mindgray1 or dirgray1 or y==0 and resgate_uma_vez == 0) and triangulo == 999:
             print("prata")
             wait(10)
             if esqgray1 and mindgray1 and dirgray1 or y==0:
@@ -391,15 +404,22 @@ def sensor():
                 # Pegar vítimas vivas (Silver Ball) — 2 no total
                 resultado_vivas = silver.clawLife()
                 print("Resultado clawLife:", resultado_vivas)
-                if resultado_vivas == "sairdoRESGATE":
+                if resultado_vivas == "sairdoRESGATE" :
                     silver.exit(esqgray1, mindgray1, dirgray1)
+                    continue
+                elif resultado_vivas == "Triangulo_verde":
+                    triangulo = 1
+                    silver.triangulo("Triangulo_verde")
                     continue
 
                 # Pegar vítima morta (Black Ball) — 1 no total
-                resultado_mortas = silver.clawDead()
+                if triangulo == 0 : resultado_mortas = silver.clawDead()
                 print("Resultado clawDead:", resultado_mortas)
                 if resultado_mortas == "sairdoRESGATE":
                     silver.exit(esqgray1, mindgray1, dirgray1)
+                    continue
+                elif resultado_mortas == "Triangulo_vermelho":
+                    silver.triangulo("Triangulo_vermelho")
                     continue
  
                 # Verificação dos dados de vítimas
@@ -409,8 +429,12 @@ def sensor():
                       "| Silver:", silver.vitimaSILVER)
  
                 # Entregar nos triângulos (se pegou todas)
-                if resultado_mortas["sairdoRESGATE"] == 0:
-                    silver.triangulo()
+                if resultado_mortas["sairdoRESGATE"] == 0 and triangulo == 0:
+                    silver.triangulo("todos")
+                elif resultado_mortas["Triangulo_verde"]:
+                    silver.triangulo("Triangulo_verde")
+                elif resultado_mortas["Triangulo_vermelho"]:
+                    silver.triangulo("Triangulo_vermelho")
  
                 # Sair do resgate
                 silver.exit(esqgray1, mindgray1, dirgray1)
@@ -595,10 +619,10 @@ def sensor():
         # 7. SEEING BLACK AT THE EDGE SENSORS
         # ==========================================
         if fora1 <= 10  :
-            pretoesq = 70
+            pretoesq = 100
             pretodir = 0
         if fora2 <= 10 :
-            pretodir = 70
+            pretodir = 100
             pretoesq = 0
         else:
              if pretoesq > 0:
@@ -614,7 +638,7 @@ def sensor():
         pretoesq, pretodir)
         # ==========================================
         # 9. ALL SENSORS DETECTED WHITE
-        # ==========================================
+        #==========================================
         if fora1 > 80 and meio1 > 80 and meio2 > 80 and fora2 > 80 and clordir == 1 and cloresq == 1 and clormind == 1:
             ev3.speaker.beep(100)
             print("vendo alguma curva preta ou  gap")
@@ -637,6 +661,7 @@ def sensor():
             print("parado")
             motorB.stop()
             motorC.stop()
+            # ts.enviar("reset_mpu0")
             wait(500)
             while True:
                 contD = 0
@@ -770,13 +795,45 @@ def seguidores():
         fora2 = retorno[0] # direita  
 
         motores.PID(fora1,meio1,meio2,fora2,kp_atual,kd_atual,ki_atual,base_atual)
+
+def Angulo():
+    global Gyroangle
+    while True:
+        Afagem = Gyroangle.angle()
+        print("Afagem: ", Afagem)
+        # wait(100)
+
+def calibração():
+    print("Pronto para a calibração!!")
+    ev3.speaker.beep(500, 1000)
+    wait(100)
+    ev3.speaker.beep(1000)
+    while True:
+        # ==========================================
+        # 1.1 LEITURA DO SENSOR MULTIPLEX
+        # ==========================================
+        atualiza_multiplex1()
+        if atualiza_multiplex1() == -1:
+            print("problema em algum ultrassônico, verifique a conexão")
+        retorno1= multiplex1.read(0)
+        ChoqueESQ = retorno1[4]
+        ChoqueDIR = retorno1[7]
+        botao_stop  = retorno1[6]
+        botao_parar = retorno1[5]
+        if botao_stop == 1:
+            wait(100)
+            calibraBranco()
+        if botao_parar == 1:
+            wait(100)
+            calibraPreto()
+        wait(100)
 # ==========================================
 # MESA DE CALIBRAR
 # ==========================================
 # Primeiro calibrar o branco e depois o preto
-#calibraBranco()
-#calibraPreto()
+#calibração()
 sensor()
+#Angulo()
 #teste_Linha()
 #serial()
 #servis()

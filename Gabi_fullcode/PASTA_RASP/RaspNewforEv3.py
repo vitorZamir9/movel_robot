@@ -4,8 +4,6 @@ import serial
 import os
 import numpy as np
 import math
-import threading
-import queue
 import dashboard_server as dash
 
 # ── env anti-travamento ──────────────────────────────────────────
@@ -53,7 +51,9 @@ PWR_MGMT_1 = 0x6B
 ACCEL_XOUT = 0x3B
 ACCEL_YOUT = 0x3D
 ACCEL_ZOUT = 0x3F
-GYRO_ZOUT  = 0x47
+GYRO_XOUT  = 0x43  # Registrador do Giroscópio X (usado para Roll / Pitch)
+GYRO_YOUT  = 0x45  # Registrador do Giroscópio Y (alternativa para Pitch)
+GYRO_ZOUT  = 0x47  # Registrador do Giroscópio Z (Yaw)
 
 try:
     bus = smbus2.SMBus(1)
@@ -108,7 +108,7 @@ SILVER_MIN_WIDTH_RATIO  = 0.25
 RESGATE_BLACK_MIN_AREA  = 2000
 
 # ── Bolas (CPU) ──────────────────────────────────────────────────
-BALL_CONF_MIN     = 0.55
+BALL_CONF_MIN     = 0.80
 BALL_AREA_MIN     = 100
 BALL_AREA_MAX     = 30000
 BALL_PROP_MIN     = 0.35
@@ -338,7 +338,7 @@ def monitorar_fitas_resgate(frame_bgr):
 # ══════════════════════════════════════════════════════════════════
 
 def _parse_cpu_detections(frame_bgr, frame_w, frame_h):
-    """Parse com debug detalhado de cada rejeição."""
+    """Parse com debug detalhado de cada detecção."""
     dets = []
     if yolo_ball_cpu is None:
         return dets
@@ -369,35 +369,18 @@ def _parse_cpu_detections(frame_bgr, frame_w, frame_h):
     return dets
 
 # ══════════════════════════════════════════════════════════════════
-#  THREAD DE INFERÊNCIA YOLO
+#  INFERÊNCIA YOLO — DIRETO NO LOOP PRINCIPAL (SEM THREAD)
 # ══════════════════════════════════════════════════════════════════
-_fila_frames    = queue.Queue(maxsize=1)
-_fila_resultado = queue.Queue(maxsize=1)
-
-def _worker_yolo():
-    while True:
-        try:
-            frame = _fila_frames.get(timeout=1.0)
-        except queue.Empty:
-            continue
-        try:
-            dets = _parse_cpu_detections(frame, frame.shape[1], frame.shape[0])
-            try:
-                _fila_resultado.get_nowait()
-            except queue.Empty:
-                pass
-            _fila_resultado.put((dets, dets))
-        except Exception as e:
-            print(f"[YOLO WORKER] {e}")
-
-_thread_yolo = threading.Thread(target=_worker_yolo, daemon=True)
-_thread_yolo.start()
-print("[+] Thread YOLO iniciada ✓")
+# Removido: filas (_fila_frames, _fila_resultado) e _worker_yolo()
+# Inferência acontece inline no loop, "na raça"
+print("[+] YOLO CPU pronto para inferência inline ✓")
 
 # ══════════════════════════════════════════════════════════════════
 #  CALIBRAÇÃO MPU6050
 # ══════════════════════════════════════════════════════════════════
 offset_roll        = 0.0
+offset_pitch       = 0.0
+offset_yaw         = 0.0
 guinada_yaw        = 0.0
 rotacao_roll       = 0.0
 arfagem_pitch      = 0.0
@@ -405,16 +388,23 @@ tempo_anterior_mpu = time.time()
 tempo_ultimo_print = time.time()
 
 if mpu_ativo:
-    print("[*] Calibrando MPU6050...")
-    soma = 0.0
-    for _ in range(50):
-        ay = ler_mpu(ACCEL_YOUT) / 16384.0
-        az = ler_mpu(ACCEL_ZOUT) / 16384.0
-        soma += math.degrees(math.atan2(ay, az))
-        time.sleep(0.02)
-    offset_roll = soma / 50.0
-    print(f"[+] Offset Roll: {offset_roll:.2f}°")
-
+    print("[*] Calibrando MPU6050 (Mantenha o robo parado)...")
+    soma_gx = 0.0
+    soma_gy = 0.0
+    soma_gz = 0.0
+    
+    amostras = 100
+    for _ in range(amostras):
+        soma_gx += ler_mpu(GYRO_XOUT) / 131.0
+        soma_gy += ler_mpu(GYRO_YOUT) / 131.0
+        soma_gz += ler_mpu(GYRO_ZOUT) / 131.0
+        time.sleep(0.01)
+        
+    offset_roll = soma_gx / amostras
+    offset_pitch = soma_gy / amostras
+    offset_yaw = soma_gz / amostras
+    
+    print(f"[+] Offset Roll (X): {offset_roll:.2f} | Pitch (Y): {offset_pitch:.2f} | Yaw (Z): {offset_yaw:.2f}")
 # ══════════════════════════════════════════════════════════════════
 #  MODO LINHA_GAP — CONFIGURAÇÕES DO ROI CIRCULAR
 # ══════════════════════════════════════════════════════════════════
@@ -653,16 +643,26 @@ try:
             now_mpu = time.time()
             dt_mpu  = now_mpu - tempo_anterior_mpu
             tempo_anterior_mpu = now_mpu
-            ax = ler_mpu(ACCEL_XOUT) / 16384.0
-            ay = ler_mpu(ACCEL_YOUT) / 16384.0
-            az = ler_mpu(ACCEL_ZOUT) / 16384.0
-            arfagem_pitch = -math.degrees(math.atan2(-ax, math.sqrt(ay**2 + az**2)))
-            rotacao_roll  =  math.degrees(math.atan2(ay, az)) - offset_roll
-            gz = ler_mpu(GYRO_ZOUT) / 131.0
-            if abs(gz) > 1.0: guinada_yaw += gz * dt_mpu
+            
+            # Leitura dos giroscópios subtraindo os offsets de calibração
+            gx = (ler_mpu(GYRO_XOUT) / 131.0) - offset_roll
+            gy = (ler_mpu(GYRO_YOUT) / 131.0) - offset_pitch
+            gz = (ler_mpu(GYRO_ZOUT) / 131.0) - offset_yaw
+            
+            # Acumulação idêntica à da guinada para os três eixos (com deadzone de 0.5°)
+            if abs(gx) > 0.5: 
+                rotacao_roll  += gx * dt_mpu
+            if abs(gy) > 0.5: 
+                arfagem_pitch += gy * dt_mpu
+            if abs(gz) > 0.5: 
+                guinada_yaw   += gz * dt_mpu
+
+            # Envios via Serial
             if ser: ser.write(f"MPU_Z:{guinada_yaw:.1f}\n".encode())
             if ser: ser.write(f"MPU_Y:{arfagem_pitch:.1f}\n".encode())
             if ser: ser.write(f"MPU_X:{rotacao_roll:.1f}\n".encode())
+            
+            # Atualização do Dashboard
             dash.atualizar_estado(
                 gyro_roll=round(rotacao_roll, 1),
                 gyro_pitch=round(arfagem_pitch, 1),
@@ -701,7 +701,7 @@ try:
                 ultimo_aviso_obstaculo = time.time()
                 dash.atualizar_estado(obstaculo=estado_obstaculo,
                                       log={"msg": "EV3 negou obstáculo.", "tipo": "info"})
-            elif "reset_mpu0" in cmd.lower():
+            elif "reset_mpu0" in cmd:
                 guinada_yaw = 0.0
                 offset_roll = 0.0
                 rotacao_roll = 0.0
@@ -730,24 +730,13 @@ try:
             continue
 
         # ══════════════════════════════════════════════════════
-        # MODO BOLAS — YOLO assíncrono via thread
+        # MODO BOLAS — YOLO DIRETO NO LOOP (SEM THREAD, SEM FILTRO DUPLO)
         # ══════════════════════════════════════════════════════
         if modo_atual == "bolas":
-            try:
-                _fila_frames.get_nowait()
-            except queue.Empty:
-                pass
-            try:
-                _fila_frames.put_nowait(frame.copy())
-            except queue.Full:
-                pass
+            # Inferência YOLO inline, na raça
+            dets = _parse_cpu_detections(frame, w_f, h_f)
 
-            dets   = []
-            try:
-                dets, _ = _fila_resultado.get_nowait()
-            except queue.Empty:
-                pass
-
+            # Debug draw (opcional)
             if BALL_DEBUG and dets:
                 for d in dets:
                     cv2.rectangle(hud, (d["x1"],d["y1"]), (d["x2"],d["y2"]), (80,80,80), 1)
@@ -755,6 +744,7 @@ try:
                                 (d["x1"], max(d["y1"]-3, 8)),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.28, (200,200,0), 1)
 
+            # Processa detecções — SEM FILTRO DUPLO DE CONFIANÇA
             for d in dets:
                 larg  = d["x2"] - d["x1"]
                 alt   = d["y2"] - d["y1"]
@@ -766,12 +756,14 @@ try:
                         else "meio")
                 cls   = d["cls_name"]
                 cor_b = (180,180,180) if "silver" in cls.lower() else (40,40,40)
+                
                 cv2.rectangle(hud, (d["x1"],d["y1"]),
                                 (d["x2"],d["y2"]), cor_b, 2)
                 cv2.circle(hud, (cx, cy), 5, (255,255,255), -1)
                 cv2.putText(hud, f"{cls} {side} {d['conf']:.2f}",
                             (d["x1"], max(d["y1"]-6,10)),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.38, cor_b, 1)
+                
                 agora = time.time()
                 if (side != last_detection["side"] or (agora - last_detection["time"]) > 0.3):
                     msg_serial = f"Detected: {cls}\nArea: {area}px\nLado: {side}\n"

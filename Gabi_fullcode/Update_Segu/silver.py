@@ -12,11 +12,12 @@
 from pybricks.tools import wait
 from talkingserial import TalkingSerial
 
+
 # ── Constantes de ajuste (mude aqui sem tocar na lógica) ─────────────────────
 GARRA_ULTRA_MIN   = 10    # ultrad3 mínimo para considerar vítima na garra
 GARRA_ULTRA_MAX   = 40   # ultrad3 máximo para considerar vítima na garra
 GARRA_CONFIRM_SUM = 100   # somatório de ticks até confirmar posse
-ENTER_TIMEOUT_MS  = 50000  # timeout para detectar lado na entrada (ms)
+ENTER_TIMEOUT_MS  = 5000  # timeout para detectar lado na entrada (ms)
 
 TURN_TRIANGULO_VERDE    = -240   # graus tanki.turn() para depositar no verde
 TURN_TRIANGULO_VERMELHO = -240   # graus tanki.turn() para depositar no vermelho
@@ -33,7 +34,7 @@ class Silver:
         self.ser        = ser
         self.servosMove = servosP
 
-        self.talk = TalkingSerial(ser, True)
+        self.talk = TalkingSerial(ser, False)
 
         # Contadores de vítimas (persistem entre chamadas)
         self.vitimas      = 0
@@ -226,21 +227,21 @@ class Silver:
             self._ler_ultras()
             print(self.ultra4, self.ultra2)
 
-            if self.ultra4 <= 120 and self.ultra2 >= 120:
+            if self.ultra4 <= 100 and self.ultra2 >= 100:
                 self.tanki.stop()
                 print("parede esquerda")
                 entradaR = "parede esquerda"
                 self.tanki.straight(10)
                 self.tanki.stop()
                 break
-            elif self.ultra4 >= 120 and self.ultra2 <= 120:
+            elif self.ultra4 >= 100 and self.ultra2 <= 100:
                 self.tanki.stop()
                 print("parede direita")
                 entradaR = "parede direita"
                 self.tanki.straight(-10)
                 self.tanki.stop()
                 break
-            elif self.ultra4 > 150 and self.ultra2 > 150:
+            elif self.ultra4 > 125 and self.ultra2 > 125:
                 self.tanki.stop()
                 print("parede meeeio")
                 entradaR = "parede meeeio"
@@ -304,11 +305,15 @@ class Silver:
                     self.ev3.speaker.beep(800)
                     return True
                 elif lado == "esquerda" and tipo == vendoVITIMA:
-                    self.tanki.straight(-10)
-                    self.tanki.stop()
+                    # self.tanki.straight(-10)
+                    # self.tanki.stop()
+                    self.motorB.dc(-70)
+                    self.motorC.dc(-70)
                 elif lado == "direita" and tipo == vendoVITIMA:
-                    self.tanki.straight(10)
-                    self.tanki.stop()
+                    # self.tanki.straight(10)
+                    # self.tanki.stop()
+                    self.motorB.dc(70)
+                    self.motorC.dc(70)
                 elif area < 2500 and tipo == vendoVITIMA and lado == "meio":
                     print("Vítima detectada, mas fora da área de captura")
                     self.tanki.turn(30)
@@ -323,9 +328,15 @@ class Silver:
                 if self.tanki.state()[3] > 60:
                     parado = 0
                 if parado > 20:
-                    print("não está conseguindo ver vítima")
+                    print("não está conseguindo ver vítima", vendoVITIMA,lapooo)
                     #self.motorB.dc(-50)
                     #self.motorC.dc(50)
+                    if lapooo == "esquerda" :
+                        self.motorB.dc(-60)  
+                        self.motorC.dc(-60)
+                    if lapooo == "direita":
+                        self.motorB.dc(60)
+                        self.motorC.dc(60)
                 wait(200)
                 if lapooo == "esquerda":
                     self.motorB.reset_angle(0)
@@ -450,7 +461,7 @@ class Silver:
                     lado = frame["lado"]
                     area = frame["area"]
                     print("[cam-avanco] lado:", lado, "area:", area)
-                    if lado == "meio" and area >= 4000:
+                    if lado == "meio" and area >= 7500:
                         cam_confirmou = True
                         self.tanki.stop()
                         print("[cam-avanco] vítima na área — parando para fechar garra")
@@ -505,25 +516,23 @@ class Silver:
             confianca = None
             lado1 = None
             area1 = None
+            elapsed   = 0
             wait(100) 
+
             while True:
                 frame1 = self.talk.ler_frame()
-                if not frame1:
-                    print("não vendo nada na serial")
-                    sem_vitimasVISAO = True
-                    break
-
-                if frame1:
+                
+                if frame1 and frame1.get("tipo") == "bola" :
                     detected  = frame1.get("detected", "")
                     confianca = frame1.get("confianca", 0)
                     lado1     = frame1.get("lado", "")
                     area1     = frame1.get("area", 0)
                     print("Validação garra em baixo:", detected, confianca, lado1, area1)
                    
-                    if "" in detected or "" in confianca or "" in lado1 or "" in area1:
-                        print("não vendo nada na serial")
-                        sem_vitimasVISAO = True
-                        break
+                    # if "" in detected or "" in confianca or "" in lado1 or "" in area1:
+                    #     print("não vendo nada na serial")
+                    #     sem_vitimasVISAO = True
+                    #     break
 
                     if confianca > 50.0 and alinhamento == False:
                         self.tanki.stop()
@@ -559,10 +568,28 @@ class Silver:
                                 print("talvez ele tenha pego a ultima silver")
                                 print("finalizando e separando")
                                 # como eu não tenha informação eu vou diminuir uma vitima do painel
-                                self.vitimaSILVER -= 1
-                                self.vitimas += 1
-                                vitima_confirmada = False
-                                break
+                                # tentar verificar por um breve momento se tem alguma vitima na frente dele
+                                while elapsed < 4000:
+                                    frame1 = self.talk.ler_frame()
+                                    if frame1:
+                                        detected  = frame1.get("detected", "")
+                                        confianca = frame1.get("confianca", 0)
+                                        lado1     = frame1.get("lado", "")
+                                        area1     = frame1.get("area", 0)
+                                        print("Validação garra em baixo:", detected, confianca, lado1, area1)
+                                        if confianca > 50.0 and detected == "Silver Ball":
+                                            self.vitimaSILVER -= 1
+                                            self.vitimas += 1
+                                            vitima_confirmada = False
+                                            break 
+                                    wait(100)
+                                    elapsed += 100
+                                if vitima_confirmada == False:
+                                    vitima_confirmada = False
+                                    break
+                                else:
+                                    print("erro logica")
+                                    break
                             else:
                                 vitima_confirmada = True
                                 break
@@ -584,10 +611,15 @@ class Silver:
                             else:
                                 vitima_confirmada = True
                                 break
+                elif frame1 and frame1.get("tipo") == "bola" and frame1.get("detected", "") == " ":
+                    print("não vendo nada na camera")
+                    sem_vitimasVISAO = True
+                    break
 
-                    else:
-                        print("viu nada")
-                        break
+                else:
+                    vitima_confirmada = True
+                    print("viu nada")
+                    break
             
             if vitima_confirmada == True or sem_vitimasVISAO == True:
                 # Após pegar (classificar):
@@ -653,6 +685,11 @@ class Silver:
         wait(200)
         self.servosMove.move(2, 20)
         wait(200)
+        for c in range(1,13):
+            self.tanki.turn(10)
+            self.tanki.turn(-10)
+            self.tanki.stop()
+        self.tanki.stop()
         self.servosMove.move(2, 60)
         wait(200)
         self.servosMove.move(2, 20)
@@ -671,13 +708,17 @@ class Silver:
         wait(200)
         self.servosMove.move(1, 0)
         wait(200)
+        for c in range(1,5):
+            self.tanki.turn(10)
+            self.tanki.turn(-10)
+            self.tanki.stop()
+        self.tanki.stop()
         self.servosMove.move(1, 5)
         self.servosMove.move(2, 0)
         self.servosMove.move(3, 60)
         wait(200)
         self.servosMove.move(1, 0)
         wait(200)
-
     # =========================================================================
     # _separar_silver — Deposita vítima viva (Silver Ball)
     # =========================================================================
@@ -696,6 +737,11 @@ class Silver:
         wait(200)
         self.servosMove.move(3, 30)
         wait(200)
+        for c in range(1,13):
+            self.tanki.turn(10)
+            self.tanki.turn(-10)
+            self.tanki.stop()
+        self.tanki.stop()
         self.servosMove.move(3, 0)
         wait(200)
         self.servosMove.move(3, 20)
@@ -714,14 +760,17 @@ class Silver:
         wait(200)
         self.servosMove.move(1, 0)
         wait(200)
+        for c in range(1,5):
+            self.tanki.turn(10)
+            self.tanki.turn(-10)
+            self.tanki.stop()
+        self.tanki.stop()
         self.servosMove.move(1, 5)
         self.servosMove.move(2, 0)
         self.servosMove.move(3, 60)
         wait(200)
         self.servosMove.move(1, 0)
         wait(200)
-
-
     # =========================================================================
     # _varredura — Loop de detecção, confirmação em 3 frames, coleta
     # tipo: "Silver Ball" | "Black Ball"
@@ -885,13 +934,20 @@ class Silver:
                     
                     if semvitima >= 100:
                         print("não tem vítima")
-                        self.vitimas      = 10
-                        self.vitimaBLACK  = 10
-                        self.vitimaSILVER = 10
-                        sairdoRESGATE     = 1
-                        break
+                        if tipo== "Silver Ball" and self.vitimaSILVER > 0:
+                            return "Triangulo_verde"
+                        elif tipo == "Black Ball" and self.vitimaBLACK > 0 :
+                            return "Triangulo_vermelho"
+                        else:
+                            if self.vitimaSILVER > 0:
+                                return "Triangulo_verde" 
+                            self.vitimas      = 10
+                            self.vitimaBLACK  = 10
+                            self.vitimaSILVER = 10
+                            sairdoRESGATE     = 1
+                            break
 
-                    wait(500)
+                    wait(400)
 
             if sairdoRESGATE == 1:
                 return "sairdoRESGATE"
@@ -928,7 +984,7 @@ class Silver:
                     break
                 elif pxvitima >= 5000 or dist_frente <= 80 and dist_frente != -1:
                     # Já está perto o suficiente — vai direto para captura
-                    prafrente = 10
+                    prafrente = 100
                     break
                 elif pxvitima <= 2500:
                     print("verificando distancia da vitima")
@@ -983,9 +1039,12 @@ class Silver:
                             self.ev3.speaker.beep(200)
                             self.tanki.straight(20)
                             self.tanki.stop()
-                        elif area1 > 2500:
+                        elif area1 > 5000:
                             self.tanki.stop()
                             break
+                    elif detected == "":
+                        self.motorB.dc(50)
+                        self.motorC.dc(-50) 
                 if self.tanki.state()[3] < 20:
                     parado += 1
                 if self.tanki.state()[3] > 60:
@@ -1033,24 +1092,36 @@ class Silver:
     # triangulo — Identifica e entrega nos triângulos verde/vermelho
     # Giro de posicionamento agora usa tanki.turn() com valores calibrados
     # =========================================================================
-    def triangulo(self):
+    def triangulo(self,tipo):
         vendoTRIANGULO         = 0
         vendoTRIANGULOVERDE    = 0
         vendoTRIANGULOVERMELHO = 0
         vendoTRIANGULOcor      = None
+        quantdTriangulos       = 0
+        tipagemTRI             = None
 
         while True:
             print("triangulos_inicial: verde:", vendoTRIANGULOVERDE,
                   "vermelho:", vendoTRIANGULOVERMELHO)
-
-            if (vendoTRIANGULO >= 2
-                    and vendoTRIANGULOVERDE >= 1
-                    and vendoTRIANGULOVERMELHO >= 1):
+            if tipo == "todos":
+                quantdTriangulos = 2
+            if tipo != "todos":
+                quantdTriangulos = 1
+            if ( vendoTRIANGULO >= quantdTriangulos and (vendoTRIANGULOVERDE >= 1 ) and (vendoTRIANGULOVERMELHO >= 1) ):
                 self.tanki.stop()
                 self.ev3.speaker.beep(900)
                 print("procurar saida")
                 break
-
+            elif tipo == "Triangulo_verde" and vendoTRIANGULOVERDE > 0:
+                self.tanki.stop()
+                self.ev3.speaker.beep(900)
+                print("procurar saida")
+                break
+            elif tipo == "Triangulo_vermelho" and vendoTRIANGULOVERMELHO > 0:
+                self.tanki.stop()
+                self.ev3.speaker.beep(900)
+                print("procurar saida")
+                break
             self.tanki.stop()
             wait(200)
             self.talk.set_modo("triangulo")
@@ -1061,34 +1132,46 @@ class Silver:
             while True:
                 frame = self.talk.ler_frame()
 
-                if frame and frame.get("tipo") == "triangulo":
+                if frame and frame.get("tipo") == "triangulo" and tipo:
                     cor  = frame["cor"]
                     lado = frame["lado"]
-                    print("Alinhando com triângulo. Cor:", cor, "Lado:", lado)
-                    # No triangulo():
-                    #self.draw_silver("TRIANGULO", "cor:" + str(vendoTRIANGULOcor))
 
-                    while lado != "meio":
-                        if lado == "esquerda":
+                    print("Alinhando com triângulo. Cor:", cor, "Lado:", lado, "tipo:", tipo)
+                    if cor == " Verde" and tipo == "Triangulo_verde":
+                        tipagemTRI= "Verde"
+                    elif cor == "Vermelho" and tipo == "Triangulo_vermelho":
+                        tipagemTRI = "Vermelho"
+                    while lado != "meio" :
+                        if cor != tipagemTRI:
+                            break
+                        if lado == "esquerda" and cor == tipagemTRI:
                             self.motorB.dc(-900)
                             self.motorC.dc(-900)
-                        elif lado == "direita":
+                        elif lado == "direita" and cor == tipagemTRI:
                             self.motorB.dc(900)
                             self.motorC.dc(900)
                         wait(50)
                         self.motorB.stop()
                         self.motorC.stop()
                         prox = self.talk.ler_frame()
-                        if prox and prox.get("tipo") == "triangulo":
+                        if prox and prox.get("tipo") == "triangulo" :
                             lado = prox["lado"]
                             cor  = prox["cor"]
 
                     self.ev3.speaker.beep(400)
-                    if cor == "Vermelho":
+                    if cor == "Vermelho" and tipo == "Triangulo_vermelho":
                         vendoTRIANGULOcor = "vermelho"
                         vendoTRIANGULO += 1
                         vendoTRIANGULOVERMELHO += 1
-                    elif cor == "Verde":
+                    elif cor == "Verde" and tipo == "Triangulo_verde":
+                        vendoTRIANGULOcor = "verde"
+                        vendoTRIANGULO += 1
+                        vendoTRIANGULOVERDE += 1
+                    elif  cor == "Vermelho" and tipo == "todos":
+                        vendoTRIANGULOcor = "vermelho"
+                        vendoTRIANGULO += 1
+                        vendoTRIANGULOVERMELHO += 1
+                    elif cor == "Verde" and tipo == "todos":
                         vendoTRIANGULOcor = "verde"
                         vendoTRIANGULO += 1
                         vendoTRIANGULOVERDE += 1
@@ -1109,7 +1192,7 @@ class Silver:
                             self.tanki.stop()
                             break
                     self.tanki.stop()
-                    wait(300)
+                    wait(200)
 
             # ── Ir até o triângulo ────────────────────────────────────────────
             self.tanki.stop()
@@ -1150,10 +1233,10 @@ class Silver:
                 while True:
                     frame = self.talk.ler_frame()
 
-                    if frame and frame.get("tipo") == "triangulo":
+                    if frame and frame.get("tipo") == "triangulo" and tipo :
                         cor  = frame["cor"]
                         lado = frame["lado"]
-                        print("Confirmando triângulo. Cor:", cor, "Lado:", lado)
+                        print("Confirmando triângulo. Cor:", cor, "Lado:", lado, "tipo:", tipo)
 
                         while lado != "meio":
                             if lado == "esquerda":
@@ -1166,16 +1249,24 @@ class Silver:
                             self.motorB.stop()
                             self.motorC.stop()
                             prox = self.talk.ler_frame()
-                            if prox and prox.get("tipo") == "triangulo":
+                            if prox and prox.get("tipo") == "triangulo" :
                                 lado = prox["lado"]
                                 cor  = prox["cor"]
 
                         self.ev3.speaker.beep(400)
-                        if cor == "Vermelho":
+                        if cor == "Vermelho" and tipo == "Triangulo_vermelho":
                             vendoTRIANGULOcor = "vermelho"
                             vendoTRIANGULO += 1
                             vendoTRIANGULOVERMELHO += 1
-                        elif cor == "Verde":
+                        elif cor == "Verde" and tipo == "Triangulo_verde":
+                            vendoTRIANGULOcor = "verde"
+                            vendoTRIANGULO += 1
+                            vendoTRIANGULOVERDE += 1
+                        elif  cor == "Vermelho" and tipo == "todos":
+                            vendoTRIANGULOcor = "vermelho"
+                            vendoTRIANGULO += 1
+                            vendoTRIANGULOVERMELHO += 1
+                        elif cor == "Verde" and tipo == "todos":
                             vendoTRIANGULOcor = "verde"
                             vendoTRIANGULO += 1
                             vendoTRIANGULOVERDE += 1
@@ -1246,7 +1337,7 @@ class Silver:
                 if vendoTRIANGULOcor == "verde":
                     self._depositar_triangulo(abertura_servo=0,  fechamento_servo=40)
                 elif vendoTRIANGULOcor == "vermelho":
-                    self._depositar_triangulo(abertura_servo=60, fechamento_servo=40)
+                    self._depositar_triangulo(abertura_servo=90, fechamento_servo=40)
 
             print("triangulos_final: verde:", vendoTRIANGULOVERDE,
                   "vermelho:", vendoTRIANGULOVERMELHO)
@@ -1293,8 +1384,8 @@ class Silver:
             self.servosMove.desativa(4)
             wait(100)
             self.servosMove.move(4, fechamento_servo)
-            self.motorB.dc(100)
-            self.motorC.dc(-100)
+            self.motorB.dc(60)
+            self.motorC.dc(-60)
             print("pra frente")
             while True:
                 self.talk.drenar()
@@ -1366,10 +1457,10 @@ class Silver:
         G1, G3, G2 = (retorno[5]), (retorno[9]), (retorno[13])
         B1, B3, B2 = (retorno[6]), (retorno[10]), (retorno[14])
         C1, C3, C2 = (retorno[7]), (retorno[11]), (retorno[15])
-        blue = 15
-        esqgray1 = B1 > blue and B1 < 62 and C1 > 24 and C1 < 30 and cloresq == 6
-        mindgray1 = B3 > blue and B3 < 62 and C3 > 24 and C3 < 30 and clormind == 6 #prata não reflectivo
-        dirgray1 = B2 > blue and B2 < 62 and C2> 24 and C2 < 30 and clordir == 6
+        blue = 45
+        esqgray1 = B1 > blue and B1 < 70 and C1 > 21 and C1 < 30 and cloresq == 6
+        mindgray1 = B3 > blue and B3 < 70 and C3 > 21 and C3 < 30 and clormind == 6 #prata não reflectivo
+        dirgray1 = B2 > blue and B2 < 70 and C2> 21 and C2 < 30 and clordir == 6
         #######################################################################
         linha_preta = fora1 < 70 or meio1 < 70 or meio2 < 70 or fora2 < 70
         linha_prata = esqgray1 or mindgray1 or dirgray1
@@ -1393,10 +1484,10 @@ class Silver:
             G1, G3, G2 = (retorno[5]), (retorno[9]), (retorno[13])
             B1, B3, B2 = (retorno[6]), (retorno[10]), (retorno[14])
             C1, C3, C2 = (retorno[7]), (retorno[11]), (retorno[15])
-            blue = 15
-            esqgray1 = B1 > blue and B1 < 62 and C1 > 24 and C1 < 30 and cloresq == 6
-            mindgray1 = B3 > blue and B3 < 62 and C3 > 24 and C3 < 30 and clormind == 6 #prata não reflectivo
-            dirgray1 = B2 > blue and B2 < 62 and C2> 24 and C2 < 30 and clordir == 6
+            blue = 45
+            esqgray1 = B1 > blue and B1 < 70 and C1 > 21 and C1 < 30 and cloresq == 6
+            mindgray1 = B3 > blue and B3 < 70 and C3 > 21 and C3 < 30 and clormind == 6 #prata não reflectivo
+            dirgray1 = B2 > blue and B2 < 70 and C2> 21 and C2 < 30 and clordir == 6
             retorno1  = self.multiplex1.read(0)
             ChoqueESQ = retorno1[4]
             ChoqueDIR = retorno1[7]
@@ -1404,7 +1495,7 @@ class Silver:
             print("parado:", parado,
             "parachoque DIR:", ChoqueDIR,  "parachoque ESQ:", ChoqueESQ,"||",
             "fora1: ", fora1, "meio1: ", meio1, "meio2: ", meio2, "fora2: ", fora2,"||",
-            "ultra Esquerdo:", ultra4, "ultra Direito:", ultra2, " prata:", linha_prata, " preta:", linha_preta)
+            "ultra Esquerdo:", ultra4, "ultra Direito:", ultra2)
 
             if self.tanki.state()[3] < 20:
                 parado += 1
@@ -1415,25 +1506,27 @@ class Silver:
                 self.tanki.turn(-50)
                 self.tanki.straight(-40)
                 self.tanki.stop()
-            if ultra2 > 200:
+            if ultra2 > 250:
                 print("viu sem parede na direita")
                 self.tanki.stop()
                 break
+            if ultra4 > 200 and  ultra2 > 200:
+                print("viu nada")
             elif ChoqueESQ == 1 or ChoqueDIR == 1:
                 print("parachoque")
                 self.tanki.turn(-20)
                 self.tanki.stop()
                 self.tanki.straight(-40)
                 self.tanki.stop()
-            if linha_preta :
-                if linha_preta:
+            if fora1 < 70 or meio1 < 70 or meio2 < 70 or fora2 < 70 :
+                if fora1 < 70 or meio1 < 70 or meio2 < 70 or fora2 < 70:
                     print("linha preta" )
                     self.tanki.turn(100)
                     self.tanki.stop()
                     break
-            elif linha_prata:
+            elif esqgray1 or mindgray1 or dirgray1:
                 wait(10)
-                if linha_prata:
+                if esqgray1 or mindgray1 or dirgray1:
                     print("linha prata", linha_prata)
                     self.tanki.turn(-50)
                     self.tanki.straight(-60)

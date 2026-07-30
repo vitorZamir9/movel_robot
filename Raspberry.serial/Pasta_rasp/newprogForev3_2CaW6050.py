@@ -354,7 +354,7 @@ try:
                             cv2.rectangle(hud_frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
                             cv2.putText(hud_frame, f"{classe} {side} ({area_pixels}px)", (x1, y1-5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
                             
-                            if side != last_detection["side"] or (time.time() - last_detection["time"]) > 0.3:
+                            if side != last_detection["side"] or (time.time() - last_detection["time"]) > 0.1:
                                 msg_serial = f"Detectado: {classe}\nArea: {area_pixels}px\nLado: {side}\n"
                                 last_detection = {"time": time.time(), "side": side, "cmd": None}
 
