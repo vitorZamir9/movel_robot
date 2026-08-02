@@ -1479,6 +1479,10 @@ class Silver:
             meio1 = retorno[2] # esquerda 
             meio2 = retorno[1] # direita  
             fora2 = retorno[0] # direita 
+            # Leitura unitária dos sensores de cor
+            cloresq = retorno[17]
+            clormind = retorno[18]
+            clordir = retorno[19]
             # Leitura RGBC dos sensores
             R1, R3, R2 = (retorno[4]), (retorno[8]), (retorno[12])
             G1, G3, G2 = (retorno[5]), (retorno[9]), (retorno[13])
@@ -1532,15 +1536,15 @@ class Silver:
                     self.tanki.straight(-60)
                     self.tanki.stop()
             else:
-                self.motorB.dc(50)
-                self.motorC.dc(-50) #frente
-            wait(10)
+                # self.motorB.dc(50)
+                # self.motorC.dc(-50) #frente
+                print
         print("saindo do resgate")
-        self.tanki.turn(100)
+        self.tanki.turn(20)
         self.tanki.stop()
         self.atualiza_sensor1()
         if meio1 < 50 or meio2 < 50:
-            self.tanki.turn(100)
+            self.tanki.turn(20)
             self.tanki.stop()
             return
         

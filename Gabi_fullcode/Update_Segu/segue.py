@@ -27,7 +27,7 @@ class Segue:
         powerB = self.base - corr
         powerC = -self.base - corr
         increPLUS= 0.5
-        INCREplus= 0.75
+        INCREplus= 1.0
         powerB = max(min(int(powerB * (increPLUS if powerB > 0 else INCREplus)), 900), -900)
         powerC = max(min(int(powerC * (INCREplus if powerC > 0 else increPLUS)), 900), -900)
 

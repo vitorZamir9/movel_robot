@@ -31,10 +31,16 @@ serialservo = UARTDevice(Port.S5, baudrate=115200, timeout=0.1)
 servosMove= Servos(serialservo,True)
 
 # VARIAVEIS / IMPORT
-kp_atual = 1.97
-kd_atual = 0.55
-ki_atual = 0.001
+kp_atual = 1.8
+kd_atual = 0.5
+ki_atual = 0.01
 base_atual = 110
+
+kp_padrao = 1.8
+kd_padrao = 0.5
+ki_padrao = 0.01
+base_padrao = 110
+
 error = 0
 powerB = 0
 powerC = 0
@@ -75,6 +81,7 @@ gyro_rasp_z = 0.0
 gyro_rasp_y = 0.0
 previsao_camera = None # Memória da câmara para o verde
 ts.enviar("reset_mpu0")
+Gyroangle.reset_angle(0)
 # --->Variáveis de controle do obstáculo pela câmera<---
 obstaculo_camera_pendente = False        # câmera avisou que viu obstáculo
 obstaculo_camera_aguardando_linha = False  # esperando câmera dizer os lados
@@ -222,6 +229,14 @@ def sensor():
     global botao_stop, botao_parar, botao_STOPING
     global ChoqueESQ, ChoqueDIR
     buffer_serial = ""
+    global botaoVery
+    global triangulo
+    global servosMove
+    global ts
+    global ser
+    global ev3
+    global tanki
+    global kp_padrao, kd_padrao, ki_padrao, base_padrao
     
     while True:
         
@@ -229,8 +244,8 @@ def sensor():
         # 0.0 Ligar tela-desafio surpresa/Enviar msg rasp
         # ==========================================
         
-        ts.set_modo("nadapross") 
-
+        #ts.set_modo("nadapross") 
+        ts.set_modo("linha_gap")
         #ser.write(b'nadapross\r\n') 
         #ser.write(b'OFF\r\n')
         # ==========================================
@@ -248,6 +263,7 @@ def sensor():
         ChoqueDIR = retorno1[7]
         botao_stop  = retorno1[6]
         botao_parar = retorno1[5]
+        botaoVery = False
         # ==========================================
         # 1.2 LEITURA SERIAL — GIROSCÓPIO E CÂMERA
         # ==========================================
@@ -257,6 +273,7 @@ def sensor():
         gyro_rasp_y = ts.pitch  # pitch (rampa)
         gyro_rasp_z = ts.yaw  # yaw
         Afagem = Gyroangle.angle() # pitch negativo pra cima
+        #print("Afagem: ", Afagem)
 
         # eventos do ciclo
         if ev["obstaculo_pendente"]:
@@ -281,15 +298,17 @@ def sensor():
         # gyro_rasp_y já está atualizado pelo módulo 1.2
         # ==========================================
         #print("RAW pitch:", ts.gyro_y, "| raw yaw:", ts.gyro_z)
-        if Afagem < -15: #pra cima
+        if Afagem > 19 and 0 == 0: #pra cima
             ev3.speaker.beep(100)
-            print("subindo")
-            kp_atual, kd_atual, base_atual = 5.0, 0.7, 990   # subindo
+            print("Afagem:",Afagem,"Parado:",parado,"Rotational speed:",tanki.state()[3],"Subindo")
+            kp_atual, kd_atual, base_atual = 1.0, 0.7, 190   # subindo
             servosMove.desativa(1) # Angular
             servosMove.desativa(2) # Pinça esquerda
             servosMove.desativa(3) # Pinça direita
             servosMove.desativa(4) # Caçamba
-            #servosMove.move(1, 160)  # posição fechada servo angulo garra
+            servosMove.move(2, 60)  # aberto pinça esquerda
+            servosMove.move(3, 0) # aberto pinça direita
+            # servosMove.move(1, 60)  # posição fechada servo angulo garra
             # tanki.turn(-20)
             tanki.stop()
             wait(100)
@@ -312,39 +331,45 @@ def sensor():
                 gyro_rasp_y = ts.pitch  # pitch (rampa)
                 gyro_rasp_z = ts.yaw  # yaw
                 Afagem = Gyroangle.angle() # pitch negativo pra cima
-
+                print("Afagem: ", Afagem)
 
                 #verificar angulo
-                if Afagem >= 0: #desceu
+                if Afagem <= 9: #desceu
                     print("DESCEUUUUUUUUUUUUUUUUUu")
                     tanki.stop()
                     ev3.speaker.beep(500,80)
+                    Afagem = Gyroangle.angle() # pitch negativo pra cima
+                    if Afagem <= -13:
+                        tanki.turn(-20)
+                        tanki.stop()
+                        ev3.speaker.beep(1000,80)
                     break
-                elif Afagem <= -1:
+                elif Afagem >= 1:
                     motores.PID(fora1,meio1,meio2,fora2,kp_atual,kd_atual,ki_atual,base_atual)
                     #servosMove.move(1, 0)  # posição fechada servo angulo garra   
             tanki.stop()
-            #wait(100000)
-        elif gyro_rasp_y > 15: 
+        elif Afagem <= -13 and 0==0: 
             ev3.speaker.beep(1000)
-            print("descendo")
-            kp_atual, kd_atual, base_atual = 2.0, 0.1, 100   # descendo
+            print("Afagem:",Afagem,"Parado:",parado,"Rotational speed:",tanki.state()[3],"Descendo")
+            kp_atual, kd_atual, base_atual = 2.0, 0.1, 80   # descendo
+
         else:
-            print("plano")
-            kp_atual, ki_atual, kd_atual, base_atual = 1.97, 0.001, 0.45, 100   # plano
+            print("Afagem:",Afagem,"Parado:",parado,"Rotational speed:",tanki.state()[3],"Plano","Enconders:",motorB.angle(),motorC.angle())
+            kp_atual, ki_atual, kd_atual, base_atual = kp_padrao, ki_padrao, kd_padrao, base_padrao   # plano
         # ==========================================
         # 3. VERIFICAÇÃO SE O ROBÔ ESTÁ PARADO
         # ==========================================
         # tanki.state()[3] > rotação do eixo graus por segundos
         #parado=0
-        print(tanki.state()[3],"parado: ",parado)
+        #print(tanki.state()[3],"parado: ",parado)
+        # verificar agr com o motor.angle()
         if tanki.state()[3] > 60:
             # Se estiver alta a rotação dos eixos ele zera a informação que ta parado
             parado = 0
         elif tanki.state()[3] < 20:
             # Se tiver baixa a rotação dos eixos ele começa a somar
             parado = parado + 1
-        if parado > 100 :
+        if parado > 70 :
             tanki.stop()
             ev3.speaker.beep(600)# aviso sonoro
             # Aqui coloca a lógica doq fazer quando ele estiver totalmente parado
@@ -371,228 +396,81 @@ def sensor():
         # ==========================================
         # 5. SILVER TAPE
         # ==========================================
-        triangulo = 0
-        clear = 70
-        rgb=85
-        esqgray = R1 > rgb and G1 > rgb and B1 > rgb and C1 > clear 
-        mindgray = R3 > rgb and G3 > rgb and B3 > rgb and C3 > clear #prata reflectivo
-        dirgray = R2 > rgb and G2 > rgb and B2 > rgb and C2 > clear 
+        # triangulo = 0
+        # clear = 70
+        # rgb=85
+        # esqgray = R1 > rgb and G1 > rgb and B1 > rgb and C1 > clear 
+        # mindgray = R3 > rgb and G3 > rgb and B3 > rgb and C3 > clear #prata reflectivo
+        # dirgray = R2 > rgb and G2 > rgb and B2 > rgb and C2 > clear 
         
-        blue = 45
-        esqgray1 = B1 > blue and B1 < 70 and C1 > 21 and C1 < 30 and cloresq == 6
-        mindgray1 = B3 > blue and B3 < 70 and C3 > 21 and C3 < 30 and clormind == 6 #prata não reflectivo
-        dirgray1 = B2 > blue and B2 < 70 and C2> 21 and C2 < 30 and clordir == 6
-        y=1
-        # ^^^^^^se essa variavel ficar 0 ela vai fazer com que o robo ignore o seguidor e va direto pro resgate
-        if (esqgray1 or mindgray1 or dirgray1 or y==0 and resgate_uma_vez == 0) and triangulo == 999:
-            print("prata")
-            wait(10)
-            if esqgray1 and mindgray1 and dirgray1 or y==0:
-                tanki.stop()
-                ev3.speaker.beep(900)
-                # ==========================================
-                # RESGATE — chama a classe Silver
-                # ==========================================
-                entrada_resgate_lado = silver.enter(esqgray1, mindgray1, dirgray1)
-                print("Entrada no resgate:", entrada_resgate_lado)
-                if entrada_resgate_lado is None:
-                    print("Erro na entrada do resgate. Retomando seguir linha.")
-                    continue  # volta pro loop de seguir linha
+        # blue = 45
+        # esqgray1 = B1 > blue and B1 < 70 and C1 > 21 and C1 < 30 and cloresq == 6
+        # mindgray1 = B3 > blue and B3 < 70 and C3 > 21 and C3 < 30 and clormind == 6 #prata não reflectivo
+        # dirgray1 = B2 > blue and B2 < 70 and C2> 21 and C2 < 30 and clordir == 6
+        # y=1
+        # # ^^^^^^se essa variavel ficar 0 ela vai fazer com que o robo ignore o seguidor e va direto pro resgate
+        # if (esqgray1 or mindgray1 or dirgray1 or y==0 and resgate_uma_vez == 0) and triangulo == 999:
+        #     print("prata")
+        #     wait(10)
+        #     if esqgray1 and mindgray1 and dirgray1 or y==0:
+        #         tanki.stop()
+        #         ev3.speaker.beep(900)
+        #         # ==========================================
+        #         # RESGATE — chama a classe Silver
+        #         # ==========================================
+        #         entrada_resgate_lado = silver.enter(esqgray1, mindgray1, dirgray1)
+        #         print("Entrada no resgate:", entrada_resgate_lado)
+        #         if entrada_resgate_lado is None:
+        #             print("Erro na entrada do resgate. Retomando seguir linha.")
+        #             continue  # volta pro loop de seguir linha
                 
-                silver.ir_pro_meio(entrada_resgate_lado)    
+        #         silver.ir_pro_meio(entrada_resgate_lado)    
 
-                # Pegar vítimas vivas (Silver Ball) — 2 no total
-                resultado_vivas = silver.clawLife()
-                print("Resultado clawLife:", resultado_vivas)
-                if resultado_vivas == "sairdoRESGATE" :
-                    silver.exit(esqgray1, mindgray1, dirgray1)
-                    continue
-                elif resultado_vivas == "Triangulo_verde":
-                    triangulo = 1
-                    silver.triangulo("Triangulo_verde")
-                    continue
+        #         # Pegar vítimas vivas (Silver Ball) — 2 no total
+        #         resultado_vivas = silver.clawLife()
+        #         print("Resultado clawLife:", resultado_vivas)
+        #         if resultado_vivas == "sairdoRESGATE" :
+        #             silver.exit(esqgray1, mindgray1, dirgray1)
+        #             continue
+        #         elif resultado_vivas == "Triangulo_verde":
+        #             triangulo = 1
+        #             silver.triangulo("Triangulo_verde")
+        #             continue
 
-                # Pegar vítima morta (Black Ball) — 1 no total
-                if triangulo == 0 : resultado_mortas = silver.clawDead()
-                print("Resultado clawDead:", resultado_mortas)
-                if resultado_mortas == "sairdoRESGATE":
-                    silver.exit(esqgray1, mindgray1, dirgray1)
-                    continue
-                elif resultado_mortas == "Triangulo_vermelho":
-                    silver.triangulo("Triangulo_vermelho")
-                    continue
+        #         # Pegar vítima morta (Black Ball) — 1 no total
+        #         if triangulo == 0 : resultado_mortas = silver.clawDead()
+        #         print("Resultado clawDead:", resultado_mortas)
+        #         if resultado_mortas == "sairdoRESGATE":
+        #             silver.exit(esqgray1, mindgray1, dirgray1)
+        #             continue
+        #         elif resultado_mortas == "Triangulo_vermelho":
+        #             silver.triangulo("Triangulo_vermelho")
+        #             continue
  
-                # Verificação dos dados de vítimas
-                print("=== VERIFICAÇÃO FINAL DE VÍTIMAS ===")
-                print("Total:", silver.vitimas,
-                      "| Black:", silver.vitimaBLACK,
-                      "| Silver:", silver.vitimaSILVER)
+        #         # Verificação dos dados de vítimas
+        #         print("=== VERIFICAÇÃO FINAL DE VÍTIMAS ===")
+        #         print("Total:", silver.vitimas,
+        #               "| Black:", silver.vitimaBLACK,
+        #               "| Silver:", silver.vitimaSILVER)
  
-                # Entregar nos triângulos (se pegou todas)
-                if resultado_mortas["sairdoRESGATE"] == 0 and triangulo == 0:
-                    silver.triangulo("todos")
-                elif resultado_mortas["Triangulo_verde"]:
-                    silver.triangulo("Triangulo_verde")
-                elif resultado_mortas["Triangulo_vermelho"]:
-                    silver.triangulo("Triangulo_vermelho")
+        #         # Entregar nos triângulos (se pegou todas)
+        #         if resultado_mortas["sairdoRESGATE"] == 0 and triangulo == 0:
+        #             silver.triangulo("todos")
+        #         elif resultado_mortas["Triangulo_verde"]:
+        #             silver.triangulo("Triangulo_verde")
+        #         elif resultado_mortas["Triangulo_vermelho"]:
+        #             silver.triangulo("Triangulo_vermelho")
  
-                # Sair do resgate
-                silver.exit(esqgray1, mindgray1, dirgray1)
-                resgate_uma_vez = 1
-                # Retomar seguir linha
-                tanki.settings(straight_speed=999999, straight_acceleration=999999,
-                                turn_rate=999999, turn_acceleration=99999)
-                continue  # volta pro loop de seguir linha
+        #         # Sair do resgate
+        #         silver.exit(esqgray1, mindgray1, dirgray1)
+        #         resgate_uma_vez = 1
+        #         # Retomar seguir linha
+        #         tanki.settings(straight_speed=999999, straight_acceleration=999999,
+        #                         turn_rate=999999, turn_acceleration=99999)
+        #         continue  # volta pro loop de seguir linha
         # ==========================================
         # 6. BUMPER / CÂMERA / ULTRASSÔNICO
         # ==========================================
-        # A câmera avisou que viu algo grande na frente.
-        # O EV3 para, confirma pra câmera, espera o resultado dos lados, e desvia.
-        if obstaculo_camera_pendente and not obstaculo_camera_aguardando_linha:
-            print("EV3: Obstáculo pela câmera! Parando para confirmar...")
-            tanki.stop()
-            wait(100)
-            # ALTERAR AQUI[] COM A IDENTIFICAÇÃO DO ULTRASSONICO
-            # Confirma pra Rasp que o EV3 também percebeu e quer saber os lados
-            ser.write(b"confirma obstaculo\n")
-            obstaculo_camera_pendente = False
-            obstaculo_camera_aguardando_linha = True
-            obstaculo_camera_resultado_linha = None
-            tempo_espera_linha = time.time()
-
-        # Aguardando o resultado dos lados da linha da câmera (com timeout de 3s)
-        if obstaculo_camera_aguardando_linha:
-            if obstaculo_camera_resultado_linha is not None:
-                resultado = obstaculo_camera_resultado_linha
-                obstaculo_camera_aguardando_linha = False
-                obstaculo_camera_resultado_linha = None
-                print("EV3: Executando desvio com base em ", resultado)
-
-                # -----------------------------------------------
-                # LÓGICA DE DESVIO BASEADA NOS LADOS DA LINHA
-                # -----------------------------------------------
-                # "linha esquerda"  → linha só na esq  → desvia pela DIREITA
-                # "linha direita"   → linha só na dir  → desvia pela ESQUERDA
-                # "linha ambos"     → linha dos dois   → desvia pelo lado com mais espaço (usa direita como padrão)
-                # "linha nenhum"    → sem linha visível → desvio padrão (esquerda)
-                # -----------------------------------------------
-                if resultado == "linha esquerda":
-                    # Linha à esquerda → espaço livre à direita → desvia pela direita
-                    print("Desvio: DIREITA (linha só na esq)")
-                    tanki.turn(50)
-                    tanki.straight(-150)
-                    tanki.stop()
-                    motorB.dc(-10)
-                    motorC.dc(100)
-                    wait(1000)
-                    while True:
-                        atualiza_sensor1()
-                        wait(100)
-                        if fora2 < 40 or meio2 < 40:
-                            tanki.stop()
-                            break
-                    tanki.stop()
-                    wait(100)
-                    tanki.turn(30)
-                    tanki.stop()
-                    tanki.straight(-80)
-                    tanki.stop()
-                    wait(100)
-
-                elif resultado == "linha direita":
-                    # Linha à direita → espaço livre à esquerda → desvia pela esquerda (comportamento original)
-                    print("Desvio: ESQUERDA (linha só na dir)")
-                    tanki.turn(-50)
-                    tanki.straight(-150)
-                    tanki.stop()
-                    motorB.dc(100)
-                    motorC.dc(-10)
-                    wait(1000)
-                    while True:
-                        atualiza_sensor1()
-                        wait(100)
-                        if fora1 < 40 or meio1 < 40:
-                            tanki.stop()
-                            break
-                    tanki.stop()
-                    wait(100)
-                    tanki.turn(-30)
-                    tanki.stop()
-                    tanki.straight(-80)
-                    tanki.stop()
-                    wait(100)
-
-                elif resultado == "linha ambos":
-                    # Linha dos dois lados → usa direita como padrão (mais seguro pro layout da pista)
-                    print("Desvio: DIREITA padrão (linha em ambos os lados)")
-                    tanki.turn(50)
-                    tanki.straight(-150)
-                    tanki.stop()
-                    motorB.dc(-10)
-                    motorC.dc(100)
-                    wait(1000)
-                    while True:
-                        atualiza_sensor1()
-                        wait(100)
-                        if fora2 < 40 or meio2 < 40:
-                            tanki.stop()
-                            break
-                    tanki.stop()
-                    wait(100)
-                    tanki.turn(30)
-                    tanki.stop()
-                    tanki.straight(-80)
-                    tanki.stop()
-                    wait(100)
-
-                else:
-                    # "linha nenhum" ou qualquer outro caso → desvio padrão esquerda
-                    print("Desvio: ESQUERDA padrão (sem linha visível)")
-                    tanki.turn(-50)
-                    tanki.straight(-150)
-                    tanki.stop()
-                    motorB.dc(100)
-                    motorC.dc(-15)
-                    wait(1000)
-                    while True:
-                        atualiza_sensor1()
-                        wait(100)
-                        if fora1 < 40 or meio1 < 40:
-                            tanki.stop()
-                            break
-                    tanki.stop()
-                    wait(100)
-                    tanki.turn(-30)
-                    tanki.stop()
-                    tanki.straight(-80)
-                    tanki.stop()
-                    wait(100)
-
-            elif (time.time() - tempo_espera_linha) > 3.0:
-                # Timeout: câmera não respondeu a tempo → desvio padrão esquerda
-                print("EV3: Timeout da câmera! Desvio padrão esquerda.")
-                obstaculo_camera_aguardando_linha = False
-                obstaculo_camera_resultado_linha = None
-                tanki.turn(-50)
-                tanki.straight(-150)
-                tanki.stop()
-                motorB.dc(100)
-                motorC.dc(-10)
-                wait(1000)
-                while True:
-                    atualiza_sensor1()
-                    wait(100)
-                    if fora1 < 40 or meio1 < 40:
-                        tanki.stop()
-                        break
-                tanki.stop()
-                wait(100)
-                tanki.turn(-30)
-                tanki.stop()
-                tanki.straight(-80)
-                tanki.stop()
-                wait(100)
-
         # --- 6B. BUMPER FÍSICO ---
         if ChoqueESQ == 1 or ChoqueDIR == 1:
             print("Obstáculo detectado pelo bumper!")
@@ -632,10 +510,10 @@ def sensor():
         # ==========================================
         # 8. GREEN
         # ==========================================
-        previsao_camera = grein.MoveGreen(
-        H1, S1, V1, H2, S2, V2, H3, S3, V3, alvo, 
-        fora1, meio1, meio2, fora2, previsao_camera, cloresq, clordir,
-        pretoesq, pretodir)
+        # previsao_camera = grein.MoveGreen(
+        # H1, S1, V1, H2, S2, V2, H3, S3, V3, alvo, 
+        # fora1, meio1, meio2, fora2, previsao_camera, cloresq, clordir,
+        # pretoesq, pretodir)
         # ==========================================
         # 9. ALL SENSORS DETECTED WHITE
         #==========================================
@@ -657,23 +535,41 @@ def sensor():
             motorC.stop()
             ev3.speaker.beep(500,1000)
             sys.exit()
-        if botao_stop > 0:
+        if botao_stop == 1 and botaoVery == False:
+            retorno1= multiplex1.read(0)
+            botao_stop  = retorno1[6]
+            botao_parar = retorno1[5]
+            botaoVery = True
             print("parado")
             motorB.stop()
             motorC.stop()
             # ts.enviar("reset_mpu0")
-            wait(500)
+            wait(100)
             while True:
+                retorno1= multiplex1.read(0)
+                botao_stop  = retorno1[6]
+                botao_parar = retorno1[5]
+                print(botao_stop, botaoVery)
                 contD = 0
                 contE = 0
                 contM = 0
                 pretodir = 0
                 pretoesq = 0
                 if botao_stop == 1:
+                    botaoVery = False
+                    retorno1= multiplex1.read(0)
+                    botao_stop  = retorno1[6]
+                    botao_parar = retorno1[5]
+                    print(botao_stop, botaoVery)
+                    wait(100)
+                    ev3.speaker.beep()
                     break
-                if botao_stop == 0:
-                    motorB.stop()
-                    motorC.stop() 
+                # Afagem = Gyroangle.angle() # pitch negativo pra cima
+                # Afagem.reset_angle(0)
+                motorB.stop()
+                motorC.stop() 
+                wait(100)
+            botaoVery = False
        
         
 
