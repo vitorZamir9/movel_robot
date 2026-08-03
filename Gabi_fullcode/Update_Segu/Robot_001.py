@@ -4,7 +4,7 @@ from pybricks.ev3devices import (Motor, TouchSensor, ColorSensor,
                                  InfraredSensor, UltrasonicSensor, GyroSensor)
 from pybricks.iodevices import LUMPDevice, DCMotor, Ev3devSensor
 from pybricks.parameters import Port, Stop, Direction, Button, Color
-from pybricks.tools import wait, StopWatch, DataLog
+from pybricks.tools import wait, StopWatch, DataLog,run_task
 from pybricks.robotics import DriveBase
 from pybricks.media.ev3dev import SoundFile, ImageFile
 from pybricks.iodevices import UARTDevice
@@ -53,6 +53,9 @@ derivative = 0
 PESO_MEIO = 1.0
 PESO_FORA = 2.0
 parado=0
+parado2=0
+moviment_lastB = 0
+moviment_lastC = 0
 resgate_uma_vez = 1
 botao_STOPING = 0
 triangulo = 0
@@ -205,6 +208,9 @@ def sensor():
     global pretoesq
     global multiplex1
     global parado
+    global parado2
+    global moviment_lastB
+    global moviment_lastC
     global obstaculo_camera_pendente
     global obstaculo_camera_aguardando_linha
     global obstaculo_camera_resultado_linha
@@ -369,21 +375,154 @@ def sensor():
         elif tanki.state()[3] < 20:
             # Se tiver baixa a rotação dos eixos ele começa a somar
             parado = parado + 1
-        if parado > 70 :
+        if motorB.angle() > moviment_lastB and motorC.angle() < moviment_lastC:
+            parado2 = 0
+        elif motorB.angle() == moviment_lastB or motorC.angle() == moviment_lastC:
+            parado2 = parado2 + 1
+        if parado2 > 30:
+            print("ele parou e os movimentar algum motor")
+            if motorB.angle() > moviment_lastB:
+                print("motorB esta se movimentado")
+                if motorC.angle() < moviment_lastC:
+                    print("motorC esta se movimentado")
+                    motorB.dc(100)
+                    motorC.dc(-100) #frente
+                    wait(200)
+                    motorB.dc(-100)
+                    motorC.dc(100) #tras
+                    motorB.stop()
+                    motorC.stop()
+                    tanki.stop()
+                    ev3.speaker.beep()
+                    parado=0
+                    parado2=0
+                    inicio = time.time()
+                    while time.time() - inicio < 0.2:
+                        retorno = sensor1.read(2)
+                        # Leitura dos sensores para seguir linha
+                        fora1 = retorno[3] # esquerda 
+                        meio1 = retorno[2] # esquerda 
+                        meio2 = retorno[1] # direita  
+                        fora2 = retorno[0] # direita 
+                        atualiza_sensor1()
+                        kp_atual, kd_atual, base_atual = 5.0, 1.7, 500
+                        motores.PID(fora1,meio1,meio2,fora2,kp_atual,kd_atual,ki_atual,base_atual)
+                    tanki.stop()
+                    motorB.stop()
+                    motorC.stop()
+                else:
+                    print("motorC esta parado")
+                    motorB.dc(100)
+                    motorC.dc(-100) #frente
+                    wait(200)
+                    motorB.dc(-100)
+                    motorC.dc(100) #tras
+                    motorB.stop()
+                    motorC.stop()
+                    tanki.stop()
+                    ev3.speaker.beep()
+                    parado=0
+                    parado2=0
+                    inicio = time.time()
+                    while time.time() - inicio < 0.2:
+                        retorno = sensor1.read(2)
+                        # Leitura dos sensores para seguir linha
+                        fora1 = retorno[3] # esquerda 
+                        meio1 = retorno[2] # esquerda 
+                        meio2 = retorno[1] # direita  
+                        fora2 = retorno[0] # direita 
+                        atualiza_sensor1()
+                        kp_atual, kd_atual, base_atual = 5.0, 1.7, 500
+                        motores.PID(fora1,meio1,meio2,fora2,kp_atual,kd_atual,ki_atual,base_atual)
+                    tanki.stop()
+                    motorB.stop()
+                    motorC.stop()
+            elif motorC.angle() < moviment_lastC:
+                print("motorC esta se movimentado")
+                if motorB.angle() > moviment_lastB:
+                    print("motorB esta se movimentado")
+                    motorB.dc(100)
+                    motorC.dc(-100) #frente
+                    wait(200)
+                    motorB.dc(-100)
+                    motorC.dc(100) #tras
+                    motorB.stop()
+                    motorC.stop()
+                    tanki.stop()
+                    ev3.speaker.beep()
+                    parado=0
+                    parado2=0
+                    inicio = time.time()
+                    while time.time() - inicio < 0.2:
+                        retorno = sensor1.read(2)
+                        # Leitura dos sensores para seguir linha
+                        fora1 = retorno[3] # esquerda 
+                        meio1 = retorno[2] # esquerda 
+                        meio2 = retorno[1] # direita  
+                        fora2 = retorno[0] # direita 
+                        atualiza_sensor1()
+                        kp_atual, kd_atual, base_atual = 5.0, 1.7, 500
+                        motores.PID(fora1,meio1,meio2,fora2,kp_atual,kd_atual,ki_atual,base_atual)
+                    tanki.stop()
+                    motorB.stop()
+                    motorC.stop()
+                else:
+                    print("motorB esta parado")
+                    motorB.dc(100)
+                    motorC.dc(-100) #frente
+                    wait(200)
+                    motorB.dc(-100)
+                    motorC.dc(100) #tras
+                    motorB.stop()
+                    motorC.stop()
+                    tanki.stop()
+                    ev3.speaker.beep()
+                    parado=0
+                    parado2=0
+                    inicio = time.time()
+                    while time.time() - inicio < 0.2:
+                        retorno = sensor1.read(2)
+                        # Leitura dos sensores para seguir linha
+                        fora1 = retorno[3] # esquerda 
+                        meio1 = retorno[2] # esquerda 
+                        meio2 = retorno[1] # direita  
+                        fora2 = retorno[0] # direita 
+                        atualiza_sensor1()
+                        kp_atual, kd_atual, base_atual = 5.0, 1.7, 500
+                        motores.PID(fora1,meio1,meio2,fora2,kp_atual,kd_atual,ki_atual,base_atual)
+                    tanki.stop()
+                    motorB.stop()
+                    motorC.stop()
+        if parado > 50 :
             tanki.stop()
             ev3.speaker.beep(600)# aviso sonoro
             # Aqui coloca a lógica doq fazer quando ele estiver totalmente parado
             print("saiu do codigo pq o robo ficou travado!")
             motorB.dc(100)
-            motorC.dc(-100)
-            wait(1000)
+            motorC.dc(-100) #frente
+            wait(200)
             motorB.dc(-100)
-            motorC.dc(100)
+            motorC.dc(100) #tras
             motorB.stop()
             motorC.stop()
             tanki.stop()
             ev3.speaker.beep()
             parado=0
+            parado2=0
+            inicio = time.time()
+            while time.time() - inicio < 0.2:
+                retorno = sensor1.read(2)
+                # Leitura dos sensores para seguir linha
+                fora1 = retorno[3] # esquerda 
+                meio1 = retorno[2] # esquerda 
+                meio2 = retorno[1] # direita  
+                fora2 = retorno[0] # direita 
+                atualiza_sensor1()
+                kp_atual, kd_atual, base_atual = 5.0, 1.7, 500
+                motores.PID(fora1,meio1,meio2,fora2,kp_atual,kd_atual,ki_atual,base_atual)
+            tanki.stop()
+            motorB.stop()
+            motorC.stop()
             continue
         # ==========================================
         # 4. RED TAPE
@@ -527,6 +666,11 @@ def sensor():
         motores.PID(fora1,meio1,meio2,fora2,kp_atual,kd_atual,ki_atual,base_atual)
         # ==========================================
         #=============================
+        # 10.1 ATUALIZAÇÃO DE MOVIMENTO
+        #=============================
+        moviment_lastB = motorB.angle()
+        moviment_lastC = motorC.angle()
+        #=============================
         # 11. BUTTON STOP IS ACTIVE
         #=============================
         if botao_parar > 0:
@@ -561,7 +705,7 @@ def sensor():
                     botao_stop  = retorno1[6]
                     botao_parar = retorno1[5]
                     print(botao_stop, botaoVery)
-                    wait(100)
+                    wait(250)
                     ev3.speaker.beep()
                     break
                 # Afagem = Gyroangle.angle() # pitch negativo pra cima
