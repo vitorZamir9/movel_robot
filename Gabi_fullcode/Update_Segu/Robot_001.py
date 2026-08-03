@@ -4,7 +4,7 @@ from pybricks.ev3devices import (Motor, TouchSensor, ColorSensor,
                                  InfraredSensor, UltrasonicSensor, GyroSensor)
 from pybricks.iodevices import LUMPDevice, DCMotor, Ev3devSensor
 from pybricks.parameters import Port, Stop, Direction, Button, Color
-from pybricks.tools import wait, StopWatch, DataLog,run_task
+from pybricks.tools import wait, StopWatch, DataLog
 from pybricks.robotics import DriveBase
 from pybricks.media.ev3dev import SoundFile, ImageFile
 from pybricks.iodevices import UARTDevice
@@ -22,7 +22,8 @@ from talkingserial import TalkingSerial as ts
 ev3= EV3Brick()
 sensor1 = LUMPDevice(Port.S1)
 multiplex1 = LUMPDevice(Port.S2)
-Gyroangle = GyroSensor(Port.S3)
+Gyroangle0 = Ev3devSensor(Port.S3)
+# Gyroangle = GyroSensor(Port.S3)
 motorB = Motor(Port.B,gears=[12,25],positive_direction=Direction.COUNTERCLOCKWISE)
 motorC = Motor(Port.D,gears=[12,25],positive_direction=Direction.COUNTERCLOCKWISE)
 ser = UARTDevice(Port.S6, baudrate=115200, timeout=0.1)
@@ -31,12 +32,12 @@ serialservo = UARTDevice(Port.S5, baudrate=115200, timeout=0.1)
 servosMove= Servos(serialservo,True)
 
 # VARIAVEIS / IMPORT
-kp_atual = 1.8
+kp_atual = 2.3
 kd_atual = 0.5
 ki_atual = 0.01
 base_atual = 110
 
-kp_padrao = 1.8
+kp_padrao = 2.3
 kd_padrao = 0.5
 ki_padrao = 0.01
 base_padrao = 110
@@ -54,6 +55,8 @@ PESO_MEIO = 1.0
 PESO_FORA = 2.0
 parado=0
 parado2=0
+subindo=0
+descendo=0
 moviment_lastB = 0
 moviment_lastC = 0
 resgate_uma_vez = 1
@@ -84,7 +87,8 @@ gyro_rasp_z = 0.0
 gyro_rasp_y = 0.0
 previsao_camera = None # Memória da câmara para o verde
 ts.enviar("reset_mpu0")
-Gyroangle.reset_angle(0)
+# Gyroangle.reset_angle(0)
+Afagem = Gyroangle0.read("ACCEL")[0] 
 # --->Variáveis de controle do obstáculo pela câmera<---
 obstaculo_camera_pendente = False        # câmera avisou que viu obstáculo
 obstaculo_camera_aguardando_linha = False  # esperando câmera dizer os lados
@@ -202,13 +206,15 @@ def sensor():
     global resgate_uma_vez
     global gyro_rasp_z 
     global gyro_rasp_y
-    global Gyroangle
+    global Gyroangle0
+    global Afagem
     global previsao_camera
     global pretodir
     global pretoesq
     global multiplex1
     global parado
     global parado2
+    global subindo,descendo
     global moviment_lastB
     global moviment_lastC
     global obstaculo_camera_pendente
@@ -278,7 +284,7 @@ def sensor():
         # gyro vem direto dos atributoss
         gyro_rasp_y = ts.pitch  # pitch (rampa)
         gyro_rasp_z = ts.yaw  # yaw
-        Afagem = Gyroangle.angle() # pitch negativo pra cima
+        Afagem = Gyroangle0.read("ACCEL")[0] 
         #print("Afagem: ", Afagem)
 
         # eventos do ciclo
@@ -304,10 +310,21 @@ def sensor():
         # gyro_rasp_y já está atualizado pelo módulo 1.2
         # ==========================================
         #print("RAW pitch:", ts.gyro_y, "| raw yaw:", ts.gyro_z)
-        if Afagem > 19 and 0 == 0: #pra cima
+        Afagem = Gyroangle0.read("ACCEL")[0] 
+        #print("Afagem: ", Afagem)
+        # 30<0|255>220
+        if Afagem >= 240 and Afagem <= 255:
+            # print("plano",subindo,descendo)
+            subindo=0
+            descendo=0
+        if Afagem < 240 and Afagem >= 220:
+            subindo=subindo+1
+        if Afagem >= 0 and Afagem <= 29:
+            descendo=descendo+1
+        if subindo > 10: #pra cima
             ev3.speaker.beep(100)
             print("Afagem:",Afagem,"Parado:",parado,"Rotational speed:",tanki.state()[3],"Subindo")
-            kp_atual, kd_atual, base_atual = 1.0, 0.7, 190   # subindo
+            kp_atual, kd_atual, base_atual = 1.8, 0.8, 290   # subindo
             servosMove.desativa(1) # Angular
             servosMove.desativa(2) # Pinça esquerda
             servosMove.desativa(3) # Pinça direita
@@ -315,52 +332,12 @@ def sensor():
             servosMove.move(2, 60)  # aberto pinça esquerda
             servosMove.move(3, 0) # aberto pinça direita
             # servosMove.move(1, 60)  # posição fechada servo angulo garra
-            # tanki.turn(-20)
-            tanki.stop()
-            wait(100)
-            tanki.stop()
-            while True:
-                # ==========================================
-                # 1.0 LEITURA DO SENSOR DE COR
-                # ==========================================
-                retorno = sensor1.read(2)
-                # Leitura dos sensores para seguir linha
-                fora1 = retorno[3] # esquerda 
-                meio1 = retorno[2] # esquerda 
-                meio2 = retorno[1] # direita  
-                fora2 = retorno[0] # direita  
-                atualiza_sensor1()
-                #############################################
-                #atualizar giro
-                ev = ts.drenar_principal()
-                # gyro vem direto dos atributoss
-                gyro_rasp_y = ts.pitch  # pitch (rampa)
-                gyro_rasp_z = ts.yaw  # yaw
-                Afagem = Gyroangle.angle() # pitch negativo pra cima
-                print("Afagem: ", Afagem)
-
-                #verificar angulo
-                if Afagem <= 9: #desceu
-                    print("DESCEUUUUUUUUUUUUUUUUUu")
-                    tanki.stop()
-                    ev3.speaker.beep(500,80)
-                    Afagem = Gyroangle.angle() # pitch negativo pra cima
-                    if Afagem <= -13:
-                        tanki.turn(-20)
-                        tanki.stop()
-                        ev3.speaker.beep(1000,80)
-                    break
-                elif Afagem >= 1:
-                    motores.PID(fora1,meio1,meio2,fora2,kp_atual,kd_atual,ki_atual,base_atual)
-                    #servosMove.move(1, 0)  # posição fechada servo angulo garra   
-            tanki.stop()
-        elif Afagem <= -13 and 0==0: 
+        elif descendo >= 10 : 
             ev3.speaker.beep(1000)
             print("Afagem:",Afagem,"Parado:",parado,"Rotational speed:",tanki.state()[3],"Descendo")
-            kp_atual, kd_atual, base_atual = 2.0, 0.1, 80   # descendo
-
+            kp_atual, kd_atual, base_atual = 1.0, 1.5, 60   # descendo
         else:
-            print("Afagem:",Afagem,"Parado:",parado,"Rotational speed:",tanki.state()[3],"Plano","Enconders:",motorB.angle(),motorC.angle())
+            print("Afagem:",Afagem,"subindo",subindo,"descendo",descendo,"|","Parado:",parado,"Rotational speed:",tanki.state()[3],"Plano","Enconders:",motorB.angle(),motorC.angle())
             kp_atual, ki_atual, kd_atual, base_atual = kp_padrao, ki_padrao, kd_padrao, base_padrao   # plano
         # ==========================================
         # 3. VERIFICAÇÃO SE O ROBÔ ESTÁ PARADO
@@ -385,11 +362,11 @@ def sensor():
                 print("motorB esta se movimentado")
                 if motorC.angle() < moviment_lastC:
                     print("motorC esta se movimentado")
-                    motorB.dc(100)
-                    motorC.dc(-100) #frente
-                    wait(200)
                     motorB.dc(-100)
                     motorC.dc(100) #tras
+                    wait(200)
+                    motorB.dc(100)
+                    motorC.dc(-100) #frente
                     motorB.stop()
                     motorC.stop()
                     tanki.stop()
@@ -412,11 +389,11 @@ def sensor():
                     motorC.stop()
                 else:
                     print("motorC esta parado")
-                    motorB.dc(100)
-                    motorC.dc(-100) #frente
-                    wait(200)
                     motorB.dc(-100)
                     motorC.dc(100) #tras
+                    wait(200)
+                    motorB.dc(100)
+                    motorC.dc(-100) #frente
                     motorB.stop()
                     motorC.stop()
                     tanki.stop()
@@ -441,11 +418,11 @@ def sensor():
                 print("motorC esta se movimentado")
                 if motorB.angle() > moviment_lastB:
                     print("motorB esta se movimentado")
-                    motorB.dc(100)
-                    motorC.dc(-100) #frente
-                    wait(200)
                     motorB.dc(-100)
                     motorC.dc(100) #tras
+                    wait(200)
+                    motorB.dc(100)
+                    motorC.dc(-100) #frente
                     motorB.stop()
                     motorC.stop()
                     tanki.stop()
@@ -468,11 +445,11 @@ def sensor():
                     motorC.stop()
                 else:
                     print("motorB esta parado")
-                    motorB.dc(100)
-                    motorC.dc(-100) #frente
-                    wait(200)
                     motorB.dc(-100)
                     motorC.dc(100) #tras
+                    wait(200)
+                    motorB.dc(100)
+                    motorC.dc(-100) #frente
                     motorB.stop()
                     motorC.stop()
                     tanki.stop()
@@ -498,11 +475,11 @@ def sensor():
             ev3.speaker.beep(600)# aviso sonoro
             # Aqui coloca a lógica doq fazer quando ele estiver totalmente parado
             print("saiu do codigo pq o robo ficou travado!")
-            motorB.dc(100)
-            motorC.dc(-100) #frente
-            wait(200)
             motorB.dc(-100)
             motorC.dc(100) #tras
+            wait(200)
+            motorB.dc(100)
+            motorC.dc(-100) #frente
             motorB.stop()
             motorC.stop()
             tanki.stop()
@@ -649,10 +626,10 @@ def sensor():
         # ==========================================
         # 8. GREEN
         # ==========================================
-        # previsao_camera = grein.MoveGreen(
-        # H1, S1, V1, H2, S2, V2, H3, S3, V3, alvo, 
-        # fora1, meio1, meio2, fora2, previsao_camera, cloresq, clordir,
-        # pretoesq, pretodir)
+        previsao_camera = grein.MoveGreen(
+        H1, S1, V1, H2, S2, V2, H3, S3, V3, alvo, 
+        fora1, meio1, meio2, fora2, previsao_camera, cloresq, clordir,
+        pretoesq, pretodir)
         # ==========================================
         # 9. ALL SENSORS DETECTED WHITE
         #==========================================
@@ -837,11 +814,29 @@ def seguidores():
         motores.PID(fora1,meio1,meio2,fora2,kp_atual,kd_atual,ki_atual,base_atual)
 
 def Angulo():
-    global Gyroangle
+    global Gyroangle0
+    subindo=0
+    descendo=0
+    margem = 2
     while True:
-        Afagem = Gyroangle.angle()
-        print("Afagem: ", Afagem)
-        # wait(100)
+        Afagem = Gyroangle0.read("ACCEL")[0] 
+        #print("Afagem: ", Afagem)
+        # 30<0|255>220
+        if Afagem >= 246 and Afagem <= 255:
+            print("plano",subindo,descendo)
+            subindo=0
+            descendo=0
+        if Afagem <= 245 and Afagem >= 220:
+            subindo=subindo+1
+        if Afagem >= 0 and Afagem <= 29:
+            descendo=descendo+1
+        if subindo > 10:
+            print("subindo")
+            subindo=0
+        if descendo > 10:
+            print("descendo")
+            descendo=0
+        wait(10)
 
 def calibração():
     print("Pronto para a calibração!!")

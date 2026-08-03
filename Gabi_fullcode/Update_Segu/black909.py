@@ -28,7 +28,7 @@ class Black909:
                 if self.tanki.state()[3] > 60:
                     parado = 0
                 print(meio2,"parado:",parado)
-                if meio2 <= 50 or parado > 20:
+                if meio2 <= 50 or parado >= 10:
                     self.motorB.stop()
                     self.motorC.stop()
                     pretodir = 0
@@ -59,7 +59,7 @@ class Black909:
                 if self.tanki.state()[3] > 60:
                     parado = 0
                 print(meio1,"parado:",parado)
-                if meio1 <= 50 or parado > 20:
+                if meio1 <= 50 or parado >= 10:
                     self.motorB.stop()
                     self.motorC.stop()
                     pretodir = 0
