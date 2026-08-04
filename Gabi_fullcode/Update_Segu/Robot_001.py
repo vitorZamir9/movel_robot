@@ -32,12 +32,12 @@ serialservo = UARTDevice(Port.S5, baudrate=115200, timeout=0.1)
 servosMove= Servos(serialservo,True)
 
 # VARIAVEIS / IMPORT
-kp_atual = 2.3
+kp_atual = 2.0
 kd_atual = 0.5
 ki_atual = 0.01
 base_atual = 110
 
-kp_padrao = 2.3
+kp_padrao = 2.0
 kd_padrao = 0.5
 ki_padrao = 0.01
 base_padrao = 110
@@ -324,7 +324,7 @@ def sensor():
         if subindo > 10: #pra cima
             ev3.speaker.beep(100)
             print("Afagem:",Afagem,"Parado:",parado,"Rotational speed:",tanki.state()[3],"Subindo")
-            kp_atual, kd_atual, base_atual = 1.8, 0.8, 290   # subindo
+            kp_atual, kd_atual, base_atual = 1.3, 1.0, 290   # subindo
             servosMove.desativa(1) # Angular
             servosMove.desativa(2) # Pinça esquerda
             servosMove.desativa(3) # Pinça direita
@@ -594,7 +594,7 @@ def sensor():
             tanki.straight(-150)
             tanki.stop()
             motorB.dc(100)
-            motorC.dc(-10)
+            motorC.dc(-15)
             wait(1000)
             while True:
                 atualiza_sensor1()
@@ -626,9 +626,8 @@ def sensor():
         # ==========================================
         # 8. GREEN
         # ==========================================
-        previsao_camera = grein.MoveGreen(
-        H1, S1, V1, H2, S2, V2, H3, S3, V3, alvo, 
-        fora1, meio1, meio2, fora2, previsao_camera, cloresq, clordir,
+        grein.MoveGreen(H1, S1, V1, H2, S2, V2, H3, S3, V3, alvo, 
+        fora1, meio1, meio2, fora2, cloresq, clordir,
         pretoesq, pretodir)
         # ==========================================
         # 9. ALL SENSORS DETECTED WHITE
