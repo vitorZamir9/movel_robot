@@ -32,13 +32,13 @@ serialservo = UARTDevice(Port.S5, baudrate=115200, timeout=0.1)
 servosMove= Servos(serialservo,True)
 
 # VARIAVEIS / IMPORT
-kp_atual = 2.0
-kd_atual = 0.5
+kp_atual = 1.9
+kd_atual = 0.2
 ki_atual = 0.01
 base_atual = 110
 
-kp_padrao = 2.0
-kd_padrao = 0.5
+kp_padrao = 1.9
+kd_padrao = 0.2
 ki_padrao = 0.01
 base_padrao = 110
 
@@ -62,6 +62,9 @@ moviment_lastC = 0
 resgate_uma_vez = 1
 botao_STOPING = 0
 triangulo = 0
+contE = 0
+contD = 0
+ignore = 0
 
 #----> drivebase <----
 tanki = DriveBase(motorB, motorC, wheel_diameter= 55.5 , axle_track=104.0) #isso funciona para movimentos do robô, alguns, mas é melhor usar o motorB e C dc
