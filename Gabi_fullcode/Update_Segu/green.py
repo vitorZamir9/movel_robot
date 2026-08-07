@@ -91,7 +91,7 @@ class Green:
                 self.motorB.reset_angle(0)
                 self.motorC.reset_angle(0)
                 self.motorB.run(-70)
-                self.motorC.run(70)
+                self.motorC.run(70) #frente
                 while True:
                     retorno = self.sensor1.read(2)
                     fora1 = retorno[0]
@@ -126,9 +126,9 @@ class Green:
                 self.tanki.stop()
                 self.motorB.reset_angle(0)
                 self.motorC.reset_angle(0)
-                wait(100)
+                wait(100)#######################################<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                 self.motorB.run(100)
-                self.motorC.run(-100)
+                self.motorC.run(-100) #tras
                 while True:
                     wait(100)
                     print(self.motorB.angle(),self.motorC.angle())
@@ -136,7 +136,7 @@ class Green:
                         self.tanki.stop()
                         break
                 self.tanki.stop()
-                wait(1000)
+                wait(1000) ##########################################################<<<<<<<<<<<<
                 retorno = self.sensor1.read(2)
                 fora1 = retorno[0]
                 meio1 = retorno[1]
@@ -155,9 +155,9 @@ class Green:
                 verdeEsquerda = H2 >=(95-alvo) and H2 <=(140+alvo) and S2 >=(47-alvo) and S2 <=(73+alvo) and V2 >=(40-alvo) and V2 <=(80+alvo)
                 self.motorB.reset_angle(0)
                 self.motorC.reset_angle(0)
-                wait(100)
+                wait(100)#######################################<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                 self.motorB.run(-100)
-                self.motorC.run(100)
+                self.motorC.run(100) #frente
                 while True:
                     retorno = self.sensor1.read(2)
                     fora1 = retorno[0]
@@ -175,7 +175,7 @@ class Green:
                     V2 = (retorno[28]*2)
                     verdeDireita = H1 >=(95-alvo) and H1 <=(140+alvo) and S1 >=(47-alvo) and S1 <=(73+alvo) and V1 >=(40-alvo) and V1 <=(80+alvo)
                     verdeEsquerda = H2 >=(95-alvo) and H2 <=(140+alvo) and S2 >=(47-alvo) and S2 <=(73+alvo) and V2 >=(40-alvo) and V2 <=(80+alvo)
-                    wait(100)
+                    wait(100)#######################################<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                     print(self.motorB.angle(),self.motorC.angle())
                     if verdeDireita or verdeEsquerda:
                         self.tanki.stop()
@@ -189,15 +189,15 @@ class Green:
                         break
                 self.tanki.stop()
                 print(verde)
-                wait(100)
+                wait(100)#######################################<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                 if verde == 0:#vai pra tras conferir
                     self.motorB.reset_angle(0)
                     self.motorC.reset_angle(0)
-                    wait(100)
+                    wait(100)#######################################<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                     self.motorB.run(-100)
-                    self.motorC.run(100)
+                    self.motorC.run(100) #frente
                     while True:
-                        wait(100)
+                        wait(100)#######################################<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                         print(self.motorB.angle(),self.motorC.angle())
                         if self.motorB.angle() <= -30 and verdeDireita or verdeEsquerda:
                             self.tanki.stop()
@@ -210,34 +210,34 @@ class Green:
                             break
                     self.tanki.stop()
                     print(verde)
-                    wait(100)
+                    wait(100)#######################################<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                 #######conefirir
                 if verde == 11:
                     print("ele veio aqui")
                     self.motorB.reset_angle(0)
                     self.motorC.reset_angle(0)
-                    wait(100)
+                    wait(100)#######################################<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                     self.motorB.run(100)
-                    self.motorC.run(-100)
+                    self.motorC.run(-100) #tras
                     while True:
-                        wait(100)
+                        wait(100)#######################################<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                         print(self.motorB.angle(),self.motorC.angle())
                         if self.motorB.angle() >= 90:
                             self.tanki.stop()
                             break
                     self.tanki.stop()
-                    wait(100)
+                    wait(100)#######################################<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                 if verde == 10:
                     self.tanki.stop()
                     print("verde antes")
                     verde = 1
                     
                     self.tanki.stop()
-                wait(100)
+                wait(100)#######################################<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                 ###########################################3
                 if verde ==1:
                     self.motorB.run(-100)
-                    self.motorC.run(100)
+                    self.motorC.run(100) #frente
                     while True:
                         retorno = self.sensor1.read(2)
                         fora1 = retorno[0]
@@ -255,7 +255,7 @@ class Green:
                         V2 = (retorno[28]*2)
                         verdeDireita = H1 >=(95-alvo) and H1 <=(140+alvo) and S1 >=(47-alvo) and S1 <=(73+alvo) and V1 >=(40-alvo) and V1 <=(80+alvo)
                         verdeEsquerda = H2 >=(95-alvo) and H2 <=(140+alvo) and S2 >=(47-alvo) and S2 <=(73+alvo) and V2 >=(40-alvo) and V2 <=(80+alvo)
-                        wait(100)
+                        wait(100)#######################################<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                         print(self.motorB.angle(),self.motorC.angle())
                         if verdeEsquerda:
                             if verdeDireita:
@@ -266,14 +266,14 @@ class Green:
                             self.tanki.stop()
                             break
                     print(verde)        
-                    wait(100)
+                    wait(100)#######################################<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                 if verde == 1:
                     print("verde direita")
                     self.tanki.turn(80)
                     self.tanki.straight(50)
                     self.tanki.stop()
                     self.motorB.run(999)
-                    self.motorC.run(999)
+                    self.motorC.run(999) 
                     while True:
                         retorno = self.sensor1.read(2)
                         meio1 = retorno[1]
@@ -344,7 +344,7 @@ class Green:
                 self.motorB.reset_angle(0)
                 self.motorC.reset_angle(0)
                 self.motorB.run(-70)
-                self.motorC.run(70)
+                self.motorC.run(70) #frente
                 while True:
                     retorno = self.sensor1.read(2)
                     fora1 = retorno[0]
@@ -379,17 +379,17 @@ class Green:
                 self.tanki.stop()
                 self.motorB.reset_angle(0)
                 self.motorC.reset_angle(0)
-                wait(100)
+                wait(100)#######################################<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                 self.motorB.run(100)
-                self.motorC.run(-100)
+                self.motorC.run(-100) #tras
                 while True:
-                    wait(100)
+                    wait(100)#######################################<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                     print(self.motorB.angle(), self.motorC.angle())
                     if self.motorB.angle() >= 80:
                         self.tanki.stop()
                         break
                 self.tanki.stop()
-                wait(1000)
+                wait(1000)#######################################<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                 retorno = self.sensor1.read(2)
                 fora1 = retorno[0]
                 meio1 = retorno[1]
@@ -408,9 +408,9 @@ class Green:
                 verdeEsquerda = H2 >=(95-alvo) and H2 <=(140+alvo) and S2 >=(47-alvo) and S2 <=(73+alvo) and V2 >=(40-alvo) and V2 <=(80+alvo)
                 self.motorB.reset_angle(0)
                 self.motorC.reset_angle(0)
-                wait(100)
+                wait(100)#######################################<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                 self.motorB.run(-100)
-                self.motorC.run(100)
+                self.motorC.run(100) #frente
                 while True:
                     retorno = self.sensor1.read(2)
                     fora1 = retorno[0]
@@ -428,7 +428,7 @@ class Green:
                     V2 = (retorno[28]*2)
                     verdeDireita = H1 >=(95-alvo) and H1 <=(140+alvo) and S1 >=(47-alvo) and S1 <=(73+alvo) and V1 >=(40-alvo) and V1 <=(80+alvo)
                     verdeEsquerda = H2 >=(95-alvo) and H2 <=(140+alvo) and S2 >=(47-alvo) and S2 <=(73+alvo) and V2 >=(40-alvo) and V2 <=(80+alvo)
-                    wait(100)
+                    wait(100)#######################################<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                     print(self.motorB.angle(), self.motorC.angle())
                     if verdeDireita or verdeEsquerda:
                         self.tanki.stop()
@@ -442,25 +442,25 @@ class Green:
                         break
                 self.tanki.stop()
                 print(verde)
-                wait(1000)
+                wait(1000)#######################################<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                 if verde ==0:
                     self.motorB.reset_angle(0)
                     self.motorC.reset_angle(0)
-                    wait(100)
+                    wait(100)#######################################<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                     self.motorB.run(100)
-                    self.motorC.run(-100)
+                    self.motorC.run(-100) #tras
                     while True:
-                        wait(100)
+                        wait(100)#######################################<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                         print(self.motorB.angle(), self.motorC.angle())
                         if self.motorB.angle() >= 90:
                             self.tanki.stop()
                             break
                     self.tanki.stop()
-                    wait(1000)
+                    wait(1000)#######################################<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                 ###########################################3
                 if verde ==1:
                     self.motorB.run(-100)
-                    self.motorC.run(100)
+                    self.motorC.run(100) #frente
                     while True:
                         retorno = self.sensor1.read(2)
                         fora1 = retorno[0]
@@ -478,7 +478,7 @@ class Green:
                         V2 = (retorno[28]*2)
                         verdeDireita = H1 >=(95-alvo) and H1 <=(140+alvo) and S1 >=(47-alvo) and S1 <=(73+alvo) and V1 >=(40-alvo) and V1 <=(80+alvo)
                         verdeEsquerda = H2 >=(95-alvo) and H2 <=(140+alvo) and S2 >=(47-alvo) and S2 <=(73+alvo) and V2 >=(40-alvo) and V2 <=(80+alvo)
-                        wait(100)
+                        wait(100)#######################################<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                         print(self.motorB.angle(), self.motorC.angle())
                         if verdeDireita:
                             if verdeEsquerda:
@@ -489,7 +489,7 @@ class Green:
                             self.tanki.stop()
                             break
                     print(verde)       
-                    wait(1000)
+                    wait(1000)#######################################<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                 if verde == 1 and verde == 1:
                     print("verde esquerda")
                     self.tanki.turn(50)
@@ -500,6 +500,7 @@ class Green:
                     while True:
                         retorno = self.sensor1.read(2)
                         meio1 = retorno[2]
+                        wait(100)#######################################<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                         if meio1 <= 65:
                             self.tanki.stop()
                             contD = 0
