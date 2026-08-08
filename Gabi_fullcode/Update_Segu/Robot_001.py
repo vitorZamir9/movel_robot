@@ -42,6 +42,12 @@ kd_padrao = 0.2
 ki_padrao = 0.01
 base_padrao = 110
 
+#--VARIAVEIS DE CONTROLE DO PID2--#
+kp_padrao2 = 5
+kd_padrao2 = 13
+ki_padrao2 = 0.001
+base_padrao2 = 450
+
 error = 0
 powerB = 0
 powerC = 0
@@ -59,12 +65,14 @@ subindo=0
 descendo=0
 moviment_lastB = 0
 moviment_lastC = 0
-resgate_uma_vez = 1
+resgate_uma_vez = 0
 botao_STOPING = 0
 triangulo = 0
 contE = 0
 contD = 0
 ignore = 0
+small_size = "esquerda"
+linha_detect = small_size
 
 #----> drivebase <----
 tanki = DriveBase(motorB, motorC, wheel_diameter= 55.5 , axle_track=104.0) #isso funciona para movimentos do robô, alguns, mas é melhor usar o motorB e C dc
@@ -217,6 +225,7 @@ def sensor():
     global multiplex1
     global parado
     global parado2
+    global small_size
     global subindo,descendo
     global moviment_lastB
     global moviment_lastC
@@ -528,10 +537,10 @@ def sensor():
         # dirgray1 = B2 > blue and B2 < 70 and C2> 21 and C2 < 30 and clordir == 6
         # y=1
         # # ^^^^^^se essa variavel ficar 0 ela vai fazer com que o robo ignore o seguidor e va direto pro resgate
-        # if (esqgray1 or mindgray1 or dirgray1 or y==0 and resgate_uma_vez == 0) and triangulo == 999:
+        # if esqgray1 or mindgray1 or dirgray1 and resgate_uma_vez == 0 or y==0:
         #     print("prata")
         #     wait(10)
-        #     if esqgray1 and mindgray1 and dirgray1 or y==0:
+        #     if esqgray1 and mindgray1 and dirgray1 and resgate_uma_vez == 0 or y==0:
         #         tanki.stop()
         #         ev3.speaker.beep(900)
         #         # ==========================================
@@ -592,26 +601,49 @@ def sensor():
         # ==========================================
         # --- 6B. BUMPER FÍSICO ---
         if ChoqueESQ == 1 or ChoqueDIR == 1:
-            print("Obstáculo detectado pelo bumper!")
-            tanki.turn(-50)
-            tanki.straight(-150)
-            tanki.stop()
-            motorB.dc(100)
-            motorC.dc(-15)
-            wait(1000)
-            while True:
-                atualiza_sensor1()
+            linha_detect = small_size
+            if linha_detect == "esquerda":
+                print("Obstáculo detectado pelo bumper!")
+                tanki.turn(-50)
+                tanki.straight(-150)
+                tanki.stop()
+                motorB.dc(100)
+                motorC.dc(-15)
+                wait(1000)
+                while True:
+                    atualiza_sensor1()
+                    wait(100)
+                    if fora1 < 40 or meio1 < 40:
+                        tanki.stop()
+                        break
+                tanki.stop()
                 wait(100)
-                if fora1 < 40 or meio1 < 40:
-                    tanki.stop()
-                    break
-            tanki.stop()
-            wait(100)
-            tanki.turn(-30)
-            tanki.stop()
-            tanki.straight(-80)
-            tanki.stop()
-            wait(100)
+                tanki.turn(-30)
+                tanki.stop()
+                tanki.straight(-80)
+                tanki.stop()
+                wait(100)
+            if linha_detect == "direita":
+                print("Obstáculo detectado pelo bumper!")
+                tanki.turn(-50)
+                tanki.straight(150)
+                tanki.stop()
+                motorB.dc(-15)
+                motorC.dc(100)
+                wait(1000)
+                while True:
+                    atualiza_sensor1()
+                    wait(100)
+                    if fora1 < 40 or meio1 < 40:
+                        tanki.stop()
+                        break
+                tanki.stop()
+                wait(100)
+                tanki.turn(-30)
+                tanki.stop()
+                tanki.straight(-80)
+                tanki.stop()
+                wait(100)
         # ==========================================
         # 7. SEEING BLACK AT THE EDGE SENSORS
         # ==========================================
@@ -804,6 +836,7 @@ def seguidores():
     global rgb, clear
     global cloresq, clormind, clordir
     global fora1, meio1, meio2, fora2
+    global kp_padrao2, kd_padrao2, ki_padrao2, base_padrao2
     while True :
         retorno = sensor1.read(2)
 
@@ -813,7 +846,7 @@ def seguidores():
         meio2 = retorno[1] # direita  
         fora2 = retorno[0] # direita  
 
-        motores.PID(fora1,meio1,meio2,fora2,kp_atual,kd_atual,ki_atual,base_atual)
+        motores.PID2(fora1,meio1,meio2,fora2,kp_padrao2,kd_padrao2,ki_padrao2,base_padrao2)
 
 def Angulo():
     global Gyroangle0

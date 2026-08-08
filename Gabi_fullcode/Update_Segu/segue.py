@@ -35,3 +35,33 @@ class Segue:
         self.motorC.dc(powerC)
 
         self.old_error = error
+
+    def PID2(self,fora1,meio1,meio2,fora2,kp,kd,ki,base):
+        self.kp = kp
+        self.kd = kd
+        self.ki = ki
+        # kp = 5
+        # kd = 13
+        # ki = 0.001  
+        self.base = base
+
+        esquerda = (meio1 * self.PESO_MEIO) + (fora1 * self.PESO_FORA)
+        direita = (meio2 * self.PESO_MEIO) + (fora2 * self.PESO_FORA)
+        error = (esquerda - direita) * 0.5
+
+        self.integral += error * 0.01 
+        derivative = error - self.old_error
+        corr = (error * (self.kp * (1))) + (derivative * (self.kd * (1))) + (self.integral * self.ki)
+    
+        powerB = self.base - corr
+        powerC = -self.base - corr
+        increPLUS=0.5
+        INCREplus=0.75
+        powerB = max(min(int(powerB * (increPLUS if powerB > 0 else INCREplus)), 900), -900)
+        powerC = max(min(int(powerC * (INCREplus if powerC > 0 else increPLUS)), 900), -900)
+
+        self.motorB.run(powerB)
+        self.motorC.run(powerC)
+        #print(motorB.speed(),motorC.speed(),"__", powerB,powerC)
+        #print(tanki.state())
+        self.old_error = error
